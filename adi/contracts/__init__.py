@@ -1,4 +1,10 @@
-from .trial_balance import TRIAL_BALANCE_SOURCE_SCHEMA
+from .trial_balance import (
+    TRIAL_BALANCE_SOURCE_SCHEMA,
+    TRIAL_BALANCE_STAGING_SCHEMA,
+)
 
 
-__all__ = ['TRIAL_BALANCE_SOURCE_SCHEMA']
+__all__ = [
+    'TRIAL_BALANCE_SOURCE_SCHEMA', 
+    'TRIAL_BALANCE_STAGING_SCHEMA'
+]

@@ -75,25 +75,27 @@ TRIAL_BALANCE_STAGING_SCHEMA = StructType(
 
         StructField('POSTING_MEASURE_CCY_CD', StringType(), False),
 
-        StructField('STAGING_ID', StringType(), True),
+        # StructField('STAGING_ID', StringType(), True),
         StructField('DATACLASS', StringType(), True),
         StructField('POSTING_RULE_ID', StringType(), True),
         StructField('COA_RULE_ID', StringType(), True),
         StructField('ENTITY_SUN_ID', StringType(), True),
+        # StructField('CLIENT_ID_TYPE', StringType(), True),
+        # StructField('INTERGROUP_IND', StringType(), True),
+        StructField('POSTING_MEASURE_NM', StringType(), True),
+        StructField('MEASURE_TYPE', StringType(), True),
         StructField(
             'POSTING_MEASURE_FUNC_CCY_CD',
             StringType(),
             True,
         ),
         StructField(
-            'FX_RATE',
+            'POSTING_MEASURE_TRANS_AMT',
             DecimalType(28, 12),
             True,
         ),
-        StructField('POSTING_MEASURE_NM', StringType(), True),
-        StructField('MEASURE_TYPE', StringType(), True),
         StructField(
-            'POSTING_MEASURE_TRANS_AMT',
+            'FX_RATE',
             DecimalType(28, 12),
             True,
         ),
@@ -102,8 +104,5 @@ TRIAL_BALANCE_STAGING_SCHEMA = StructType(
             DecimalType(28, 12),
             True,
         ),
-        StructField('CR_DR_IND', StringType(), True),
-        StructField('CLIENT_ID_TYPE', StringType(), True),
-        StructField('INTERGROUP_IND', StringType(), True),
     ]
 )
