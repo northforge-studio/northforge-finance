@@ -3,7 +3,7 @@ from pyspark.sql import SparkSession
 from adi.enrichments import TransformationManager
 from adi.io import CsvTableStore, TrialBalanceReader
 
-from finmap import CsvMappingRepository
+from finmap import CsvMappingRepository, MappingManager
 
 
 spark = (
@@ -35,6 +35,16 @@ finmap = CsvMappingRepository(
     data_path='data/reference/mapping_data.csv',
 )
 
-finmap.get_mapping('ENTITY_MAPPING').data.show(n=5, truncate=True)
+df_entity = finmap.get_mapping('ENTITY_MAPPING').data
+df_entity.show()
+
+finmap_manager = MappingManager(finmap)
+
+df_tb_entity = finmap_manager.apply(
+    df_tb_pre_stage,
+    'ENTITY_MAPPING'
+)
+
+df_tb_entity.show(n = 5)
 
 spark.stop()
