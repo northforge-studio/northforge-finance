@@ -1,5 +1,7 @@
-from dataclasses import dataclass
 from enum import StrEnum
+from dataclasses import dataclass
+
+from pyspark.sql import DataFrame
 
 
 class FieldType(StrEnum):
@@ -85,3 +87,9 @@ class MappingDefinition:
             for field in self.fields
             if field.field_type == FieldType.LOGICAL
         )
+
+
+@dataclass(frozen=True)
+class Mapping:
+    definition: MappingDefinition
+    data: DataFrame
