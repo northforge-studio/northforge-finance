@@ -1,2 +1,5 @@
 pyspark
 pytest
+jupyter
+ipykernel
+pandas
