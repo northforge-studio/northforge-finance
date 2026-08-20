@@ -1,9 +1,9 @@
 import pytest
 
-from finmap import (
+from finmap.manager import MappingManager
+from finmap.repository import (
     CsvMappingRepository, 
-    MappingRepository,
-    MappingManager
+    MappingRepository
 )
 
 

@@ -1,6 +1,6 @@
 import pytest
 
-from finmap import CsvMappingRepository
+from finmap.repository import CsvMappingRepository
 
 
 @pytest.fixture(scope='module')
