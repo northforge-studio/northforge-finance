@@ -26,9 +26,11 @@ def test_validate_entity_mapping_source_columns(spark, manager):
         ],
     )
 
-    manager.validate_source_columns(
+    mapping = manager.get_mapping('ENTITY_MAPPING')
+
+    manager.validate(
         df,
-        'ENTITY_MAPPING',
+        mapping
     )
 
 
@@ -48,9 +50,12 @@ def test_validate_entity_mapping_missing_source_column(spark, manager):
         ValueError,
         match='COA_RULE_ID',
     ):
-        manager.validate_source_columns(
+
+        mapping = manager.get_mapping('ENTITY_MAPPING')
+
+        manager.validate(
             df,
-            'ENTITY_MAPPING',
+            mapping,
         )
 
 
@@ -128,3 +133,33 @@ def test_apply_preserves_unmatched_source_row(spark, manager):
     assert row['RECORD_ID'] == 'record-1'
     assert row['GL_ENTITY_CD'] is None
     assert row['GL_BRANCH_CD'] is None
+
+
+def test_apply_rejects_existing_output_column(spark, manager):
+    df = spark.createDataFrame(
+        [
+            (
+                'APP',
+                '100',
+                'TRIAL_BALANCE',
+                'RULE',
+                'existing',
+            ),
+        ],
+        [
+            'SRC_APP_CD',
+            'SRC_ENTITY_CD',
+            'DATACLASS',
+            'COA_RULE_ID',
+            'GL_ENTITY_CD',
+        ],
+    )
+
+    with pytest.raises(
+        ValueError,
+        match='output columns already exist',
+    ):
+        manager.apply(
+            df,
+            'ENTITY_MAPPING',
+        )

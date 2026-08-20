@@ -19,24 +19,37 @@ class MappingManager:
         return self._repository.get_mapping(mapping_name)
 
 
-    def validate_source_columns(
+    def validate(
         self,
         df: DataFrame,
-        mapping_name: str
+        mapping: Mapping,
     ) -> None:
-        mapping = self.get_mapping(mapping_name)
-
         required_columns = {
-            field.src_field_name 
+            field.src_field_name
             for field in mapping.definition.lookup_fields
+            if field.src_field_name is not None
         }
 
         missing_columns = required_columns - set(df.columns)
 
         if missing_columns:
             raise ValueError(
-                f'Mapping {mapping_name!r} requires source columns '
-                f'{sorted(missing_columns)}'
+                f'Mapping {mapping.definition.mapping_name!r} '
+                f'requires source columns {sorted(missing_columns)}'
+            )
+
+        output_columns = {
+            field.logical_name
+            for field in mapping.definition.output_fields
+        }
+
+        conflicting_columns = output_columns & set(df.columns)
+
+        if conflicting_columns:
+            raise ValueError(
+                f'Mapping {mapping.definition.mapping_name!r} '
+                f'output columns already exist in source '
+                f'{sorted(conflicting_columns)}'
             )
 
 
@@ -45,12 +58,12 @@ class MappingManager:
         df: DataFrame,
         mapping_name: str,
     ) -> DataFrame:
-        self.validate_source_columns(
-            df,
-            mapping_name,
-        )
-
         mapping = self.get_mapping(mapping_name)
+
+        self.validate(
+            df,
+            mapping,
+        )
 
         source_alias = 'source'
         mapping_alias = 'mapping'
@@ -132,32 +145,61 @@ class MappingManager:
         source_alias: str,
         mapping_alias: str,
     ) -> DataFrame:
-        window = (
-            Window
-            .partitionBy(
-                F.col(
-                    f'{source_alias}.{self._ROW_ID}'
-                )
+        row_id = F.col(
+            f'{source_alias}.{self._ROW_ID}'
+        )
+
+        weightage = F.col(
+            f'{mapping_alias}.WEIGHTAGE'
+        ).cast('string')
+
+        window = Window.partitionBy(row_id)
+
+        ranked_df = candidate_df.withColumn(
+            '__max_weightage',
+            F.max(weightage).over(window),
+        )
+
+        has_tie = (
+            ranked_df
+            .filter(
+                weightage == F.col('__max_weightage')
             )
+            .groupBy(row_id)
+            .count()
+            .filter(F.col('count') > 1)
+            .limit(1)
+            .count()
+            > 0
+        )
+
+        if has_tie:
+            raise ValueError(
+                'Multiple mapping candidates have the same '
+                'highest WEIGHTAGE'
+            )
+
+        rank_window = (
+            Window
+            .partitionBy(row_id)
             .orderBy(
-                F.col(
-                    f'{mapping_alias}.WEIGHTAGE'
-                )
-                .cast('string')
-                .desc_nulls_last()
+                weightage.desc_nulls_last()
             )
         )
 
         return (
-            candidate_df
+            ranked_df
             .withColumn(
                 '__mapping_rank',
-                F.row_number().over(window),
+                F.row_number().over(rank_window),
             )
             .filter(
                 F.col('__mapping_rank') == 1
             )
-            .drop('__mapping_rank')
+            .drop(
+                '__mapping_rank',
+                '__max_weightage',
+            )
         )
 
 
