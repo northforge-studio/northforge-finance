@@ -4,14 +4,14 @@ from pyspark.sql import functions as F
 from pyspark.sql import Column, DataFrame, Window
 
 from finmap.models import Mapping
-from finmap.repository import CsvMappingRepository
+from finmap.repository import MappingRepository
 
 
 class MappingManager:
     _ROW_ID = '__mapping_row_id'
 
 
-    def __init__(self, repository: CsvMappingRepository):
+    def __init__(self, repository: MappingRepository):
         self._repository = repository
 
 

@@ -6,15 +6,16 @@ from finmap.models import (
     MappingField,
 )
 from finmap.manager import MappingManager
-from finmap.repository import CsvMappingRepository
+from finmap.repository import CsvMappingRepository, MappingRepository
 
 
 __all__ = [
-    'CsvMappingRepository',
     'FieldType',
     'LookupType',
     'Mapping',
     'MappingDefinition',
     'MappingField',
-    'MappingManager'
+    'MappingManager',
+    'MappingRepository',
+    'CsvMappingRepository',
 ]

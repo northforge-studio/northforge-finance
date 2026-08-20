@@ -1,5 +1,6 @@
 import csv
 from pathlib import Path
+from typing import Protocol
 
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
@@ -11,6 +12,15 @@ from finmap.models import (
     MappingDefinition,
     MappingField,
 )
+
+
+class MappingRepository(Protocol):
+    def get_definition(self, mapping_name: str) -> MappingDefinition:
+            ...
+
+    
+    def get_mapping(self, mapping_name: str) -> Mapping:
+        ...
 
 
 class CsvMappingRepository:
