@@ -58,7 +58,7 @@ class CsvMappingRepository:
                 logical_name=row['LOGICAL_FIELD_NAME'],
                 field_type=FieldType(row['FIELD_TYPE']),
                 lookup_type=LookupType(row['LOOKUP_TYPE']),
-                src_field_name=row['SRC_FIELD_NAME'] or None,
+                src_field_name=row['SRC_FIELD_NAME'],
                 datatype=row['DATATYPE'],
                 order=int(row['UI_FIELD_ORDER']),
             )

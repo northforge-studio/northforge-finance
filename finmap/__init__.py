@@ -5,6 +5,7 @@ from finmap.models import (
     MappingDefinition,
     MappingField,
 )
+from finmap.manager import MappingManager
 from finmap.repository import CsvMappingRepository
 
 
@@ -15,4 +16,5 @@ __all__ = [
     'Mapping',
     'MappingDefinition',
     'MappingField',
+    'MappingManager'
 ]
