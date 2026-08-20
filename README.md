@@ -1,2 +1,3 @@
-# adi-mock
-A finance data preprocessing engine
+# Adi
+
+A financial data preprocessing engine.
