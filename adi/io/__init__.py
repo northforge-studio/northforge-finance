@@ -1,8 +1,9 @@
-from .table_store import CsvTableStore
-from.trial_balance_reader import TrialBalanceReader
+from adi.io.store import CsvStore, Store
+from adi.io.repository import TrialBalanceRepository
 
 
 __all__ = [
-    'CsvTableStore',
-    'TrialBalanceReader'
+    'Store',
+    'CsvStore',
+    'TrialBalanceRepository',
 ]

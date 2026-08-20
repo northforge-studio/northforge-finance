@@ -3,7 +3,8 @@ from .settings import (
     STAGING_DIR,
     ENRICHMENT_DIR,
     POSTING_DIR,
-    REFERENCE_DIR
+    REFERENCE_DIR,
+    TABLE_PATHS,
 )
 
 
@@ -12,5 +13,6 @@ __all__ = [
     'STAGING_DIR',
     'ENRICHMENT_DIR',
     'POSTING_DIR',
-    'REFERENCE_DIR'
+    'REFERENCE_DIR',
+    'TABLE_PATHS'
 ]

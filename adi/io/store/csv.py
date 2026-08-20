@@ -4,16 +4,23 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import StructType
 
 
-class CsvTableStore:
-    def __init__(self, spark: SparkSession):
+class CsvStore:
+    def __init__(
+        self,
+        spark: SparkSession,
+        table_paths: dict[str, Path],
+    ):
         self.spark = spark
+        self.table_paths = table_paths
 
 
     def read(
-            self, 
-            path: Path,
-            schema: StructType | None = None,
-        ) -> DataFrame:
+        self,
+        table_name: str,
+        schema: StructType | None = None,
+    ) -> DataFrame:
+        path = self.table_paths[table_name]
+
         reader = (
             self.spark.read
             .option('header', True)
@@ -32,9 +39,11 @@ class CsvTableStore:
     def write(
         self,
         df: DataFrame,
-        path: Path,
+        table_name: str,
         mode: str = 'overwrite',
     ) -> None:
+        path = self.table_paths[table_name]
+
         (
             df.write
             .mode(mode)
