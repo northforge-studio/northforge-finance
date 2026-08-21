@@ -1,6 +1,6 @@
 from pyspark.sql import DataFrame
-from pyspark.sql.types import StructType
 
+from adi.pipeline.base import BasePipeline
 from adi.contracts import TRIAL_BALANCE_STAGING_SCHEMA
 from adi.enrichments import (
     TransformationManager, 
@@ -10,7 +10,7 @@ from adi.enrichments import (
 from finmap import FinMapClient
 
 
-class TrialBalancePipeline:
+class TrialBalancePipeline(BasePipeline):
     DATACLASS = 'TRIAL_BALANCE'
 
 
@@ -25,7 +25,7 @@ class TrialBalancePipeline:
         self.finmap = finmap
 
 
-    def staging(self, df: DataFrame) -> DataFrame:
+    def pre_staging(self, df: DataFrame) -> DataFrame:
         df = self.transformation_manager.apply(
             df=df,
             dataclass=self.DATACLASS,
@@ -33,26 +33,27 @@ class TrialBalancePipeline:
             stage='pre',
         )
 
-        df = self.finmap.apply(
-            df,
-            mapping_name='ENTITY_MAPPING',
-        )
+        df = self.finmap.apply(df, mapping_name='ENTITY_MAPPING')
+        df = self.finmap.apply(df, mapping_name='MEASURE_TYPE_MAPPING')
 
         df = self.reference_manager.enrich_fx_rate(df)
         df = self.reference_manager.enrich_counterparty(df)
 
+        return df
+
+
+    def main_staging(self, df: DataFrame) -> DataFrame:
         df = self.transformation_manager.apply(
             df=df,
             dataclass=self.DATACLASS,
             zone='staging',
             stage='main',
         )
+        
+        return df
 
-        df = self.finmap.apply(
-            df,
-            mapping_name='MEASURE_TYPE_MAPPING',
-        )
 
+    def post_staging(self, df: DataFrame) -> DataFrame:
         df = self.transformation_manager.apply(
             df=df,
             dataclass=self.DATACLASS,
@@ -63,16 +64,3 @@ class TrialBalancePipeline:
         df = self._align_to_schema(df, TRIAL_BALANCE_STAGING_SCHEMA)
 
         return df
-    
-
-    def _align_to_schema(
-        self,
-        df: DataFrame,
-        schema: StructType,
-    ) -> DataFrame:
-        columns = [
-            field.name
-            for field in schema.fields
-        ]
-
-        return df.select(*columns)
