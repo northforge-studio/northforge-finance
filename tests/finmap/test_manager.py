@@ -2,14 +2,14 @@ import pytest
 
 from finmap.manager import MappingManager
 from finmap.repository import (
-    CsvMappingRepository, 
-    MappingRepository
+    Repository,
+    CsvRepository, 
 )
 
 
 @pytest.fixture(scope='module')
 def manager(spark):
-    repository = CsvMappingRepository(
+    repository = CsvRepository(
         spark=spark,
         metadata_path='data/reference/mapping_meta.csv',
         data_path='data/reference/mapping_data.csv',
@@ -170,8 +170,8 @@ def test_apply_rejects_existing_output_column(spark, manager):
 
 
 def test_csv_repository_satisfies_protocol(spark):
-        repository: MappingRepository = (
-            CsvMappingRepository(
+        repository: Repository = (
+            CsvRepository(
                 spark=spark,
                 metadata_path='data/reference/mapping_meta.csv',
                 data_path='data/reference/mapping_data.csv',

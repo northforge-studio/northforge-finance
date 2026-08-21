@@ -1,11 +1,11 @@
 import pytest
 
-from finmap.repository import CsvMappingRepository
+from finmap.repository import CsvRepository
 
 
 @pytest.fixture(scope='module')
 def repository(spark):
-    return CsvMappingRepository(
+    return CsvRepository(
         spark=spark,
         metadata_path='data/reference/mapping_meta.csv',
         data_path='data/reference/mapping_data.csv',

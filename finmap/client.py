@@ -5,13 +5,13 @@ from pyspark.sql import SparkSession, DataFrame
 from finmap.manager import MappingManager
 from finmap.models import Mapping, MappingDefinition
 from finmap.repository import (
-    CsvMappingRepository,
-    MappingRepository,
+    CsvRepository,
+    Repository,
 )
 
 
 class FinMapClient:
-    def __init__(self, repository: MappingRepository):
+    def __init__(self, repository: Repository):
         self._repository = repository
         self._manager = MappingManager(repository)
 
@@ -23,7 +23,7 @@ class FinMapClient:
         metadata_path: str | Path,
         data_path: str | Path,
     ) -> 'FinMapClient':
-        repository = CsvMappingRepository(
+        repository = CsvRepository(
             spark=spark,
             metadata_path=metadata_path,
             data_path=data_path,

@@ -1,6 +1,5 @@
 import csv
 from pathlib import Path
-from typing import Protocol
 
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
@@ -12,18 +11,10 @@ from finmap.models import (
     MappingDefinition,
     MappingField,
 )
+from finmap.contracts import MAPPING_DATA_SCHEMA
 
 
-class MappingRepository(Protocol):
-    def get_definition(self, mapping_name: str) -> MappingDefinition:
-            ...
-
-    
-    def get_mapping(self, mapping_name: str) -> Mapping:
-        ...
-
-
-class CsvMappingRepository:
+class CsvRepository:
     def __init__(
         self,
         spark: SparkSession,
@@ -38,6 +29,18 @@ class CsvMappingRepository:
     def get_mapping(self, mapping_name: str) -> Mapping:
         definition = self.get_definition(mapping_name)
         data = self._read_mapping_data(definition)
+
+        subset_cols = [
+            field.logical_name
+            for field in definition.lookup_fields
+        ]
+
+        subset_cols.extend([
+            field.logical_name
+            for field in definition.output_fields
+        ])
+
+        data = data.fillna('', subset=subset_cols)
 
         return Mapping(
             definition=definition,
@@ -107,6 +110,7 @@ class CsvMappingRepository:
         df = (
             self._spark.read
             .option('header', True)
+            .schema(MAPPING_DATA_SCHEMA)
             .csv(str(self._data_path))
             .filter(
                 F.col('MAPPING_NAME') == definition.mapping_name

@@ -4,14 +4,14 @@ from pyspark.sql import functions as F
 from pyspark.sql import Column, DataFrame, Window
 
 from finmap.models import Mapping
-from finmap.repository import MappingRepository
+from finmap.repository import Repository
 
 
 class MappingManager:
     _ROW_ID = '__mapping_row_id'
 
 
-    def __init__(self, repository: MappingRepository):
+    def __init__(self, repository: Repository):
         self._repository = repository
 
 
@@ -119,8 +119,9 @@ class MappingManager:
                 F.col(
                     f'{mapping_alias}.{field.logical_name}'
                 )
-                == F.col(
-                    f'{source_alias}.{field.src_field_name}'
+                == F.coalesce(
+                    F.col(f'{source_alias}.{field.src_field_name}').cast('string'),
+                    F.lit('')
                 )
             )
             |
