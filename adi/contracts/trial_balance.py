@@ -24,6 +24,9 @@ TRIAL_BALANCE_SOURCE_SCHEMA = StructType(
 
         StructField('SRC_ACCOUNT_ID', StringType(), False),
         StructField('SRC_ACCOUNT_NM', StringType(), False),
+        StructField('SRC_ACCT_CATEGORY', StringType(), False),
+        StructField('SRC_ACCT_TYPE', StringType(), False),
+        StructField('NORM_ACCT_SIGN', StringType(), False),
 
         StructField('SRC_CLIENT_ID', StringType(), True),
         StructField('SRC_CLIENT_NM', StringType(), True),
@@ -60,6 +63,9 @@ TRIAL_BALANCE_STAGING_SCHEMA = StructType(
 
         StructField('SRC_ACCOUNT_ID', StringType(), False),
         StructField('SRC_ACCOUNT_NM', StringType(), False),
+        StructField('SRC_ACCT_CATEGORY', StringType(), False),
+        StructField('SRC_ACCT_TYPE', StringType(), False),
+        StructField('NORM_ACCT_SIGN', StringType(), False),
 
         StructField('SRC_CLIENT_ID', StringType(), True),
         StructField('SRC_CLIENT_NM', StringType(), True),
