@@ -106,5 +106,6 @@ TRIAL_BALANCE_STAGING_SCHEMA = StructType(
             DecimalType(28, 12),
             True,
         ),
+        StructField('CR_DR_EVALUATOR', StringType(), True),
     ]
 )
