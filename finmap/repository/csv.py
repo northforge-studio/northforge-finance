@@ -40,6 +40,11 @@ class CsvRepository:
             for field in definition.output_fields
         ])
 
+        subset_cols.extend([
+            field.logical_name
+            for field in definition.informational_fields
+        ])
+
         data = data.fillna('', subset=subset_cols)
 
         return Mapping(
@@ -82,7 +87,7 @@ class CsvRepository:
         )
 
         return MappingDefinition(
-            mapping_name=mapping_name,
+            mapping_name=mapping_name.upper(),
             mapping_data_name=next(iter(mapping_data_names)),
             fields=fields,
         )
@@ -99,7 +104,7 @@ class CsvRepository:
             return [
                 row
                 for row in reader
-                if row['MAPPING_NAME'] == mapping_name
+                if row['MAPPING_NAME'].upper() == mapping_name.upper()
             ]
 
 
@@ -113,7 +118,7 @@ class CsvRepository:
             .schema(MAPPING_DATA_SCHEMA)
             .csv(str(self._data_path))
             .filter(
-                F.col('MAPPING_NAME') == definition.mapping_name
+                F.upper(F.col('MAPPING_NAME')) == definition.mapping_name.upper()
             )
         )
 
