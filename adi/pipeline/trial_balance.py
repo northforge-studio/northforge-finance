@@ -1,8 +1,12 @@
 from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType
 
-from adi.enrichments import TransformationManager
 from adi.contracts import TRIAL_BALANCE_STAGING_SCHEMA
+from adi.enrichments import (
+    TransformationManager, 
+    ReferenceManager
+)
+
 
 from finmap import FinMapClient
 
@@ -13,9 +17,11 @@ class TrialBalancePipeline:
     def __init__(
         self,
         transformation_manager: TransformationManager,
+        reference_manager: ReferenceManager,
         finmap: FinMapClient,
     ):
         self.transformation_manager = transformation_manager
+        self.reference_manager = reference_manager
         self.finmap = finmap
 
     def staging(self, df: DataFrame) -> DataFrame:
@@ -30,6 +36,8 @@ class TrialBalancePipeline:
             df,
             mapping_name='ENTITY_MAPPING',
         )
+
+        df = self.reference_manager.enrich_fx_rate(df)
 
         df = self.transformation_manager.apply(
             df=df,

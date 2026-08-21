@@ -1,9 +1,12 @@
 from pyspark.sql import SparkSession
 
-from adi.enrichments import TransformationManager
 from adi.io import CsvStore, TrialBalanceRepository
 from adi.pipeline import TrialBalancePipeline
 from adi.config.settings import TABLE_PATHS
+from adi.enrichments import (
+    TransformationManager, 
+    ReferenceManager
+)
 
 from finmap import FinMapClient
 
@@ -19,6 +22,7 @@ store = CsvStore(spark, table_paths=TABLE_PATHS)
 repository = TrialBalanceRepository(store)
 
 transformation_manager = TransformationManager(spark)
+reference_manager = ReferenceManager(spark)
 
 finmap = FinMapClient.from_csv(
     spark=spark,
@@ -28,6 +32,7 @@ finmap = FinMapClient.from_csv(
 
 pipeline = TrialBalancePipeline(
     transformation_manager=transformation_manager,
+    reference_manager=reference_manager,
     finmap=finmap,
 )
 
