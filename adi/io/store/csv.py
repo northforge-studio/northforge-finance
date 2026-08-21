@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from pyspark.sql import DataFrame, SparkSession
-from pyspark.sql.types import StructType
+from pyspark.sql.types import StructType, StringType
 
 
 class CsvStore:
@@ -33,8 +33,22 @@ class CsvStore:
         else:
             reader = reader.option('inferSchema', True)
 
-        return reader.csv(str(path))
+        df = reader.csv(str(path))
 
+        if schema is not None:
+            string_cols = [
+                field.name
+                for field in schema.fields
+                if isinstance(field.dataType, StringType)
+            ]
+
+            df = df.fillna(
+                '',
+                subset=string_cols,
+            )
+
+        return df
+            
 
     def write(
         self,

@@ -13,6 +13,7 @@ from finmap import FinMapClient
 class TrialBalancePipeline:
     DATACLASS = 'TRIAL_BALANCE'
 
+
     def __init__(
         self,
         transformation_manager: TransformationManager,
@@ -22,6 +23,7 @@ class TrialBalancePipeline:
         self.transformation_manager = transformation_manager
         self.reference_manager = reference_manager
         self.finmap = finmap
+
 
     def staging(self, df: DataFrame) -> DataFrame:
         df = self.transformation_manager.apply(

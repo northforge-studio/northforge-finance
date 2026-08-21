@@ -1,4 +1,5 @@
 from pyspark.sql import DataFrame
+from pyspark.sql.types import StringType
 
 from adi.contracts import (
     TRIAL_BALANCE_SOURCE_SCHEMA,

@@ -1,3 +1,7 @@
+from .reference import (
+    FX_RATE_SCHEMA,
+    COUNTERPARTY_SCHEMA,
+)
 from .trial_balance import (
     TRIAL_BALANCE_SOURCE_SCHEMA,
     TRIAL_BALANCE_STAGING_SCHEMA,
@@ -5,6 +9,8 @@ from .trial_balance import (
 
 
 __all__ = [
+    'FX_RATE_SCHEMA',
+    'COUNTERPARTY_SCHEMA',
     'TRIAL_BALANCE_SOURCE_SCHEMA', 
-    'TRIAL_BALANCE_STAGING_SCHEMA'
+    'TRIAL_BALANCE_STAGING_SCHEMA',
 ]

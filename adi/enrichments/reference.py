@@ -4,6 +4,10 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
 from adi.config import REFERENCE_DIR
+from adi.contracts import (
+    FX_RATE_SCHEMA,
+    COUNTERPARTY_SCHEMA,
+)
 
 
 class ReferenceData(StrEnum):
@@ -12,6 +16,12 @@ class ReferenceData(StrEnum):
 
 
 class ReferenceManager:
+    REFERENCE_SCHEMAS = {
+        ReferenceData.FX_RATE: FX_RATE_SCHEMA,
+        ReferenceData.COUNTERPARTY: COUNTERPARTY_SCHEMA,
+    }
+
+
     def __init__(self, spark: SparkSession):
         self.spark = spark
 
@@ -24,6 +34,7 @@ class ReferenceManager:
             self.spark.read
             .option('header', True)
             .option('inferSchema', True)
+            .schema(self.REFERENCE_SCHEMAS[reference_data])
             .csv(str(REFERENCE_DIR / reference_data))
         )
 
@@ -72,7 +83,15 @@ class ReferenceManager:
         reference_cols = [f'{reference_alias}.CLIENT_ID_TYPE']
 
         condition = (
-            F.col(f'{source_alias}.CPTY_REF_ID') == F.col(f'{reference_alias}.CPTY_REF_ID')
+            F.coalesce(
+                F.col(f'{source_alias}.CPTY_REF_ID').cast('string'),
+                F.lit(''),
+            )
+            ==
+            F.coalesce(
+                F.col(f'{reference_alias}.CPTY_REF_ID').cast('string'),
+                F.lit(''),
+            )
         )
         
 
