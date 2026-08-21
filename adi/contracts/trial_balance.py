@@ -77,7 +77,7 @@ TRIAL_BALANCE_STAGING_SCHEMA = StructType(
 
         StructField('CPTY_REF_ID', StringType(), True),
 
-        # StructField('STAGING_ID', StringType(), True),
+        StructField('STAGING_ID', StringType(), True),
         StructField('DATACLASS', StringType(), True),
         StructField('POSTING_RULE_ID', StringType(), True),
         StructField('COA_RULE_ID', StringType(), True),

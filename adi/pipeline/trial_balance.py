@@ -26,6 +26,8 @@ class TrialBalancePipeline(BasePipeline):
 
 
     def pre_staging(self, df: DataFrame) -> DataFrame:
+        df = self._add_row_id(df)
+
         df = self.transformation_manager.apply(
             df=df,
             dataclass=self.DATACLASS,
