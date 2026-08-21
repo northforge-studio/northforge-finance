@@ -116,13 +116,13 @@ class MappingManager:
     ) -> Column:
         conditions = [
             (
-                F.col(
+                F.upper(F.col(
                     f'{mapping_alias}.{field.logical_name}'
-                )
-                == F.coalesce(
+                ))
+                == F.upper(F.coalesce(
                     F.col(f'{source_alias}.{field.src_field_name}').cast('string'),
                     F.lit('')
-                )
+                ))
             )
             |
             (
