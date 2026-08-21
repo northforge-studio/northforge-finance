@@ -67,6 +67,13 @@ TRIAL_BALANCE_STAGING_SCHEMA = StructType(
         StructField('SRC_ACCT_TYPE', StringType(), False),
         StructField('NORM_ACCT_SIGN', StringType(), False),
 
+        StructField(
+            'TOTAL_ACCT_FUNC_AMT', 
+            DecimalType(28, 12),
+            False
+        ),
+        StructField('ACCT_FUNC_SIGN', StringType(), False),
+
         StructField('SRC_CLIENT_ID', StringType(), True),
         StructField('SRC_CLIENT_NM', StringType(), True),
 

@@ -1,4 +1,5 @@
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, Window
+from pyspark.sql import functions as F
 
 from adi.pipeline.base import BasePipeline
 from adi.contracts import TRIAL_BALANCE_STAGING_SCHEMA
@@ -56,6 +57,8 @@ class TrialBalancePipeline(BasePipeline):
 
 
     def post_staging(self, df: DataFrame) -> DataFrame:
+        df = self._get_total_acct_func_amt(df)
+
         df = self.transformation_manager.apply(
             df=df,
             dataclass=self.DATACLASS,
@@ -66,3 +69,14 @@ class TrialBalancePipeline(BasePipeline):
         df = self._align_to_schema(df, TRIAL_BALANCE_STAGING_SCHEMA)
 
         return df
+
+
+    def _get_total_acct_func_amt(self, df: DataFrame) -> DataFrame:
+        account_window = Window.partitionBy('SRC_ACCOUNT_ID')
+
+        return df.withColumn(
+            'TOTAL_ACCT_FUNC_AMT',
+            F.sum('POSTING_MEASURE_FUNC_AMT')
+            .over(account_window)
+            .cast('decimal(28,12)'),
+        )
