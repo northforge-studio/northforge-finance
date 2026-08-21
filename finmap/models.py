@@ -13,6 +13,7 @@ class FieldType(StrEnum):
 class LookupType(StrEnum):
     VALUE = 'VALUE'
     INFORMATIONAL = 'INFORMATIONAL'
+    ATTR_REFERENCE = 'ATTR_REFERENCE'
 
 
 @dataclass(frozen=True)
@@ -86,6 +87,17 @@ class MappingDefinition:
             field
             for field in self.fields
             if field.field_type == FieldType.LOGICAL
+        )
+
+    @property
+    def attr_reference_fields(self) -> tuple[MappingField, ...]:
+        return tuple(
+            field
+            for field in self.fields
+            if (
+                field.field_type == FieldType.OUTPUT
+                and field.lookup_type == LookupType.ATTR_REFERENCE
+            )
         )
 
 

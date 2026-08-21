@@ -93,19 +93,28 @@ class MappingManager:
             how='left',
         )
 
+        # weightage based resolution
         resolved_df = self._resolve_candidates(
             candidate_df=candidate_df,
             source_alias=source_alias,
             mapping_alias=mapping_alias,
         )
 
-        return self._select_result_columns(
+        result_df = self._select_result_columns(
             joined_df=resolved_df,
             source_alias=source_alias,
             mapping_alias=mapping_alias,
             source_columns=source_columns,
             mapping=mapping,
         )
+
+        if mapping.definition.attr_reference_fields:
+            result_df = self._resolve_attribute_references(
+                result_df,
+                mapping,
+            )
+
+        return result_df
 
 
     def _build_join_condition(
@@ -228,3 +237,45 @@ class MappingManager:
             *source_columns,
             *output_columns,
         )
+
+
+    def _get_attribute_references(self) -> dict[str, str]:
+        df = self.get_mapping('ATTR_REFERENCE_MAPPING').data
+
+        return {
+            row['ATTR_REFERENCE_NAME']: row['ATTR_REFERENCE_VALUE']
+            for row in df.select(
+                'ATTR_REFERENCE_NAME',
+                'ATTR_REFERENCE_VALUE',
+            ).collect()
+        }
+
+
+    def _resolve_attribute_references(
+        self,
+        df: DataFrame,
+        mapping: Mapping,
+    ) -> DataFrame:
+        references = self._get_attribute_references()
+
+        for field in mapping.definition.attr_reference_fields:
+            column_name = field.logical_name
+            original_value = F.col(column_name)
+
+            resolved_value = original_value
+
+            for reference_name, reference_value in references.items():
+                resolved_value = (
+                    F.when(
+                        original_value == reference_name,
+                        F.col(reference_value),
+                    )
+                    .otherwise(resolved_value)
+                )
+
+            df = df.withColumn(
+                column_name,
+                resolved_value,
+            )
+
+        return df
