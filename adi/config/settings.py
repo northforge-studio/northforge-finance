@@ -12,7 +12,7 @@ REFERENCE_DIR = DATA_DIR / 'reference'
 
 TABLE_PATHS = {
     'TRIAL_BALANCE_SOURCE': (
-        SOURCE_DIR / 'trial_balance_source.csv'
+        SOURCE_DIR / 'trial_balance.csv'
     ),
     'TRIAL_BALANCE_STAGING': (
         STAGING_DIR / 'trial_balance'

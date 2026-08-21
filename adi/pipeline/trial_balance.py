@@ -7,7 +7,6 @@ from adi.enrichments import (
     ReferenceManager
 )
 
-
 from finmap import FinMapClient
 
 
@@ -38,6 +37,7 @@ class TrialBalancePipeline:
         )
 
         df = self.reference_manager.enrich_fx_rate(df)
+        df = self.reference_manager.enrich_counterparty(df)
 
         df = self.transformation_manager.apply(
             df=df,

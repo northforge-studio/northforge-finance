@@ -20,14 +20,13 @@ TRIAL_BALANCE_SOURCE_SCHEMA = StructType(
         StructField('SRC_RECORD_ID', StringType(), False),
 
         StructField('SRC_ENTITY_CD', StringType(), False),
-        StructField('SRC_BOOKING_DEPT_CD', IntegerType(), False),
+        StructField('SRC_BOOKING_DEPT_CD', StringType(), False),
 
         StructField('SRC_ACCOUNT_ID', StringType(), False),
         StructField('SRC_ACCOUNT_NM', StringType(), False),
 
         StructField('SRC_CLIENT_ID', StringType(), True),
         StructField('SRC_CLIENT_NM', StringType(), True),
-        StructField('SRC_CLIENT_ID_TYPE', StringType(), True),
 
         StructField('SRC_MEASURE_NM', StringType(), False),
         StructField('SRC_MEASURE_CCY_CD', StringType(), False),
@@ -39,6 +38,8 @@ TRIAL_BALANCE_SOURCE_SCHEMA = StructType(
         ),
 
         StructField('POSTING_MEASURE_CCY_CD', StringType(), False),
+
+        StructField('CPTY_REF_ID', StringType(), True),
     ]
 )
 
@@ -55,14 +56,13 @@ TRIAL_BALANCE_STAGING_SCHEMA = StructType(
         StructField('SRC_RECORD_ID', StringType(), False),
 
         StructField('SRC_ENTITY_CD', StringType(), False),
-        StructField('SRC_BOOKING_DEPT_CD', IntegerType(), False),
+        StructField('SRC_BOOKING_DEPT_CD', StringType(), False),
 
         StructField('SRC_ACCOUNT_ID', StringType(), False),
         StructField('SRC_ACCOUNT_NM', StringType(), False),
 
         StructField('SRC_CLIENT_ID', StringType(), True),
         StructField('SRC_CLIENT_NM', StringType(), True),
-        StructField('SRC_CLIENT_ID_TYPE', StringType(), True),
 
         StructField('SRC_MEASURE_NM', StringType(), False),
         StructField('SRC_MEASURE_CCY_CD', StringType(), False),
@@ -75,13 +75,15 @@ TRIAL_BALANCE_STAGING_SCHEMA = StructType(
 
         StructField('POSTING_MEASURE_CCY_CD', StringType(), False),
 
+        StructField('CPTY_REF_ID', StringType(), True),
+
         # StructField('STAGING_ID', StringType(), True),
         StructField('DATACLASS', StringType(), True),
         StructField('POSTING_RULE_ID', StringType(), True),
         StructField('COA_RULE_ID', StringType(), True),
         StructField('ENTITY_SUN_ID', StringType(), True),
-        # StructField('CLIENT_ID_TYPE', StringType(), True),
-        # StructField('INTERGROUP_IND', StringType(), True),
+        StructField('CLIENT_ID_TYPE', StringType(), True),
+        StructField('INTERGROUP_IND', StringType(), True),
         StructField('POSTING_MEASURE_NM', StringType(), True),
         StructField('MEASURE_TYPE', StringType(), True),
         StructField(
