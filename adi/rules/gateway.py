@@ -3,14 +3,23 @@ from functools import reduce
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from finmap import GatewayRule
-
 from adi.rules.posting import PostingRuleProcessor
+from adi.enrichments import TransformationManager
+
+from finmap import FinMapClient, GatewayRule
+
 
 
 class GatewayRuleProcessor:
-    def __init__(self, posting_rule_processor: PostingRuleProcessor):
+    def __init__(
+        self, 
+        posting_rule_processor: PostingRuleProcessor,
+        transformation_manager: TransformationManager,
+        finmap: FinMapClient,
+    ):
         self._posting_rule_processor = posting_rule_processor
+        self._transformation_manager = transformation_manager
+        self._finmap = finmap
 
 
     def process(
@@ -25,15 +34,27 @@ class GatewayRuleProcessor:
 
         gateway_df = self._preprocess(df, gateway_rule)
 
+        gateway_df = self._finmap.apply(gateway_df, mapping_name='PE_TB_MAPPING')
+        gateway_pef_df = gateway_df.filter(F.col('POSTING_ELIG_FLG') == 'Y')
+        gateway_non_pef_df = gateway_df.filter(
+            (F.col('POSTING_ELIG_FLG') != 'Y')
+            | F.col('POSTING_ELIG_FLG').isNull()
+        )
+
         posting_results = [
-            self._posting_rule_processor.apply(gateway_df, posting_rule)
+            self._posting_rule_processor.apply(
+                gateway_pef_df, 
+                posting_rule
+            )
             for posting_rule in gateway_rule.posting_rules
         ]
 
-        return reduce(
+        gateway_pef_df = reduce(
             lambda left, right: left.unionByName(right),
             posting_results,
         )
+
+        return gateway_non_pef_df.unionByName(gateway_pef_df)
 
 
     def _preprocess(
@@ -45,5 +66,8 @@ class GatewayRuleProcessor:
             'POSTING_RULE_ID',
             F.lit(gateway_rule.id)
         )
+
+        df = self._finmap.apply(df, mapping_name='POSTING_RULES_MAPPING')
+        df = df.filter(F.col('POSTING_SWITCH') == 'ON')
         
         return df

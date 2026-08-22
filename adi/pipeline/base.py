@@ -9,11 +9,26 @@ from adi.rules import (
     GatewayRuleProcessor,
     RuleExecutionEngine
 )
+from adi.enrichments import (
+    TransformationManager, 
+    ReferenceManager
+)
 
-from finmap import GatewayRule
+from finmap import FinMapClient, GatewayRule
 
 
 class BasePipeline(ABC):
+    def __init__(
+        self,
+        transformation_manager: TransformationManager,
+        reference_manager: ReferenceManager,
+        finmap: FinMapClient,
+    ):
+        self._transformation_manager = transformation_manager
+        self._reference_manager = reference_manager
+        self._finmap = finmap
+
+
     def run(self, df: DataFrame) -> DataFrame:
         df = self.staging(df)
         df = self.enrichment(df)
@@ -115,7 +130,11 @@ class BasePipeline(ABC):
         gateway_rules: list[GatewayRule]
     ) -> DataFrame:
         posting_rule_processor = PostingRuleProcessor()
-        gateway_rule_processor = GatewayRuleProcessor(posting_rule_processor=posting_rule_processor)
+        gateway_rule_processor = GatewayRuleProcessor(
+            posting_rule_processor=posting_rule_processor,
+            transformation_manager=self._transformation_manager,
+            finmap=self._finmap
+        )
         rule_execution_engine = RuleExecutionEngine(gateway_rule_processor=gateway_rule_processor)
 
         return rule_execution_engine.execute(df, gateway_rules)

@@ -21,6 +21,11 @@ class TrialBalancePipeline(BasePipeline):
         reference_manager: ReferenceManager,
         finmap: FinMapClient,
     ):
+        super().__init__(
+            transformation_manager = transformation_manager,
+            reference_manager = reference_manager,
+            finmap = finmap
+        )
         self._transformation_manager = transformation_manager
         self._reference_manager = reference_manager
         self._finmap = finmap

@@ -30,10 +30,7 @@ class MappingManager:
     ) -> DataFrame:
         mapping = self.get_mapping(mapping_name)
 
-        self._validate(
-            df,
-            mapping,
-        )
+        df = self._validate(df, mapping)
 
         source_alias = 'source'
         mapping_alias = 'mapping'
@@ -136,7 +133,7 @@ class MappingManager:
         self,
         df: DataFrame,
         mapping: Mapping,
-    ) -> None:
+    ) -> DataFrame:
         required_columns = {
             field.src_field_name
             for field in mapping.definition.lookup_fields
@@ -159,11 +156,9 @@ class MappingManager:
         conflicting_columns = output_columns & set(df.columns)
 
         if conflicting_columns:
-            raise ValueError(
-                f'Mapping {mapping.definition.mapping_name!r} '
-                f'output columns already exist in source '
-                f'{sorted(conflicting_columns)}'
-            )
+            df = df.drop(*conflicting_columns)
+
+        return df
 
 
     def _build_join_condition(
