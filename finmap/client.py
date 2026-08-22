@@ -61,7 +61,7 @@ class FinMapClient:
         )
 
 
-    def get_posting_rule_measures(
+    def get_measure_map(
         self,
         dataclass: str,
     ) -> dict[str, list[str]]:
