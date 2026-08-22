@@ -1,6 +1,9 @@
+import shutil
 from pathlib import Path
+from typing import Any
 
 from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import functions as F
 from pyspark.sql.types import StructType, StringType
 
 
@@ -67,3 +70,40 @@ class CsvStore:
             .option('header', True)
             .csv(str(path))
         )
+
+
+    def delete(
+        self,
+        table_name: str,
+        filters: dict[str, Any],
+        schema: StructType | None = None,
+    ) -> None:
+        if not filters:
+            raise ValueError('delete requires at least one filter')
+
+        path = Path(self.table_paths[table_name])
+
+        if not path.exists():
+            return
+
+        df = self.read(table_name, schema=schema)
+
+        condition = F.lit(True)
+        for column, value in filters.items():
+            condition = condition & (F.col(column) == F.lit(value))
+
+        remaining_df = df.filter(~condition)
+
+        tmp_path = path.with_name(f'{path.name}.tmp')
+        if tmp_path.exists():
+            shutil.rmtree(tmp_path) if tmp_path.is_dir() else tmp_path.unlink()
+
+        (
+            remaining_df.write
+            .mode('overwrite')
+            .option('header', True)
+            .csv(str(tmp_path))
+        )
+
+        shutil.rmtree(path) if path.is_dir() else path.unlink()
+        tmp_path.rename(path)

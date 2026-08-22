@@ -129,7 +129,20 @@ class TrialBalancePipeline(BasePipeline):
 
         df = self._align_to_schema(df, TRIAL_BALANCE_ENRICHMENT_SCHEMA)
 
+        self._repository.write_enrichment(df)
+
         return tuple([self._config.business_dt, self._config.batch_id])
+
+
+    def rollback(self) -> None:
+        business_dt = self._config.business_dt
+        batch_id = self._config.batch_id
+
+        if batch_id is None:
+            return
+
+        self._repository.delete_staging(business_dt, batch_id)
+        self._repository.delete_enrichment(business_dt, batch_id)
 
 
     def _resolve_batch_id(self, df: DataFrame) -> DataFrame:

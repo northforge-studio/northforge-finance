@@ -1,3 +1,5 @@
+from datetime import date
+
 from pyspark.sql import SparkSession
 
 from adi.io import (
@@ -12,9 +14,10 @@ from adi.enrichments import (
     TransformationManager,
     ReferenceManager
 )
-
 from finmap import FinMapClient
 
+
+BUSINESS_DT = date(2025, 3, 31)
 
 spark = (
     SparkSession.builder
@@ -38,17 +41,21 @@ finmap = FinMapClient.from_csv(
 )
 
 pipeline = TrialBalancePipeline(
-    transformation_manager=transformation_manager,
-    reference_manager=reference_manager,
+    business_dt=BUSINESS_DT,
     finmap=finmap,
+    repository=repository,
+    reference_manager=reference_manager,
+    transformation_manager=transformation_manager,
 )
 
-source_df = repository.read_source()
+business_dt, batch_id = pipeline.run()
 
-posting_df = pipeline.run(source_df)
+print(f"Pipeline run complete for business_dt={business_dt}, batch_id={batch_id}")
 
-posting_df.show()
+staging_df = repository.read_staging(business_dt=business_dt, batch_id=batch_id)
 
-posting_df.printSchema()
+staging_df.show()
+
+staging_df.printSchema()
 
 spark.stop()

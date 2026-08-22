@@ -48,8 +48,12 @@ class BasePipeline(ABC):
 
 
     def run(self) -> tuple[date, str]:
-        self.staging()
-        self.enrichment()
+        try:
+            self.staging()
+            self.enrichment()
+        except Exception:
+            self.rollback()
+            raise
 
         return tuple([self._config.business_dt, self._config.batch_id])
 
@@ -106,6 +110,10 @@ class BasePipeline(ABC):
     @abstractmethod
     def post_enrichment(self, df: DataFrame) -> tuple[date, str]:
         ...
+
+
+    def rollback(self) -> None:
+        pass
 
 
     def _add_row_id(self, df: DataFrame) -> DataFrame:

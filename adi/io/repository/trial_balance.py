@@ -6,6 +6,7 @@ from pyspark.sql import functions as F
 from adi.contracts import (
     TRIAL_BALANCE_SOURCE_SCHEMA,
     TRIAL_BALANCE_STAGING_SCHEMA,
+    TRIAL_BALANCE_ENRICHMENT_SCHEMA,
 )
 from adi.io.store import Store
 
@@ -45,6 +46,29 @@ class TrialBalanceRepository:
         self.store.write(
             df,
             table_name='TRIAL_BALANCE_STAGING',
+        )
+
+
+    def write_enrichment(self, df: DataFrame) -> None:
+        self.store.write(
+            df,
+            table_name='TRIAL_BALANCE_ENRICHMENT',
+        )
+
+
+    def delete_staging(self, business_dt: date, batch_id: str) -> None:
+        self.store.delete(
+            table_name='TRIAL_BALANCE_STAGING',
+            filters={'BUSINESS_DT': business_dt, 'BATCH_ID': batch_id},
+            schema=TRIAL_BALANCE_STAGING_SCHEMA,
+        )
+
+
+    def delete_enrichment(self, business_dt: date, batch_id: str) -> None:
+        self.store.delete(
+            table_name='TRIAL_BALANCE_ENRICHMENT',
+            filters={'BUSINESS_DT': business_dt, 'BATCH_ID': batch_id},
+            schema=TRIAL_BALANCE_ENRICHMENT_SCHEMA,
         )
 
 
