@@ -105,3 +105,16 @@ class MappingDefinition:
 class Mapping:
     definition: MappingDefinition
     data: DataFrame
+
+
+@dataclass(frozen=True)
+class PostingRule:
+    id: str
+    posting_stream: str
+    posting_measure_nm: str
+
+
+@dataclass(frozen=True)
+class GatewayRule:
+    id: str
+    posting_rules: tuple[PostingRule, ...]

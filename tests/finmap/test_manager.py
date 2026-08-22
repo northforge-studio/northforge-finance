@@ -1,9 +1,10 @@
 import pytest
 
 from finmap.manager import MappingManager
+from finmap.models import PostingRule, GatewayRule
 from finmap.repository import (
     Repository,
-    CsvRepository, 
+    CsvRepository,
 )
 
 
@@ -167,6 +168,29 @@ def test_apply_rejects_existing_output_column(spark, manager):
             df,
             'ENTITY_MAPPING',
         )
+
+
+def test_get_rule_config_groups_posting_rules_by_gateway_rule_id(manager):
+    rule_cfg = manager.get_rule_config('TRIAL_BALANCE')
+
+    assert rule_cfg == [
+        GatewayRule(
+            id='TB-GRS-001-BK-01',
+            posting_rules=[
+                PostingRule(
+                    id='TB-GRS-001-BK-01',
+                    posting_stream='GROSS_UP',
+                    posting_measure_nm='ADJUSTED_BALANCE',
+                ),
+            ],
+        )
+    ]
+
+
+def test_get_rule_config_unmatched_dataclass_returns_empty(manager):
+    rule_cfg = manager.get_rule_config('NON_EXISTENT_DATACLASS')
+
+    assert rule_cfg == []
 
 
 def test_csv_repository_satisfies_protocol(spark):

@@ -3,8 +3,12 @@ from functools import reduce
 from pyspark.sql import functions as F
 from pyspark.sql import Column, DataFrame, Window
 
-from finmap.models import Mapping
 from finmap.repository import Repository
+from finmap.models import (
+    Mapping, 
+    PostingRule, 
+    GatewayRule
+)
 
 
 class MappingManager:
@@ -83,10 +87,10 @@ class MappingManager:
         return result_df
 
 
-    def get_measure_map(
+    def get_rule_config(
         self,
         dataclass: str,
-    ) -> dict[str, list[str]]:
+    ) -> list[GatewayRule]:
         mapping = self.get_mapping('POSTING_RULES_MAPPING')
 
         rows = (
@@ -95,18 +99,32 @@ class MappingManager:
                 (F.upper(F.col('DATACLASS')) == F.upper(F.lit(dataclass)))
                 | (F.col('DATACLASS') == '*')
             )
-            .select('POSTING_RULE_ID', 'POSTING_MEASURE_NM')
+            .select('POSTING_RULE_ID', 'GATEWAY_RULE_ID', 'POSTING_STREAM', 'POSTING_MEASURE_NM')
             .collect()
         )
 
-        result: dict[str, list[str]] = {}
+        rule_cfg: dict[str, list[PostingRule]] = {}
 
         for row in rows:
-            result.setdefault(row['POSTING_RULE_ID'], []).append(
-                row['POSTING_MEASURE_NM']
+            rule_cfg.setdefault(
+                row['GATEWAY_RULE_ID'],
+                []
+            ).append(
+                PostingRule(
+                    id=row['POSTING_RULE_ID'],
+                    posting_stream=row['POSTING_STREAM'],
+                    posting_measure_nm=row['POSTING_MEASURE_NM'],
+                )
             )
 
-        return result
+        return [
+            GatewayRule(
+                id=gateway_rule_id,
+                posting_rules=posting_rules,
+            )
+            for gateway_rule_id, posting_rules
+            in rule_cfg.items()
+        ]
 
 
     def _validate(

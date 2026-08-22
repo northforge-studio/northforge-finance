@@ -61,10 +61,10 @@ class FinMapClient:
         )
 
 
-    def get_measure_map(
+    def get_rule_config(
         self,
         dataclass: str,
     ) -> dict[str, list[str]]:
-        return self._manager.get_measure_map(
+        return self._manager.get_rule_config(
             dataclass
         )
