@@ -1,10 +1,23 @@
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from finmap import PostingRule
+from adi.enrichments import TransformationManager
+
+from finmap import FinMapClient, PostingRule
 
 
 class PostingRuleProcessor:
+    def __init__(
+        self, 
+        dataclass: str,
+        transformation_manager: TransformationManager,
+        finmap: FinMapClient,
+    ):
+        self._dataclass = dataclass
+        self._transformation_manager = transformation_manager
+        self._finmap = finmap
+
+
     def apply(
         self,
         df: DataFrame,
@@ -33,6 +46,25 @@ class PostingRuleProcessor:
         self,
         df: DataFrame,
     ) -> DataFrame:
+
+        df = self._transformation_manager.apply(
+            df=df,
+            dataclass=self._dataclass,
+            zone='ENR',
+            stage='PRE',
+            sub_stage='PRE_COA'
+        )
+
+        df = self._apply_coa_enrichments(df)
+
+        df = self._transformation_manager.apply(
+            df=df,
+            dataclass=self._dataclass,
+            zone='ENR',
+            stage='PRE',
+            sub_stage='POST_COA'
+        )
+        
         return df
 
 
@@ -40,4 +72,14 @@ class PostingRuleProcessor:
         self,
         df: DataFrame,
     ) -> DataFrame:
+        return df
+
+
+    def _apply_coa_enrichments(self, df: DataFrame) -> DataFrame:
+        df = self._finmap.apply(df, mapping_name='ENTITY_MAPPING')
+        df = self._finmap.apply(df, mapping_name='DEPARTMENT_MAPPING')
+        df = self._finmap.apply(df, mapping_name='AFFILIATE_CODE_MAPPING')
+        df = self._finmap.apply(df, mapping_name='ACCOUNT_TB_MAPPING')
+        df = self._finmap.apply(df, mapping_name='CR_DR_MAPPING')
+
         return df

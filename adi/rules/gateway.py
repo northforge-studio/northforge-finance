@@ -9,7 +9,6 @@ from adi.enrichments import TransformationManager
 from finmap import FinMapClient, GatewayRule
 
 
-
 class GatewayRuleProcessor:
     def __init__(
         self, 
@@ -34,7 +33,6 @@ class GatewayRuleProcessor:
 
         gateway_df = self._preprocess(df, gateway_rule)
 
-        gateway_df = self._finmap.apply(gateway_df, mapping_name='PE_TB_MAPPING')
         gateway_pef_df = gateway_df.filter(F.col('POSTING_ELIG_FLG') == 'Y')
         gateway_non_pef_df = gateway_df.filter(
             (F.col('POSTING_ELIG_FLG') != 'Y')
@@ -54,7 +52,10 @@ class GatewayRuleProcessor:
             posting_results,
         )
 
-        return gateway_non_pef_df.unionByName(gateway_pef_df)
+        return gateway_non_pef_df.unionByName(
+            gateway_pef_df, 
+            allowMissingColumns=True
+        )
 
 
     def _preprocess(
@@ -69,5 +70,7 @@ class GatewayRuleProcessor:
 
         df = self._finmap.apply(df, mapping_name='POSTING_RULES_MAPPING')
         df = df.filter(F.col('POSTING_SWITCH') == 'ON')
+
+        df = self._finmap.apply(df, mapping_name='PE_TB_MAPPING')
         
         return df

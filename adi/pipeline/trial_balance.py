@@ -2,7 +2,10 @@ from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as F
 
 from adi.pipeline.base import BasePipeline
-from adi.contracts import TRIAL_BALANCE_STAGING_SCHEMA
+from adi.contracts import (
+    TRIAL_BALANCE_STAGING_SCHEMA,
+    TRIAL_BALANCE_ENRICHMENT_SCHEMA
+)
 from adi.enrichments import (
     TransformationManager, 
     ReferenceManager
@@ -22,6 +25,7 @@ class TrialBalancePipeline(BasePipeline):
         finmap: FinMapClient,
     ):
         super().__init__(
+            dataclass=self.DATACLASS,
             transformation_manager = transformation_manager,
             reference_manager = reference_manager,
             finmap = finmap
@@ -79,6 +83,25 @@ class TrialBalancePipeline(BasePipeline):
         gateway_rules = self._finmap.get_rule_config(self.DATACLASS)
 
         return self._execute_rules(df, gateway_rules)
+
+
+    def main_enrichment(self, df: DataFrame) -> DataFrame:
+        return df
+
+
+    def post_enrichment(self, df: DataFrame) -> DataFrame:
+        df = self._add_row_id(df)
+
+        df = self._transformation_manager.apply(
+            df=df,
+            dataclass=self.DATACLASS,
+            zone='ENR',
+            stage='POST',
+        )
+
+        df = self._align_to_schema(df, TRIAL_BALANCE_ENRICHMENT_SCHEMA)
+
+        return df
 
 
     def _get_total_acct_func_amt(self, df: DataFrame) -> DataFrame:

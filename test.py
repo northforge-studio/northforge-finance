@@ -43,15 +43,12 @@ pipeline = TrialBalancePipeline(
     finmap=finmap,
 )
 
-df_source = repository.read_source()
+source_df = repository.read_source()
 
-df_staging = pipeline.staging(df_source)
+posting_df = pipeline.run(source_df)
 
-repository.write_staging(df_staging)
+posting_df.show()
 
-df_staging_reloaded = repository.read_staging()
-
-df_staging_reloaded.show(truncate=False)
-df_staging_reloaded.printSchema()
+posting_df.printSchema()
 
 spark.stop()

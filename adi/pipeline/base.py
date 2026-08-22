@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from pyspark.sql import DataFrame
+from pyspark.sql import DataFrame, Column
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructType
 
@@ -20,13 +20,29 @@ from finmap import FinMapClient, GatewayRule
 class BasePipeline(ABC):
     def __init__(
         self,
+        dataclass: str,
         transformation_manager: TransformationManager,
         reference_manager: ReferenceManager,
         finmap: FinMapClient,
-    ):
+    ):  
+        self._dataclass = dataclass
         self._transformation_manager = transformation_manager
         self._reference_manager = reference_manager
         self._finmap = finmap
+
+        posting_rule_processor = PostingRuleProcessor(
+            dataclass=dataclass,
+            transformation_manager=transformation_manager,
+            finmap=finmap
+        )
+        gateway_rule_processor = GatewayRuleProcessor(
+            posting_rule_processor=posting_rule_processor,
+            transformation_manager=transformation_manager,
+            finmap=finmap
+        )
+        self._rule_execution_engine = RuleExecutionEngine(
+            gateway_rule_processor=gateway_rule_processor
+        )
 
 
     def run(self, df: DataFrame) -> DataFrame:
@@ -42,7 +58,10 @@ class BasePipeline(ABC):
         df = self.main_staging(df)
         df = self.post_staging(df)
 
-        return df
+        return df.orderBy(
+            self._numeric_id('SRC_RECORD_ID'),
+            self._numeric_id('STAGING_ID')
+        )
 
 
     def enrichment(self, df: DataFrame) -> DataFrame:
@@ -50,7 +69,11 @@ class BasePipeline(ABC):
         df = self.main_enrichment(df)
         df = self.post_enrichment(df)
 
-        return df
+        return df.orderBy(
+            self._numeric_id('SRC_RECORD_ID'),
+            self._numeric_id('STAGING_ID'),
+            self._numeric_id('ENRICHMENT_ID')
+        )
 
 
     def posting(self, df: DataFrame) -> DataFrame:
@@ -81,10 +104,12 @@ class BasePipeline(ABC):
         ...
 
 
+    @abstractmethod
     def main_enrichment(self, df: DataFrame) -> DataFrame:
         return df
 
 
+    @abstractmethod
     def post_enrichment(self, df: DataFrame) -> DataFrame:
         return df
 
@@ -129,12 +154,10 @@ class BasePipeline(ABC):
         df: DataFrame, 
         gateway_rules: list[GatewayRule]
     ) -> DataFrame:
-        posting_rule_processor = PostingRuleProcessor()
-        gateway_rule_processor = GatewayRuleProcessor(
-            posting_rule_processor=posting_rule_processor,
-            transformation_manager=self._transformation_manager,
-            finmap=self._finmap
-        )
-        rule_execution_engine = RuleExecutionEngine(gateway_rule_processor=gateway_rule_processor)
 
-        return rule_execution_engine.execute(df, gateway_rules)
+        return self._rule_execution_engine.execute(df, gateway_rules)
+
+
+    @staticmethod
+    def _numeric_id(column: str) -> Column:
+        return F.regexp_extract(column, r'(\d+)$', 1).cast('int')
