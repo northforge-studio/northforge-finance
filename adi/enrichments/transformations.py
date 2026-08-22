@@ -15,11 +15,13 @@ class TransformationManager:
         dataclass: str,
         zone: str,
         stage: str,
+        sub_stage: str = '',
     ) -> DataFrame:
         transformations = self.repository.get_transformations(
             dataclass=dataclass,
             zone=zone,
             stage=stage,
+            sub_stage=sub_stage,
         )
 
         for transformation in transformations:

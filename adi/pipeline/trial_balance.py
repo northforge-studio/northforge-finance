@@ -32,8 +32,6 @@ class TrialBalancePipeline(BasePipeline):
 
 
     def pre_staging(self, df: DataFrame) -> DataFrame:
-        df = self._add_row_id(df)
-
         df = self._transformation_manager.apply(
             df=df,
             dataclass=self.DATACLASS,
@@ -62,6 +60,7 @@ class TrialBalancePipeline(BasePipeline):
 
 
     def post_staging(self, df: DataFrame) -> DataFrame:
+        df = self._add_row_id(df)
         df = self._get_total_acct_func_amt(df)
 
         df = self._transformation_manager.apply(

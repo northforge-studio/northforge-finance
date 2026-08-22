@@ -13,6 +13,7 @@ class TransformationRepository:
         dataclass: str,
         zone: str,
         stage: str,
+        sub_stage: str = '',
     ) -> list[dict]:
         config_df = self.store.read(table_name='CFG_TRANSFORMATIONS')
 
@@ -22,6 +23,7 @@ class TransformationRepository:
                 (F.col('DATACLASS') == dataclass)
                 & (F.col('ZONE') == zone)
                 & (F.col('STAGE') == stage)
+                & (F.coalesce(F.col('SUB_STAGE'), F.lit('')) == sub_stage)
                 & (F.col('STATUS') == 'A')
             )
             .orderBy('SEQ')
