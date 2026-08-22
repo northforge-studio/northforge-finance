@@ -3,7 +3,7 @@ from pathlib import Path
 from pyspark.sql import SparkSession, DataFrame
 
 from finmap.manager import MappingManager
-from finmap.models import Mapping, MappingDefinition
+from finmap.models import Mapping, MappingDefinition, GatewayRule
 from finmap.repository import (
     CsvRepository,
     Repository,
@@ -64,7 +64,7 @@ class FinMapClient:
     def get_rule_config(
         self,
         dataclass: str,
-    ) -> dict[str, list[str]]:
+    ) -> list[GatewayRule]:
         return self._manager.get_rule_config(
             dataclass
         )
