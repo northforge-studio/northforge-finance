@@ -176,13 +176,13 @@ def test_get_rule_config_groups_posting_rules_by_gateway_rule_id(manager):
     assert rule_cfg == [
         GatewayRule(
             id='TB-GRS-001-BK-01',
-            posting_rules=[
+            posting_measure_nm='ADJUSTED_BALANCE',
+            posting_rules=(
                 PostingRule(
                     id='TB-GRS-001-BK-01',
                     posting_stream='GROSS_UP',
-                    posting_measure_nm='ADJUSTED_BALANCE',
                 ),
-            ],
+            ),
         )
     ]
 

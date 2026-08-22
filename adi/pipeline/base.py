@@ -4,6 +4,14 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructType
 
+from adi.rules import (
+    PostingRuleProcessor,
+    GatewayRuleProcessor,
+    RuleExecutionEngine
+)
+
+from finmap import GatewayRule
+
 
 class BasePipeline(ABC):
     def run(self, df: DataFrame) -> DataFrame:
@@ -53,8 +61,9 @@ class BasePipeline(ABC):
         ...
 
 
+    @abstractmethod
     def pre_enrichment(self, df: DataFrame) -> DataFrame:
-        return df
+        ...
 
 
     def main_enrichment(self, df: DataFrame) -> DataFrame:
@@ -98,3 +107,15 @@ class BasePipeline(ABC):
         ]
 
         return df.select(*columns)
+
+
+    def _execute_rules(
+        self, 
+        df: DataFrame, 
+        gateway_rules: list[GatewayRule]
+    ) -> DataFrame:
+        posting_rule_processor = PostingRuleProcessor()
+        gateway_rule_processor = GatewayRuleProcessor(posting_rule_processor=posting_rule_processor)
+        rule_execution_engine = RuleExecutionEngine(gateway_rule_processor=gateway_rule_processor)
+
+        return rule_execution_engine.execute(df, gateway_rules)

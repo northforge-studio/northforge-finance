@@ -103,26 +103,31 @@ class MappingManager:
             .collect()
         )
 
-        rule_cfg: dict[str, list[PostingRule]] = {}
+        rule_cfg: dict[str, dict[str, object]] = {}
 
         for row in rows:
-            rule_cfg.setdefault(
+            gateway_cfg = rule_cfg.setdefault(
                 row['GATEWAY_RULE_ID'],
-                []
-            ).append(
+                {
+                    'POSTING_MEASURE_NM': row['POSTING_MEASURE_NM'],
+                    'POSTING_RULES': [],
+                },
+            )
+
+            gateway_cfg['POSTING_RULES'].append(
                 PostingRule(
                     id=row['POSTING_RULE_ID'],
                     posting_stream=row['POSTING_STREAM'],
-                    posting_measure_nm=row['POSTING_MEASURE_NM'],
                 )
             )
 
         return [
             GatewayRule(
                 id=gateway_rule_id,
-                posting_rules=posting_rules,
+                posting_measure_nm=gateway_cfg['POSTING_MEASURE_NM'],
+                posting_rules=tuple(gateway_cfg['POSTING_RULES']),
             )
-            for gateway_rule_id, posting_rules
+            for gateway_rule_id, gateway_cfg
             in rule_cfg.items()
         ]
 

@@ -21,32 +21,32 @@ class TrialBalancePipeline(BasePipeline):
         reference_manager: ReferenceManager,
         finmap: FinMapClient,
     ):
-        self.transformation_manager = transformation_manager
-        self.reference_manager = reference_manager
-        self.finmap = finmap
+        self._transformation_manager = transformation_manager
+        self._reference_manager = reference_manager
+        self._finmap = finmap
 
 
     def pre_staging(self, df: DataFrame) -> DataFrame:
         df = self._add_row_id(df)
 
-        df = self.transformation_manager.apply(
+        df = self._transformation_manager.apply(
             df=df,
             dataclass=self.DATACLASS,
             zone='staging',
             stage='pre',
         )
 
-        df = self.finmap.apply(df, mapping_name='ENTITY_MAPPING')
-        df = self.finmap.apply(df, mapping_name='MEASURE_TYPE_MAPPING')
+        df = self._finmap.apply(df, mapping_name='ENTITY_MAPPING')
+        df = self._finmap.apply(df, mapping_name='MEASURE_TYPE_MAPPING')
 
-        df = self.reference_manager.enrich_fx_rate(df)
-        df = self.reference_manager.enrich_counterparty(df)
+        df = self._reference_manager.enrich_fx_rate(df)
+        df = self._reference_manager.enrich_counterparty(df)
 
         return df
 
 
     def main_staging(self, df: DataFrame) -> DataFrame:
-        df = self.transformation_manager.apply(
+        df = self._transformation_manager.apply(
             df=df,
             dataclass=self.DATACLASS,
             zone='staging',
@@ -59,7 +59,7 @@ class TrialBalancePipeline(BasePipeline):
     def post_staging(self, df: DataFrame) -> DataFrame:
         df = self._get_total_acct_func_amt(df)
 
-        df = self.transformation_manager.apply(
+        df = self._transformation_manager.apply(
             df=df,
             dataclass=self.DATACLASS,
             zone='staging',
@@ -69,6 +69,12 @@ class TrialBalancePipeline(BasePipeline):
         df = self._align_to_schema(df, TRIAL_BALANCE_STAGING_SCHEMA)
 
         return df
+
+
+    def pre_enrichment(self, df: DataFrame) -> DataFrame:
+        gateway_rules = self._finmap.get_rule_config(self.DATACLASS)
+
+        return self._execute_rules(df, gateway_rules)
 
 
     def _get_total_acct_func_amt(self, df: DataFrame) -> DataFrame:

@@ -111,10 +111,10 @@ class Mapping:
 class PostingRule:
     id: str
     posting_stream: str
-    posting_measure_nm: str
 
 
 @dataclass(frozen=True)
 class GatewayRule:
     id: str
+    posting_measure_nm: str
     posting_rules: tuple[PostingRule, ...]

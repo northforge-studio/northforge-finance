@@ -1,6 +1,7 @@
 from functools import reduce
 
 from pyspark.sql import DataFrame
+from pyspark.sql import functions as F
 
 from finmap import GatewayRule
 
@@ -40,4 +41,9 @@ class GatewayRuleProcessor:
         df: DataFrame,
         gateway_rule: GatewayRule,
     ) -> DataFrame:
+        df = df.withColumn(
+            'POSTING_RULE_ID',
+            F.lit(gateway_rule.id)
+        )
+        
         return df
