@@ -7,6 +7,7 @@ from adi.contracts import (
     TRIAL_BALANCE_SOURCE_SCHEMA,
     TRIAL_BALANCE_STAGING_SCHEMA,
     TRIAL_BALANCE_ENRICHMENT_SCHEMA,
+    TRIAL_BALANCE_REPORTING_SCHEMA,
 )
 from adi.io.store import Store
 
@@ -49,10 +50,45 @@ class TrialBalanceRepository:
         )
 
 
+    def read_enrichment(self, business_dt: date, batch_id: str) -> DataFrame:
+        enrichment_df = self.store.read(
+            table_name='TRIAL_BALANCE_ENRICHMENT',
+            schema=TRIAL_BALANCE_ENRICHMENT_SCHEMA,
+        ).filter(
+            (F.col('BUSINESS_DT') == business_dt) & (F.col('BATCH_ID') == batch_id)
+        )
+
+        if enrichment_df.isEmpty():
+            raise ValueError(f"No enrichment data found for business date: {business_dt} and batch ID: {batch_id}")
+
+        return enrichment_df
+
+
     def write_enrichment(self, df: DataFrame) -> None:
         self.store.write(
             df,
             table_name='TRIAL_BALANCE_ENRICHMENT',
+        )
+
+
+    def read_reporting(self, business_dt: date, batch_id: str) -> DataFrame:
+        reporting_df = self.store.read(
+            table_name='TRIAL_BALANCE_REPORTING',
+            schema=TRIAL_BALANCE_REPORTING_SCHEMA,
+        ).filter(
+            (F.col('BUSINESS_DT') == business_dt) & (F.col('BATCH_ID') == batch_id)
+        )
+
+        if reporting_df.isEmpty():
+            raise ValueError(f"No reporting data found for business date: {business_dt} and batch ID: {batch_id}")
+
+        return reporting_df
+
+
+    def write_reporting(self, df: DataFrame) -> None:
+        self.store.write(
+            df,
+            table_name='TRIAL_BALANCE_REPORTING',
         )
 
 
@@ -69,6 +105,14 @@ class TrialBalanceRepository:
             table_name='TRIAL_BALANCE_ENRICHMENT',
             filters={'BUSINESS_DT': business_dt, 'BATCH_ID': batch_id},
             schema=TRIAL_BALANCE_ENRICHMENT_SCHEMA,
+        )
+
+
+    def delete_reporting(self, business_dt: date, batch_id: str) -> None:
+        self.store.delete(
+            table_name='TRIAL_BALANCE_REPORTING',
+            filters={'BUSINESS_DT': business_dt, 'BATCH_ID': batch_id},
+            schema=TRIAL_BALANCE_REPORTING_SCHEMA,
         )
 
 

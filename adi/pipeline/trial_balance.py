@@ -6,7 +6,8 @@ from pyspark.sql import functions as F
 from adi.pipeline.base import BasePipeline
 from adi.contracts import (
     TRIAL_BALANCE_STAGING_SCHEMA,
-    TRIAL_BALANCE_ENRICHMENT_SCHEMA
+    TRIAL_BALANCE_ENRICHMENT_SCHEMA,
+    TRIAL_BALANCE_REPORTING_SCHEMA,
 )
 from adi.enrichments import (
     TransformationManager, 
@@ -128,8 +129,60 @@ class TrialBalancePipeline(BasePipeline):
         )
 
         df = self._align_to_schema(df, TRIAL_BALANCE_ENRICHMENT_SCHEMA)
+        df = df.orderBy(
+            self._numeric_id('SRC_RECORD_ID'),
+            self._numeric_id('STAGING_ID'),
+            self._numeric_id('ENRICHMENT_ID'),
+        )
 
         self._repository.write_enrichment(df)
+
+        return tuple([self._config.business_dt, self._config.batch_id])
+
+
+    def pre_reporting(self) -> DataFrame:
+        staging_df = self._repository.read_staging(
+            business_dt=self._config.business_dt,
+            batch_id=self._config.batch_id,
+        )
+        enrichment_df = self._repository.read_enrichment(
+            business_dt=self._config.business_dt,
+            batch_id=self._config.batch_id,
+        )
+
+        return self._combine_staging_and_enrichment(staging_df, enrichment_df)
+
+
+    def main_reporting(self, df: DataFrame) -> DataFrame:
+        df = self._transformation_manager.apply(
+            df,
+            dataclass=self.DATACLASS,
+            zone='RPT',
+            stage='MAIN',
+        )
+
+        return df
+
+
+    def post_reporting(self, df: DataFrame) -> tuple[date, str]:
+        df = self._add_row_id(df)
+
+        df = self._transformation_manager.apply(
+            df,
+            dataclass=self.DATACLASS,
+            zone='RPT',
+            stage='POST',
+        )
+
+        df = self._align_to_schema(df, TRIAL_BALANCE_REPORTING_SCHEMA)
+        df = df.orderBy(
+            self._numeric_id('SRC_RECORD_ID'),
+            self._numeric_id('STAGING_ID'),
+            self._numeric_id('ENRICHMENT_ID'),
+            self._numeric_id('REPORTING_ID'),
+        )
+
+        self._repository.write_reporting(df)
 
         return tuple([self._config.business_dt, self._config.batch_id])
 
@@ -143,6 +196,32 @@ class TrialBalancePipeline(BasePipeline):
 
         self._repository.delete_staging(business_dt, batch_id)
         self._repository.delete_enrichment(business_dt, batch_id)
+        self._repository.delete_reporting(business_dt, batch_id)
+
+
+    def _combine_staging_and_enrichment(
+        self,
+        staging_df: DataFrame,
+        enrichment_df: DataFrame,
+    ) -> DataFrame:
+        enrichment_only_columns = [
+            field.name
+            for field in TRIAL_BALANCE_ENRICHMENT_SCHEMA.fields
+            if field.name not in {f.name for f in TRIAL_BALANCE_STAGING_SCHEMA.fields}
+        ]
+
+        unprocessed_staging_df = staging_df.join(
+            enrichment_df.select('STAGING_ID'),
+            on='STAGING_ID',
+            how='left_anti',
+        )
+
+        for column in enrichment_only_columns:
+            unprocessed_staging_df = unprocessed_staging_df.withColumn(
+                column, F.lit('')
+            )
+
+        return enrichment_df.unionByName(unprocessed_staging_df)
 
 
     def _resolve_batch_id(self, df: DataFrame) -> DataFrame:

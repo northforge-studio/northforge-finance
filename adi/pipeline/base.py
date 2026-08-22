@@ -51,6 +51,7 @@ class BasePipeline(ABC):
         try:
             self.staging()
             self.enrichment()
+            self.reporting()
         except Exception:
             self.rollback()
             raise
@@ -70,6 +71,14 @@ class BasePipeline(ABC):
         df = self.pre_enrichment()
         df = self.main_enrichment(df)
         self.post_enrichment(df)
+
+        return tuple([self._config.business_dt, self._config.batch_id])
+
+
+    def reporting(self) -> tuple[date, str]:
+        df = self.pre_reporting()
+        df = self.main_reporting(df)
+        self.post_reporting(df)
 
         return tuple([self._config.business_dt, self._config.batch_id])
 
@@ -109,6 +118,21 @@ class BasePipeline(ABC):
 
     @abstractmethod
     def post_enrichment(self, df: DataFrame) -> tuple[date, str]:
+        ...
+
+
+    @abstractmethod
+    def pre_reporting(self) -> DataFrame:
+        ...
+
+
+    @abstractmethod
+    def main_reporting(self, df: DataFrame) -> DataFrame:
+        ...
+
+
+    @abstractmethod
+    def post_reporting(self, df: DataFrame) -> tuple[date, str]:
         ...
 
 

@@ -148,7 +148,7 @@ def test_apply_preserves_unmatched_source_row(spark, manager):
     assert row['GL_BRANCH_CD'] is None
 
 
-def test_apply_rejects_existing_output_column(spark, manager):
+def test_apply_auto_drops_existing_output_column(spark, manager):
     df = spark.createDataFrame(
         [
             (
@@ -168,14 +168,27 @@ def test_apply_rejects_existing_output_column(spark, manager):
         ],
     )
 
-    with pytest.raises(
-        ValueError,
-        match='output columns already exist',
-    ):
-        manager.apply(
+    result = manager.apply(
             df,
             'ENTITY_MAPPING',
         )
+    
+    result.show(
+        truncate=False,
+    )
+
+    assert result.count() == 1
+
+    assert result.columns == [
+        'SRC_APP_CD',
+        'SRC_ENTITY_CD',
+        'DATACLASS',
+        'COA_RULE_ID',
+        'GL_ENTITY_CD',
+        'GL_BRANCH_CD',
+        'ENTITY_SUN_ID',
+        'POSTING_MEASURE_FUNC_CCY_CD',
+    ]
 
 
 def test_get_rule_config_groups_posting_rules_by_gateway_rule_id(manager):
