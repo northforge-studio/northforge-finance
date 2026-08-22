@@ -19,40 +19,6 @@ class MappingManager:
         return self._repository.get_mapping(mapping_name)
 
 
-    def validate(
-        self,
-        df: DataFrame,
-        mapping: Mapping,
-    ) -> None:
-        required_columns = {
-            field.src_field_name
-            for field in mapping.definition.lookup_fields
-            if field.src_field_name is not None
-        }
-
-        missing_columns = required_columns - set(df.columns)
-
-        if missing_columns:
-            raise ValueError(
-                f'Mapping {mapping.definition.mapping_name!r} '
-                f'requires source columns {sorted(missing_columns)}'
-            )
-
-        output_columns = {
-            field.logical_name
-            for field in mapping.definition.output_fields
-        }
-
-        conflicting_columns = output_columns & set(df.columns)
-
-        if conflicting_columns:
-            raise ValueError(
-                f'Mapping {mapping.definition.mapping_name!r} '
-                f'output columns already exist in source '
-                f'{sorted(conflicting_columns)}'
-            )
-
-
     def apply(
         self,
         df: DataFrame,
@@ -60,7 +26,7 @@ class MappingManager:
     ) -> DataFrame:
         mapping = self.get_mapping(mapping_name)
 
-        self.validate(
+        self._validate(
             df,
             mapping,
         )
@@ -115,6 +81,66 @@ class MappingManager:
             )
 
         return result_df
+
+
+    def get_measure_map(
+        self,
+        dataclass: str,
+    ) -> dict[str, list[str]]:
+        mapping = self.get_mapping('POSTING_RULES_MAPPING')
+
+        rows = (
+            mapping.data
+            .filter(
+                (F.upper(F.col('DATACLASS')) == F.upper(F.lit(dataclass)))
+                | (F.col('DATACLASS') == '*')
+            )
+            .select('POSTING_RULE_ID', 'POSTING_MEASURE_NM')
+            .collect()
+        )
+
+        result: dict[str, list[str]] = {}
+
+        for row in rows:
+            result.setdefault(row['POSTING_RULE_ID'], []).append(
+                row['POSTING_MEASURE_NM']
+            )
+
+        return result
+
+
+    def _validate(
+        self,
+        df: DataFrame,
+        mapping: Mapping,
+    ) -> None:
+        required_columns = {
+            field.src_field_name
+            for field in mapping.definition.lookup_fields
+            if field.src_field_name is not None
+        }
+
+        missing_columns = required_columns - set(df.columns)
+
+        if missing_columns:
+            raise ValueError(
+                f'Mapping {mapping.definition.mapping_name!r} '
+                f'requires source columns {sorted(missing_columns)}'
+            )
+
+        output_columns = {
+            field.logical_name
+            for field in mapping.definition.output_fields
+        }
+
+        conflicting_columns = output_columns & set(df.columns)
+
+        if conflicting_columns:
+            raise ValueError(
+                f'Mapping {mapping.definition.mapping_name!r} '
+                f'output columns already exist in source '
+                f'{sorted(conflicting_columns)}'
+            )
 
 
     def _build_join_condition(

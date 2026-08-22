@@ -32,7 +32,7 @@ def test_validate_entity_mapping_source_columns(spark, manager):
 
     mapping = manager.get_mapping('ENTITY_MAPPING')
 
-    manager.validate(
+    manager._validate(
         df,
         mapping
     )
@@ -57,7 +57,7 @@ def test_validate_entity_mapping_missing_source_column(spark, manager):
 
         mapping = manager.get_mapping('ENTITY_MAPPING')
 
-        manager.validate(
+        manager._validate(
             df,
             mapping,
         )

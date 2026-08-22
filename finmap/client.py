@@ -59,3 +59,12 @@ class FinMapClient:
         return self._repository.get_definition(
             mapping_name
         )
+
+
+    def get_posting_rule_measures(
+        self,
+        dataclass: str,
+    ) -> dict[str, list[str]]:
+        return self._manager.get_measure_map(
+            dataclass
+        )
