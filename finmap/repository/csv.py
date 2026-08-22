@@ -1,7 +1,4 @@
-import csv
-from pathlib import Path
-
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
 from finmap.models import (
@@ -11,19 +8,13 @@ from finmap.models import (
     MappingDefinition,
     MappingField,
 )
-from finmap.contracts import MAPPING_DATA_SCHEMA
+from finmap.contracts import MAPPING_META_SCHEMA, MAPPING_DATA_SCHEMA
+from finmap.io.store import Store
 
 
 class CsvRepository:
-    def __init__(
-        self,
-        spark: SparkSession,
-        metadata_path: str | Path,
-        data_path: str | Path,
-    ):
-        self._spark = spark
-        self._metadata_path = Path(metadata_path)
-        self._data_path = Path(data_path)
+    def __init__(self, store: Store):
+        self._store = store
 
 
     def get_mapping(self, mapping_name: str) -> Mapping:
@@ -51,7 +42,7 @@ class CsvRepository:
             definition=definition,
             data=data,
         )
-    
+
 
     def get_definition(self, mapping_name: str) -> MappingDefinition:
         rows = self._read_metadata(mapping_name)
@@ -94,29 +85,25 @@ class CsvRepository:
 
 
     def _read_metadata(self, mapping_name: str) -> list[dict[str, str]]:
-        with self._metadata_path.open(
-            mode='r',
-            encoding='utf-8-sig',
-            newline='',
-        ) as file:
-            reader = csv.DictReader(file)
+        df = self._store.read('MAPPING_META', schema=MAPPING_META_SCHEMA)
 
-            return [
-                row
-                for row in reader
-                if row['MAPPING_NAME'].upper() == mapping_name.upper()
-            ]
+        rows = (
+            df
+            .filter(
+                F.upper(F.col('MAPPING_NAME')) == mapping_name.upper()
+            )
+            .collect()
+        )
+
+        return [row.asDict() for row in rows]
 
 
     def _read_mapping_data(
         self,
         definition: MappingDefinition,
-    ):
+    ) -> DataFrame:
         df = (
-            self._spark.read
-            .option('header', True)
-            .schema(MAPPING_DATA_SCHEMA)
-            .csv(str(self._data_path))
+            self._store.read('MAPPING_DATA', schema=MAPPING_DATA_SCHEMA)
             .filter(
                 F.upper(F.col('MAPPING_NAME')) == definition.mapping_name.upper()
             )

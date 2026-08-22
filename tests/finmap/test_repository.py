@@ -1,15 +1,19 @@
 import pytest
 
 from finmap.repository import CsvRepository
+from finmap.io.store import CsvStore
 
 
 @pytest.fixture(scope='module')
 def repository(spark):
-    return CsvRepository(
+    store = CsvStore(
         spark=spark,
-        metadata_path='data/reference/mapping_meta.csv',
-        data_path='data/reference/mapping_data.csv',
+        table_paths={
+            'MAPPING_META': 'data/reference/mapping_meta.csv',
+            'MAPPING_DATA': 'data/reference/mapping_data.csv',
+        },
     )
+    return CsvRepository(store)
 
 
 def test_reconstruct_entity_mapping_definition(repository):

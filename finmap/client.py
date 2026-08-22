@@ -8,6 +8,7 @@ from finmap.repository import (
     CsvRepository,
     Repository,
 )
+from finmap.io.store import CsvStore
 
 
 class FinMapClient:
@@ -23,13 +24,15 @@ class FinMapClient:
         metadata_path: str | Path,
         data_path: str | Path,
     ) -> 'FinMapClient':
-        repository = CsvRepository(
+        store = CsvStore(
             spark=spark,
-            metadata_path=metadata_path,
-            data_path=data_path,
+            table_paths={
+                'MAPPING_META': Path(metadata_path),
+                'MAPPING_DATA': Path(data_path),
+            },
         )
 
-        return cls(repository)
+        return cls(CsvRepository(store))
 
 
     def apply(

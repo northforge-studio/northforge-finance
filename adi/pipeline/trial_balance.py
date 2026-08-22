@@ -37,8 +37,8 @@ class TrialBalancePipeline(BasePipeline):
         df = self._transformation_manager.apply(
             df=df,
             dataclass=self.DATACLASS,
-            zone='staging',
-            stage='pre',
+            zone='STG',
+            stage='PRE',
         )
 
         df = self._finmap.apply(df, mapping_name='ENTITY_MAPPING')
@@ -54,8 +54,8 @@ class TrialBalancePipeline(BasePipeline):
         df = self._transformation_manager.apply(
             df=df,
             dataclass=self.DATACLASS,
-            zone='staging',
-            stage='main',
+            zone='STG',
+            stage='MAIN',
         )
         
         return df
@@ -67,8 +67,8 @@ class TrialBalancePipeline(BasePipeline):
         df = self._transformation_manager.apply(
             df=df,
             dataclass=self.DATACLASS,
-            zone='staging',
-            stage='post',
+            zone='STG',
+            stage='POST',
         )
 
         df = self._align_to_schema(df, TRIAL_BALANCE_STAGING_SCHEMA)

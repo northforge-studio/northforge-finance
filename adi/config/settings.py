@@ -20,4 +20,13 @@ TABLE_PATHS = {
     'TRIAL_BALANCE_ENRICHMENT': (
         ENRICHMENT_DIR / 'trial_balance'
     ),
+    'REF_FX_RATE': (
+        REFERENCE_DIR / 'ref_fx_rate.csv'
+    ),
+    'REF_COUNTERPARTY': (
+        REFERENCE_DIR / 'ref_counterparty.csv'
+    ),
+    'CFG_TRANSFORMATIONS': (
+        REFERENCE_DIR / 'cfg_transformations.csv'
+    ),
 }

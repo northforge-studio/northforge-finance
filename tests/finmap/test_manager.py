@@ -6,15 +6,23 @@ from finmap.repository import (
     Repository,
     CsvRepository,
 )
+from finmap.io.store import CsvStore
+
+
+def _make_repository(spark):
+    store = CsvStore(
+        spark=spark,
+        table_paths={
+            'MAPPING_META': 'data/reference/mapping_meta.csv',
+            'MAPPING_DATA': 'data/reference/mapping_data.csv',
+        },
+    )
+    return CsvRepository(store)
 
 
 @pytest.fixture(scope='module')
 def manager(spark):
-    repository = CsvRepository(
-        spark=spark,
-        metadata_path='data/reference/mapping_meta.csv',
-        data_path='data/reference/mapping_data.csv',
-    )
+    repository = _make_repository(spark)
     return MappingManager(repository)
 
 
@@ -194,13 +202,7 @@ def test_get_rule_config_unmatched_dataclass_returns_empty(manager):
 
 
 def test_csv_repository_satisfies_protocol(spark):
-        repository: Repository = (
-            CsvRepository(
-                spark=spark,
-                metadata_path='data/reference/mapping_meta.csv',
-                data_path='data/reference/mapping_data.csv',
-            )
-        )
+        repository: Repository = _make_repository(spark)
 
         definition = repository.get_definition(
             'ENTITY_MAPPING',

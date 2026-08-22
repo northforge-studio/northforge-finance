@@ -1,42 +1,12 @@
-from enum import StrEnum
-
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from adi.config import REFERENCE_DIR
-from adi.contracts import (
-    FX_RATE_SCHEMA,
-    COUNTERPARTY_SCHEMA,
-)
-
-
-class ReferenceData(StrEnum):
-    FX_RATE = 'ref_fx_rate.csv'
-    COUNTERPARTY = 'ref_counterparty.csv'
+from adi.io.repository import ReferenceRepository
 
 
 class ReferenceManager:
-    REFERENCE_SCHEMAS = {
-        ReferenceData.FX_RATE: FX_RATE_SCHEMA,
-        ReferenceData.COUNTERPARTY: COUNTERPARTY_SCHEMA,
-    }
-
-
-    def __init__(self, spark: SparkSession):
-        self.spark = spark
-
-
-    def _get_reference_data(
-        self,
-        reference_data: ReferenceData,
-    ) -> DataFrame:
-        return (
-            self.spark.read
-            .option('header', True)
-            .option('inferSchema', True)
-            .schema(self.REFERENCE_SCHEMAS[reference_data])
-            .csv(str(REFERENCE_DIR / reference_data))
-        )
+    def __init__(self, repository: ReferenceRepository):
+        self.repository = repository
 
 
     def enrich_fx_rate(self, df: DataFrame) -> DataFrame:
@@ -45,7 +15,7 @@ class ReferenceManager:
 
         source_df = df.alias(source_alias)
         reference_df = (
-            self._get_reference_data(ReferenceData.FX_RATE)
+            self.repository.get_fx_rate()
             .alias(reference_alias)
         )
 
@@ -58,7 +28,7 @@ class ReferenceManager:
         )
 
         joined_df = source_df.join(
-            reference_df, 
+            reference_df,
             on=condition,
             how='left'
         )
@@ -75,7 +45,7 @@ class ReferenceManager:
 
         source_df = df.alias(source_alias)
         reference_df = (
-            self._get_reference_data(ReferenceData.COUNTERPARTY)
+            self.repository.get_counterparty()
             .alias(reference_alias)
         )
 
@@ -93,10 +63,10 @@ class ReferenceManager:
                 F.lit(''),
             )
         )
-        
+
 
         joined_df = source_df.join(
-            reference_df, 
+            reference_df,
             on=condition,
             how='left'
         )
