@@ -48,7 +48,7 @@ class PostingRuleProcessor:
     ) -> DataFrame:
 
         df = self._transformation_manager.apply(
-            df=df,
+            df,
             dataclass=self._dataclass,
             zone='ENR',
             stage='PRE',
@@ -58,7 +58,7 @@ class PostingRuleProcessor:
         df = self._apply_coa_enrichments(df)
 
         df = self._transformation_manager.apply(
-            df=df,
+            df,
             dataclass=self._dataclass,
             zone='ENR',
             stage='PRE',

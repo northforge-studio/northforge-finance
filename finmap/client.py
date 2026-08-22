@@ -41,7 +41,7 @@ class FinMapClient:
         mapping_name: str,
     ) -> DataFrame:
         return self._manager.apply(
-            df=df,
+            df,
             mapping_name=mapping_name,
         )
 

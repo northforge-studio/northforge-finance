@@ -21,6 +21,9 @@ class CsvStore:
     ) -> DataFrame:
         path = self.table_paths[table_name]
 
+        if schema is not None and not Path(path).exists():
+            return self.spark.createDataFrame([], schema=schema)
+
         reader = (
             self.spark.read
             .option('header', True)
@@ -54,7 +57,7 @@ class CsvStore:
         self,
         df: DataFrame,
         table_name: str,
-        mode: str = 'overwrite',
+        mode: str = 'append',
     ) -> None:
         path = self.table_paths[table_name]
 

@@ -1,3 +1,5 @@
+from datetime import date
+
 from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as F
 
@@ -10,6 +12,8 @@ from adi.enrichments import (
     TransformationManager, 
     ReferenceManager
 )
+from adi.models import PipelineConfig
+from adi.io import TrialBalanceRepository
 
 from finmap import FinMapClient
 
@@ -20,24 +24,37 @@ class TrialBalancePipeline(BasePipeline):
 
     def __init__(
         self,
-        transformation_manager: TransformationManager,
-        reference_manager: ReferenceManager,
+        business_dt: date,
         finmap: FinMapClient,
+        repository: TrialBalanceRepository,
+        reference_manager: ReferenceManager,
+        transformation_manager: TransformationManager,
     ):
-        super().__init__(
+        config = PipelineConfig(
             dataclass=self.DATACLASS,
-            transformation_manager = transformation_manager,
-            reference_manager = reference_manager,
-            finmap = finmap
+            business_dt=business_dt
         )
-        self._transformation_manager = transformation_manager
-        self._reference_manager = reference_manager
+        super().__init__(
+            config = config,
+            finmap = finmap,
+            reference_manager = reference_manager,
+            transformation_manager = transformation_manager
+        )
         self._finmap = finmap
+        self._repository = repository
+        self._reference_manager = reference_manager
+        self._transformation_manager = transformation_manager
 
 
-    def pre_staging(self, df: DataFrame) -> DataFrame:
+    def pre_staging(self) -> DataFrame:
+        df = self._repository.read_source(
+            business_dt=self._config.business_dt
+        )
+
+        df = self._resolve_batch_id(df)
+
         df = self._transformation_manager.apply(
-            df=df,
+            df,
             dataclass=self.DATACLASS,
             zone='STG',
             stage='PRE',
@@ -54,7 +71,7 @@ class TrialBalancePipeline(BasePipeline):
 
     def main_staging(self, df: DataFrame) -> DataFrame:
         df = self._transformation_manager.apply(
-            df=df,
+            df,
             dataclass=self.DATACLASS,
             zone='STG',
             stage='MAIN',
@@ -63,23 +80,34 @@ class TrialBalancePipeline(BasePipeline):
         return df
 
 
-    def post_staging(self, df: DataFrame) -> DataFrame:
+    def post_staging(self, df: DataFrame) -> tuple[date, str]:
         df = self._add_row_id(df)
         df = self._get_total_acct_func_amt(df)
 
         df = self._transformation_manager.apply(
-            df=df,
+            df,
             dataclass=self.DATACLASS,
             zone='STG',
             stage='POST',
         )
 
         df = self._align_to_schema(df, TRIAL_BALANCE_STAGING_SCHEMA)
+        df = df.orderBy(
+            self._numeric_id('SRC_RECORD_ID'),
+            self._numeric_id('STAGING_ID')
+        )
 
-        return df
+        self._repository.write_staging(df)
+
+        return tuple([self._config.business_dt, self._config.batch_id])
 
 
-    def pre_enrichment(self, df: DataFrame) -> DataFrame:
+    def pre_enrichment(self) -> DataFrame:
+        df = self._repository.read_staging(
+            business_dt=self._config.business_dt,
+            batch_id=self._config.batch_id
+        )
+
         gateway_rules = self._finmap.get_rule_config(self.DATACLASS)
 
         return self._execute_rules(df, gateway_rules)
@@ -89,11 +117,11 @@ class TrialBalancePipeline(BasePipeline):
         return df
 
 
-    def post_enrichment(self, df: DataFrame) -> DataFrame:
+    def post_enrichment(self, df: DataFrame) -> tuple[date, str]:
         df = self._add_row_id(df)
 
         df = self._transformation_manager.apply(
-            df=df,
+            df,
             dataclass=self.DATACLASS,
             zone='ENR',
             stage='POST',
@@ -101,7 +129,14 @@ class TrialBalancePipeline(BasePipeline):
 
         df = self._align_to_schema(df, TRIAL_BALANCE_ENRICHMENT_SCHEMA)
 
-        return df
+        return tuple([self._config.business_dt, self._config.batch_id])
+
+
+    def _resolve_batch_id(self, df: DataFrame) -> DataFrame:
+        batch_id = self._repository.get_next_batch_id(self._config.business_dt)
+        self._config.batch_id = batch_id
+
+        return df.withColumn('BATCH_ID', F.lit(batch_id))
 
 
     def _get_total_acct_func_amt(self, df: DataFrame) -> DataFrame:

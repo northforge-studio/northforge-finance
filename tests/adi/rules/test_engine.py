@@ -50,7 +50,7 @@ def test_execute_single_gateway_single_gross_up(engine, df):
     ]
 
     result = engine.execute(
-        df=df,
+        df,
         gateway_rules=gateway_rules,
     )
 
@@ -91,7 +91,7 @@ def test_execute_multiple_gateways(engine, df):
     source_count = df.count()
 
     result = engine.execute(
-        df=df,
+        df,
         gateway_rules=gateway_rules,
     )
 
@@ -140,7 +140,7 @@ def test_execute_mixed_gross_up_and_offset_gateways(engine, df):
     source_count = df.count()
 
     result = engine.execute(
-        df=df,
+        df,
         gateway_rules=gateway_rules,
     )
 
@@ -164,7 +164,7 @@ def test_execute_no_gateway_rules_raises(engine, df):
         match='No gateway rules configured',
     ):
         engine.execute(
-            df=df,
+            df,
             gateway_rules=[],
         )
 
@@ -220,7 +220,7 @@ def test_execute_invokes_every_gateway_with_original_input(spark, df):
     source_count = df.count()
 
     engine.execute(
-        df=df,
+        df,
         gateway_rules=gateway_rules,
     )
 

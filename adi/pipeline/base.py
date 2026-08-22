@@ -1,3 +1,4 @@
+from datetime import date
 from abc import ABC, abstractmethod
 
 from pyspark.sql import DataFrame, Column
@@ -13,6 +14,7 @@ from adi.enrichments import (
     TransformationManager, 
     ReferenceManager
 )
+from adi.models import PipelineConfig
 
 from finmap import FinMapClient, GatewayRule
 
@@ -20,18 +22,18 @@ from finmap import FinMapClient, GatewayRule
 class BasePipeline(ABC):
     def __init__(
         self,
-        dataclass: str,
-        transformation_manager: TransformationManager,
-        reference_manager: ReferenceManager,
+        config: PipelineConfig,
         finmap: FinMapClient,
+        reference_manager: ReferenceManager,
+        transformation_manager: TransformationManager,
     ):  
-        self._dataclass = dataclass
-        self._transformation_manager = transformation_manager
-        self._reference_manager = reference_manager
+        self._config = config
         self._finmap = finmap
+        self._reference_manager = reference_manager
+        self._transformation_manager = transformation_manager
 
         posting_rule_processor = PostingRuleProcessor(
-            dataclass=dataclass,
+            dataclass=config.dataclass,
             transformation_manager=transformation_manager,
             finmap=finmap
         )
@@ -45,47 +47,39 @@ class BasePipeline(ABC):
         )
 
 
-    def run(self, df: DataFrame) -> DataFrame:
-        df = self.staging(df)
-        df = self.enrichment(df)
-        df = self.posting(df)
+    def run(self) -> tuple[date, str]:
+        self.staging()
+        self.enrichment()
 
-        return df
+        return tuple([self._config.business_dt, self._config.batch_id])
 
 
-    def staging(self, df: DataFrame) -> DataFrame:
-        df = self.pre_staging(df)
+    def staging(self) -> tuple[date, str]:
+        df = self.pre_staging()
         df = self.main_staging(df)
-        df = self.post_staging(df)
+        self.post_staging(df)
 
-        return df.orderBy(
-            self._numeric_id('SRC_RECORD_ID'),
-            self._numeric_id('STAGING_ID')
-        )
+        return tuple([self._config.business_dt, self._config.batch_id])
 
 
-    def enrichment(self, df: DataFrame) -> DataFrame:
-        df = self.pre_enrichment(df)
+    def enrichment(self) -> tuple[date, str]:
+        df = self.pre_enrichment()
         df = self.main_enrichment(df)
-        df = self.post_enrichment(df)
+        self.post_enrichment(df)
 
-        return df.orderBy(
-            self._numeric_id('SRC_RECORD_ID'),
-            self._numeric_id('STAGING_ID'),
-            self._numeric_id('ENRICHMENT_ID')
-        )
+        return tuple([self._config.business_dt, self._config.batch_id])
 
 
-    def posting(self, df: DataFrame) -> DataFrame:
+    def posting(self, df: DataFrame) -> tuple[date, str]:
         df = self.pre_posting(df)
         df = self.main_posting(df)
-        df = self.post_posting(df)
+        self.post_posting(df)
 
-        return df
+        return tuple([self._config.business_dt, self._config.batch_id])
 
 
     @abstractmethod
-    def pre_staging(self, df: DataFrame) -> DataFrame:
+    def pre_staging(self) -> DataFrame:
         ...
 
 
@@ -95,35 +89,23 @@ class BasePipeline(ABC):
 
 
     @abstractmethod
-    def post_staging(self, df: DataFrame) -> DataFrame:
+    def post_staging(self, df: DataFrame) -> tuple[date, str]:
         ...
 
 
     @abstractmethod
-    def pre_enrichment(self, df: DataFrame) -> DataFrame:
+    def pre_enrichment(self) -> DataFrame:
         ...
 
 
     @abstractmethod
     def main_enrichment(self, df: DataFrame) -> DataFrame:
-        return df
+        ...
 
 
     @abstractmethod
-    def post_enrichment(self, df: DataFrame) -> DataFrame:
-        return df
-
-
-    def pre_posting(self, df: DataFrame) -> DataFrame:
-        return df
-
-
-    def main_posting(self, df: DataFrame) -> DataFrame:
-        return df
-
-
-    def post_posting(self, df: DataFrame) -> DataFrame:
-        return df
+    def post_enrichment(self, df: DataFrame) -> tuple[date, str]:
+        ...
 
 
     def _add_row_id(self, df: DataFrame) -> DataFrame:
