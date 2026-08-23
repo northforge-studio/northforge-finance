@@ -6,7 +6,7 @@ from foundry.repository import (
     TrialBalanceRepository,
     TransformationRepository,
 )
-from core.io.store import CsvStore
+from core.store import CsvStore
 from foundry.pipeline import TrialBalancePipeline
 from foundry.config.settings import TABLE_PATHS
 from foundry.enrichments import TransformationManager

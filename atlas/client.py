@@ -2,7 +2,7 @@ from pathlib import Path
 
 from pyspark.sql import SparkSession, DataFrame
 
-from core.io.store import CsvStore
+from core.store import CsvStore
 
 from atlas.manager import MappingManager
 from atlas.models import Mapping, MappingDefinition, GatewayRule

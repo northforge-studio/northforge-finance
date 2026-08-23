@@ -1,7 +1,7 @@
 import pytest
 from pyspark.sql.types import StructType, StructField, StringType
 
-from core.io.store import CsvStore
+from core.store import CsvStore
 
 
 SCHEMA = StructType([

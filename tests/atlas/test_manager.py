@@ -6,7 +6,7 @@ from atlas.repository import (
     Repository,
     CsvRepository,
 )
-from core.io.store import CsvStore
+from core.store import CsvStore
 
 
 def _make_repository(spark):

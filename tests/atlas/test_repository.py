@@ -1,7 +1,7 @@
 import pytest
 
 from atlas.repository import CsvRepository
-from core.io.store import CsvStore
+from core.store import CsvStore
 
 
 @pytest.fixture(scope='module')

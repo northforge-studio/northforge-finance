@@ -13,8 +13,8 @@ class CsvStore:
         spark: SparkSession,
         table_paths: dict[str, Path],
     ):
-        self.spark = spark
-        self.table_paths = table_paths
+        self._spark = spark
+        self._table_paths = table_paths
 
 
     def read(
@@ -22,13 +22,13 @@ class CsvStore:
         table_name: str,
         schema: StructType | None = None,
     ) -> DataFrame:
-        path = self.table_paths[table_name]
+        path = self._table_paths[table_name]
 
         if schema is not None and not Path(path).exists():
-            return self.spark.createDataFrame([], schema=schema)
+            return self._spark.createDataFrame([], schema=schema)
 
         reader = (
-            self.spark.read
+            self._spark.read
             .option('header', True)
             .option('ignoreLeadingWhiteSpace', True)
             .option('ignoreTrailingWhiteSpace', True)
@@ -62,7 +62,7 @@ class CsvStore:
         table_name: str,
         mode: str = 'append',
     ) -> None:
-        path = self.table_paths[table_name]
+        path = self._table_paths[table_name]
 
         (
             df.write
@@ -81,7 +81,7 @@ class CsvStore:
         if not filters:
             raise ValueError('delete requires at least one filter')
 
-        path = Path(self.table_paths[table_name])
+        path = Path(self._table_paths[table_name])
 
         if not path.exists():
             return

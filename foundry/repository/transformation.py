@@ -1,6 +1,6 @@
 from pyspark.sql import functions as F
 
-from core.io.store import Store
+from core.store import Store
 
 
 class TransformationRepository:

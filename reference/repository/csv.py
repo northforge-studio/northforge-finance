@@ -1,6 +1,6 @@
 from pyspark.sql import DataFrame
 
-from core.io.store import Store
+from core.store import Store
 
 from reference.contracts import (
     FX_RATE_SCHEMA,

@@ -1,7 +1,7 @@
 import pytest
 
 from reference.repository import CsvRepository, Repository
-from core.io.store import CsvStore
+from core.store import CsvStore
 
 
 @pytest.fixture(scope='module')
