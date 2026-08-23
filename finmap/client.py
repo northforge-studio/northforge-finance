@@ -2,13 +2,14 @@ from pathlib import Path
 
 from pyspark.sql import SparkSession, DataFrame
 
+from core.io.store import CsvStore
+
 from finmap.manager import MappingManager
 from finmap.models import Mapping, MappingDefinition, GatewayRule
 from finmap.repository import (
     CsvRepository,
     Repository,
 )
-from finmap.io.store import CsvStore
 
 
 class FinMapClient:

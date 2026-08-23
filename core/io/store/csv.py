@@ -54,7 +54,7 @@ class CsvStore:
             )
 
         return df
-            
+
 
     def write(
         self,

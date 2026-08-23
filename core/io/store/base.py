@@ -17,7 +17,7 @@ class Store(Protocol):
         self,
         df: DataFrame,
         table_name: str,
-        mode: str = 'overwrite',
+        mode: str = 'append',
     ) -> None:
         ...
 

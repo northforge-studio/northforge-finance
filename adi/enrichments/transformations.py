@@ -1,7 +1,7 @@
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from adi.io.repository import TransformationRepository
+from adi.repository import TransformationRepository
 
 
 class TransformationManager:

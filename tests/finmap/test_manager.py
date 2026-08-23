@@ -6,7 +6,7 @@ from finmap.repository import (
     Repository,
     CsvRepository,
 )
-from finmap.io.store import CsvStore
+from core.io.store import CsvStore
 
 
 def _make_repository(spark):

@@ -1,10 +1,11 @@
 from pyspark.sql import DataFrame
 
+from core.io.store import Store
+
 from adi.contracts import (
     FX_RATE_SCHEMA,
     COUNTERPARTY_SCHEMA,
 )
-from adi.io.store import Store
 
 
 class ReferenceRepository:

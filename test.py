@@ -2,12 +2,12 @@ from datetime import date
 
 from pyspark.sql import SparkSession
 
-from adi.io import (
-    CsvStore,
+from adi.repository import (
     TrialBalanceRepository,
     ReferenceRepository,
     TransformationRepository,
 )
+from core.io.store import CsvStore
 from adi.pipeline import TrialBalancePipeline
 from adi.config.settings import TABLE_PATHS
 from adi.enrichments import (

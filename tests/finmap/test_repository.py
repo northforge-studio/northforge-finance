@@ -1,7 +1,7 @@
 import pytest
 
 from finmap.repository import CsvRepository
-from finmap.io.store import CsvStore
+from core.io.store import CsvStore
 
 
 @pytest.fixture(scope='module')

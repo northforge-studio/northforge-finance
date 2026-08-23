@@ -1,6 +1,8 @@
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
+from core.io.store import Store
+
 from finmap.models import (
     FieldType,
     LookupType,
@@ -9,7 +11,6 @@ from finmap.models import (
     MappingField,
 )
 from finmap.contracts import MAPPING_META_SCHEMA, MAPPING_DATA_SCHEMA
-from finmap.io.store import Store
 
 
 class CsvRepository:

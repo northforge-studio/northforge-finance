@@ -15,7 +15,7 @@ from adi.enrichments import (
     ReferenceManager
 )
 from adi.models import PipelineConfig
-from adi.io import TrialBalanceRepository
+from adi.repository import TrialBalanceRepository
 
 from finmap import FinMapClient
 
