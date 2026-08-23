@@ -1,6 +1,3 @@
-import os
-from dotenv import load_dotenv
-
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -8,8 +5,8 @@ from sqlalchemy import pool
 
 from alembic import context
 
+from core.db import PostgresConfig
 
-load_dotenv()
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -21,16 +18,12 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 
-database_url = (
-    f"postgresql+psycopg://"
-    f"{os.environ['POSTGRES_USER']}:"
-    f"{os.environ['POSTGRES_PASSWORD']}@"
-    f"{os.environ['POSTGRES_HOST']}:"
-    f"{os.environ['POSTGRES_PORT']}/"
-    f"{os.environ['POSTGRES_DB']}"
-)
+db_config = PostgresConfig.from_env()
 
-config.set_main_option('sqlalchemy.url', database_url)
+config.set_main_option(
+    'sqlalchemy.url', 
+    db_config.sqlalchemy_url
+)
 
 # add your model's MetaData object here
 # for 'autogenerate' support

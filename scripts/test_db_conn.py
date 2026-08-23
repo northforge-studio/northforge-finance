@@ -1,26 +1,13 @@
-import os
-from dotenv import load_dotenv
-
 from pyspark.sql import SparkSession
 
+from core.db import PostgresConfig
 
-load_dotenv()
 
-DB_HOST = os.environ['POSTGRES_HOST']
-DB_PORT = os.environ['POSTGRES_PORT']
-DB_NAME = os.environ['POSTGRES_DB']
-DB_USER = os.environ['POSTGRES_USER']
-DB_PASSWORD = os.environ['POSTGRES_PASSWORD']
+db_config = PostgresConfig.from_env()
 
-JDBC_URL = (
-    f'jdbc:postgresql://{DB_HOST}:{DB_PORT}/{DB_NAME}'
-)
+JDBC_URL = db_config.jdbc_url
+DB_PROPERTIES = db_config.jdbc_properties
 
-DB_PROPERTIES = {
-    'user': DB_USER,
-    'password': DB_PASSWORD,
-    'driver': 'org.postgresql.Driver',
-}
 TEST_TABLE = 'public.spark_connection_test'
 
 
