@@ -52,10 +52,10 @@ business_dt, batch_id = pipeline.run()
 
 print(f"Pipeline run complete for business_dt={business_dt}, batch_id={batch_id}")
 
-reporting_df = repository.read_reporting(business_dt=business_dt, batch_id=batch_id)
+posting_df = repository.read_posting(business_dt=business_dt, batch_id=batch_id)
 
-reporting_df.show()
+posting_df.show()
 
-reporting_df.printSchema()
+posting_df.printSchema()
 
 spark.stop()

@@ -24,6 +24,9 @@ TABLE_PATHS = {
     'TRIAL_BALANCE_REPORTING': (
         REPORTING_DIR / 'trial_balance'
     ),
+    'TRIAL_BALANCE_POSTING': (
+            POSTING_DIR / 'trial_balance'
+        ),
     'REF_FX_RATE': (
         REFERENCE_DIR / 'ref_fx_rate.csv'
     ),

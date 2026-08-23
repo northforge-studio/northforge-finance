@@ -52,6 +52,7 @@ class BasePipeline(ABC):
             self.staging()
             self.enrichment()
             self.reporting()
+            self.posting()
         except Exception:
             self.rollback()
             raise
@@ -83,8 +84,8 @@ class BasePipeline(ABC):
         return tuple([self._config.business_dt, self._config.batch_id])
 
 
-    def posting(self, df: DataFrame) -> tuple[date, str]:
-        df = self.pre_posting(df)
+    def posting(self) -> tuple[date, str]:
+        df = self.pre_posting()
         df = self.main_posting(df)
         self.post_posting(df)
 
@@ -133,6 +134,21 @@ class BasePipeline(ABC):
 
     @abstractmethod
     def post_reporting(self, df: DataFrame) -> tuple[date, str]:
+        ...
+
+
+    @abstractmethod
+    def pre_posting(self) -> DataFrame:
+        ...
+
+
+    @abstractmethod
+    def main_posting(self, df: DataFrame) -> DataFrame:
+        ...
+
+
+    @abstractmethod
+    def post_posting(self, df: DataFrame) -> tuple[date, str]:
         ...
 
 

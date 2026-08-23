@@ -8,6 +8,7 @@ from adi.contracts import (
     TRIAL_BALANCE_STAGING_SCHEMA,
     TRIAL_BALANCE_ENRICHMENT_SCHEMA,
     TRIAL_BALANCE_REPORTING_SCHEMA,
+    TRIAL_BALANCE_POSTING_SCHEMA,
 )
 from adi.io.store import Store
 
@@ -43,13 +44,6 @@ class TrialBalanceRepository:
         return staging_df
 
 
-    def write_staging(self, df: DataFrame) -> None:
-        self.store.write(
-            df,
-            table_name='TRIAL_BALANCE_STAGING',
-        )
-
-
     def read_enrichment(self, business_dt: date, batch_id: str) -> DataFrame:
         enrichment_df = self.store.read(
             table_name='TRIAL_BALANCE_ENRICHMENT',
@@ -62,13 +56,6 @@ class TrialBalanceRepository:
             raise ValueError(f"No enrichment data found for business date: {business_dt} and batch ID: {batch_id}")
 
         return enrichment_df
-
-
-    def write_enrichment(self, df: DataFrame) -> None:
-        self.store.write(
-            df,
-            table_name='TRIAL_BALANCE_ENRICHMENT',
-        )
 
 
     def read_reporting(self, business_dt: date, batch_id: str) -> DataFrame:
@@ -85,10 +72,45 @@ class TrialBalanceRepository:
         return reporting_df
 
 
+    def read_posting(self, business_dt: date, batch_id: str) -> DataFrame:
+        posting_df = self.store.read(
+            table_name='TRIAL_BALANCE_POSTING',
+            schema=TRIAL_BALANCE_POSTING_SCHEMA,
+        ).filter(
+            (F.col('BUSINESS_DT') == business_dt) & (F.col('BATCH_ID') == batch_id)
+        )
+
+        if posting_df.isEmpty():
+            raise ValueError(f"No posting data found for business date: {business_dt} and batch ID: {batch_id}")
+
+        return posting_df
+
+
+    def write_staging(self, df: DataFrame) -> None:
+        self.store.write(
+            df,
+            table_name='TRIAL_BALANCE_STAGING',
+        )
+
+
+    def write_enrichment(self, df: DataFrame) -> None:
+        self.store.write(
+            df,
+            table_name='TRIAL_BALANCE_ENRICHMENT',
+        )
+
+
     def write_reporting(self, df: DataFrame) -> None:
         self.store.write(
             df,
             table_name='TRIAL_BALANCE_REPORTING',
+        )
+
+
+    def write_posting(self, df: DataFrame) -> None:
+        self.store.write(
+            df,
+            table_name='TRIAL_BALANCE_POSTING',
         )
 
 
@@ -113,6 +135,14 @@ class TrialBalanceRepository:
             table_name='TRIAL_BALANCE_REPORTING',
             filters={'BUSINESS_DT': business_dt, 'BATCH_ID': batch_id},
             schema=TRIAL_BALANCE_REPORTING_SCHEMA,
+        )
+
+
+    def delete_posting(self, business_dt: date, batch_id: str) -> None:
+        self.store.delete(
+            table_name='TRIAL_BALANCE_POSTING',
+            filters={'BUSINESS_DT': business_dt, 'BATCH_ID': batch_id},
+            schema=TRIAL_BALANCE_POSTING_SCHEMA,
         )
 
 

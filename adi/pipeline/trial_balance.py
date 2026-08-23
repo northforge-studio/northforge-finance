@@ -8,6 +8,7 @@ from adi.contracts import (
     TRIAL_BALANCE_STAGING_SCHEMA,
     TRIAL_BALANCE_ENRICHMENT_SCHEMA,
     TRIAL_BALANCE_REPORTING_SCHEMA,
+    TRIAL_BALANCE_POSTING_SCHEMA,
 )
 from adi.enrichments import (
     TransformationManager, 
@@ -150,7 +151,16 @@ class TrialBalancePipeline(BasePipeline):
             batch_id=self._config.batch_id,
         )
 
-        return self._combine_staging_and_enrichment(staging_df, enrichment_df)
+        df = self._combine_staging_and_enrichment(staging_df, enrichment_df)
+
+        df = self._transformation_manager.apply(
+            df,
+            dataclass=self.DATACLASS,
+            zone='RPT',
+            stage='PRE',
+        )
+
+        return df
 
 
     def main_reporting(self, df: DataFrame) -> DataFrame:
@@ -183,6 +193,59 @@ class TrialBalancePipeline(BasePipeline):
         )
 
         self._repository.write_reporting(df)
+
+        return tuple([self._config.business_dt, self._config.batch_id])
+
+
+    def pre_posting(self) -> DataFrame:
+        df = self._repository.read_reporting(
+            business_dt=self._config.business_dt,
+            batch_id=self._config.batch_id,
+        )
+
+        df = self._transpose_measures(df)
+
+        df = self._transformation_manager.apply(
+            df,
+            dataclass=self.DATACLASS,
+            zone='PST',
+            stage='PRE',
+        )
+
+        return df
+
+
+    def main_posting(self, df: DataFrame) -> DataFrame:
+        df = self._transformation_manager.apply(
+            df,
+            dataclass=self.DATACLASS,
+            zone='PST',
+            stage='MAIN',
+        )
+
+        return df
+
+
+    def post_posting(self, df: DataFrame) -> tuple[date, str]:
+        df = self._add_row_id(df)
+
+        df = self._transformation_manager.apply(
+            df,
+            dataclass=self.DATACLASS,
+            zone='PST',
+            stage='POST',
+        )
+
+        df = self._align_to_schema(df, TRIAL_BALANCE_POSTING_SCHEMA)
+        df = df.orderBy(
+            self._numeric_id('SRC_RECORD_ID'),
+            self._numeric_id('STAGING_ID'),
+            self._numeric_id('ENRICHMENT_ID'),
+            self._numeric_id('REPORTING_ID'),
+            self._numeric_id('POSTING_ID'),
+        )
+
+        self._repository.write_posting(df)
 
         return tuple([self._config.business_dt, self._config.batch_id])
 
@@ -239,4 +302,82 @@ class TrialBalancePipeline(BasePipeline):
             F.sum('POSTING_MEASURE_FUNC_AMT')
             .over(account_window)
             .cast('decimal(28,12)'),
+        )
+
+
+    def _transpose_measures(self, df: DataFrame) -> DataFrame:
+        group_by_columns = ['SRC_RECORD_ID']
+
+        posting_measure_names = [
+            'PREVIOUS_DAY_BALANCE',
+            'CURRENT_DAY_DEBIT_BALANCE',
+            'CURRENT_DAY_CREDIT_BALANCE',
+            'CURRENT_DAY_EOD_BALANCE',
+            'BACK_VALUE_ADJUSTED_BALANCE',
+            'ADJUSTED_BALANCE',
+        ]
+
+        value_columns = [
+            'SRC_MEASURE_TRANS_AMT',
+            'POSTING_MEASURE_TRANS_AMT',
+        ]
+
+        postable_df = df.filter(
+            F.col('MEASURE_TYPE') == 'POSTABLE'
+        )
+
+        pivoted_df = (
+            df
+            .groupBy(*group_by_columns)
+            .pivot(
+                'POSTING_MEASURE_NM',
+                posting_measure_names,
+            )
+            .agg(
+                *[
+                    F.first(column).alias(column)
+                    for column in value_columns
+                ]
+            )
+        )
+
+        output_measure_columns = []
+
+        select_expr = [
+            F.col(column)
+            for column in group_by_columns
+        ]
+
+        for measure_name in posting_measure_names:
+            source_output = measure_name
+            posting_output = f'POSTING_{measure_name}'
+
+            select_expr.extend([
+                F.col(
+                    f'{measure_name}_SRC_MEASURE_TRANS_AMT'
+                ).alias(source_output),
+
+                F.col(
+                    f'{measure_name}_POSTING_MEASURE_TRANS_AMT'
+                ).alias(posting_output),
+            ])
+
+            output_measure_columns.extend([
+                source_output,
+                posting_output,
+            ])
+
+        pivoted_df = pivoted_df.select(*select_expr)
+
+        return (
+            postable_df
+            .join(
+                pivoted_df,
+                on=group_by_columns,
+                how='inner',
+            )
+            .select(
+                *postable_df.columns,
+                *output_measure_columns,
+            )
         )
