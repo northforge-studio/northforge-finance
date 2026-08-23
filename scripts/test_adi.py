@@ -22,7 +22,7 @@ BUSINESS_DT = date(2025, 3, 31)
 spark = (
     SparkSession.builder
     .master('local[*]')
-    .appName('trial-balance-pipeline-test')
+    .appName('adi-dev')
     .getOrCreate()
 )
 
