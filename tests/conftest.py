@@ -7,7 +7,7 @@ def spark():
     spark = (
         SparkSession.builder
         .master('local[2]')
-        .appName('finmap-tests')
+        .appName('atlas-tests')
         .getOrCreate()
     )
 
