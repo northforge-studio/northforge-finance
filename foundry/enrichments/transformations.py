@@ -26,8 +26,8 @@ class TransformationManager:
 
         for transformation in transformations:
             df = df.withColumn(
-                transformation['OUTPUT_COL_NAME'],
-                F.expr(transformation['EXPRESSION']),
+                transformation['output_col_name'],
+                F.expr(transformation['expression']),
             )
 
         return df

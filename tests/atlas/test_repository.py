@@ -8,7 +8,7 @@ from core.store import CsvStore
 def repository(spark):
     store = CsvStore(
         spark=spark,
-        table_paths={
+        table_locations={
             'MAPPING_META': 'data/atlas/mapping_meta.csv',
             'MAPPING_DATA': 'data/atlas/mapping_data.csv',
         },

@@ -27,7 +27,7 @@ class AtlasClient:
     ) -> 'AtlasClient':
         store = CsvStore(
             spark=spark,
-            table_paths={
+            table_locations={
                 'MAPPING_META': Path(metadata_path),
                 'MAPPING_DATA': Path(data_path),
             },

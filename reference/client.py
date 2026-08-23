@@ -26,7 +26,7 @@ class ReferenceClient:
     ) -> 'ReferenceClient':
         store = CsvStore(
             spark=spark,
-            table_paths={
+            table_locations={
                 'REF_FX_RATE': Path(fx_rate_path),
                 'REF_COUNTERPARTY': Path(counterparty_path),
             },

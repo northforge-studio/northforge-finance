@@ -11,10 +11,17 @@ class CsvStore:
     def __init__(
         self,
         spark: SparkSession,
-        table_paths: dict[str, Path],
+        table_locations: dict[str, Path],
     ):
         self._spark = spark
-        self._table_paths = table_paths
+        self._table_locations = table_locations
+
+
+    def _resolve(self, table_name: str) -> Path:
+        try:
+            return self._table_locations[table_name]
+        except KeyError:
+            raise KeyError(f'Unknown table: {table_name!r}') from None
 
 
     def read(
@@ -22,7 +29,7 @@ class CsvStore:
         table_name: str,
         schema: StructType | None = None,
     ) -> DataFrame:
-        path = self._table_paths[table_name]
+        path = self._resolve(table_name)
 
         if schema is not None and not Path(path).exists():
             return self._spark.createDataFrame([], schema=schema)
@@ -62,7 +69,7 @@ class CsvStore:
         table_name: str,
         mode: str = 'append',
     ) -> None:
-        path = self._table_paths[table_name]
+        path = self._resolve(table_name)
 
         (
             df.write
@@ -81,7 +88,7 @@ class CsvStore:
         if not filters:
             raise ValueError('delete requires at least one filter')
 
-        path = Path(self._table_paths[table_name])
+        path = Path(self._resolve(table_name))
 
         if not path.exists():
             return

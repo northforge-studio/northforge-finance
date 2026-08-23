@@ -20,13 +20,13 @@ class TransformationRepository:
         rows = (
             config_df
             .filter(
-                (F.col('DATACLASS') == dataclass)
-                & (F.col('ZONE') == zone)
-                & (F.col('STAGE') == stage)
-                & (F.coalesce(F.col('SUB_STAGE'), F.lit('')) == sub_stage)
-                & (F.col('STATUS') == 'A')
+                (F.col('dataclass') == dataclass)
+                & (F.col('zone') == zone)
+                & (F.col('stage') == stage)
+                & (F.coalesce(F.col('sub_stage'), F.lit('')) == sub_stage)
+                & (F.col('status') == 'A')
             )
-            .orderBy('SEQ')
+            .orderBy('seq')
             .collect()
         )
 

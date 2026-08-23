@@ -11,7 +11,7 @@ REPORTING_DIR = DATA_DIR / 'reporting'
 POSTING_DIR = DATA_DIR / 'posting'
 FOUNDRY_CONFIG_DIR = DATA_DIR / 'foundry' / 'config'
 
-TABLE_PATHS = {
+CSV_TABLE_LOCATIONS = {
     'TRIAL_BALANCE_SOURCE': (
         SOURCE_DIR / 'trial_balance.csv'
     ),
@@ -30,4 +30,13 @@ TABLE_PATHS = {
     'CFG_TRANSFORMATIONS': (
         FOUNDRY_CONFIG_DIR / 'transformations.csv'
     ),
+}
+
+POSTGRES_TABLE_LOCATIONS = {
+    'TRIAL_BALANCE_SOURCE': 'foundry_source.trial_balance',
+    'TRIAL_BALANCE_STAGING': 'foundry_staging.trial_balance',
+    'TRIAL_BALANCE_ENRICHMENT': 'foundry_enrichment.trial_balance',
+    'TRIAL_BALANCE_REPORTING': 'foundry_reporting.trial_balance',
+    'TRIAL_BALANCE_POSTING': 'foundry_posting.trial_balance',
+    'CFG_TRANSFORMATIONS': 'foundry_config.transformation',
 }

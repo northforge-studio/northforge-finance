@@ -8,7 +8,7 @@ from core.store import CsvStore
 def repository(spark):
     store = CsvStore(
         spark=spark,
-        table_paths={
+        table_locations={
             'REF_FX_RATE': 'data/reference/fx_rate.csv',
             'REF_COUNTERPARTY': 'data/reference/counterparty.csv',
         },
@@ -49,7 +49,7 @@ def test_csv_repository_satisfies_protocol(spark):
     repository: Repository = CsvRepository(
         CsvStore(
             spark=spark,
-            table_paths={
+            table_locations={
                 'REF_FX_RATE': 'data/reference/fx_rate.csv',
                 'REF_COUNTERPARTY': 'data/reference/counterparty.csv',
             },

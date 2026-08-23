@@ -29,7 +29,7 @@ def test_read_applies_schema_and_fills_string_nulls(spark, tmp_path):
         ],
     )
 
-    store = CsvStore(spark, table_paths={'TABLE': csv_path})
+    store = CsvStore(spark, table_locations={'TABLE': csv_path})
 
     df = store.read('TABLE', schema=SCHEMA)
 
@@ -44,7 +44,7 @@ def test_read_applies_schema_and_fills_string_nulls(spark, tmp_path):
 def test_read_missing_table_with_schema_returns_empty_dataframe(spark, tmp_path):
     csv_path = tmp_path / 'MISSING' / 'data.csv'
 
-    store = CsvStore(spark, table_paths={'MISSING': csv_path})
+    store = CsvStore(spark, table_locations={'MISSING': csv_path})
 
     df = store.read('MISSING', schema=SCHEMA)
 
@@ -55,7 +55,7 @@ def test_read_missing_table_with_schema_returns_empty_dataframe(spark, tmp_path)
 def test_write_default_mode_appends(spark, tmp_path):
     csv_path = tmp_path / 'TABLE'
 
-    store = CsvStore(spark, table_paths={'TABLE': csv_path})
+    store = CsvStore(spark, table_locations={'TABLE': csv_path})
 
     df = spark.createDataFrame(
         [('2025-03-31', '1', 'first')],
@@ -80,7 +80,7 @@ def test_delete_removes_only_rows_matching_all_filters(spark, tmp_path):
         ],
     )
 
-    store = CsvStore(spark, table_paths={'TABLE': csv_path})
+    store = CsvStore(spark, table_locations={'TABLE': csv_path})
 
     store.delete(
         'TABLE',
@@ -97,7 +97,7 @@ def test_delete_removes_only_rows_matching_all_filters(spark, tmp_path):
 def test_delete_returns_without_error_when_path_missing(spark, tmp_path):
     csv_path = tmp_path / 'MISSING'
 
-    store = CsvStore(spark, table_paths={'MISSING': csv_path})
+    store = CsvStore(spark, table_locations={'MISSING': csv_path})
 
     store.delete(
         'MISSING',
@@ -110,7 +110,14 @@ def test_delete_requires_at_least_one_filter(spark, tmp_path):
     csv_path = tmp_path / 'TABLE' / 'data.csv'
     _write_csv(csv_path, [('2025-03-31', '1', 'a')])
 
-    store = CsvStore(spark, table_paths={'TABLE': csv_path})
+    store = CsvStore(spark, table_locations={'TABLE': csv_path})
 
     with pytest.raises(ValueError):
         store.delete('TABLE', filters={}, schema=SCHEMA)
+
+
+def test_read_unknown_table_raises_key_error(spark, tmp_path):
+    store = CsvStore(spark, table_locations={'TABLE': tmp_path / 'TABLE'})
+
+    with pytest.raises(KeyError, match='UNKNOWN'):
+        store.read('UNKNOWN', schema=SCHEMA)
