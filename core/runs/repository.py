@@ -3,7 +3,13 @@ from uuid import UUID
 
 from core.db import PostgresConfig, PostgresExecutor
 
-from core.runs.models import RunStatus, WorkflowRun, ExecutionRun, RunDependency
+from core.runs.models import (
+    RunStatus,
+    WorkflowRun,
+    ExecutionRun,
+    RunDependency,
+    WorkflowRunSummary,
+)
 
 
 class RunRepository:
@@ -117,6 +123,39 @@ class RunRepository:
         )
 
 
+    def get_execution_runs(
+        self,
+        workflow_run_id: UUID,
+    ) -> tuple[ExecutionRun, ...]:
+        rows = self._executor.fetch_all(
+            '''
+            SELECT
+                run_id, workflow_run_id, parent_run_id, component,
+                operation, status, started_at, completed_at,
+                retry_of_run_id
+            FROM core.execution_run
+            WHERE workflow_run_id = :workflow_run_id
+            ORDER BY started_at, run_id
+            ''',
+            {'workflow_run_id': workflow_run_id},
+        )
+
+        return tuple(
+            ExecutionRun(
+                run_id=row['run_id'],
+                workflow_run_id=row['workflow_run_id'],
+                parent_run_id=row['parent_run_id'],
+                component=row['component'],
+                operation=row['operation'],
+                status=RunStatus(row['status']),
+                started_at=row['started_at'],
+                completed_at=row['completed_at'],
+                retry_of_run_id=row['retry_of_run_id'],
+            )
+            for row in rows
+        )
+
+
     def update_workflow_status(
         self,
         workflow_run_id: UUID,
@@ -157,6 +196,21 @@ class RunRepository:
         )
 
 
+    def get_workflow_summary(
+        self,
+        workflow_run_id: UUID,
+    ) -> WorkflowRunSummary:
+        workflow = self.get_workflow_run(workflow_run_id)
+        executions = self.get_execution_runs(workflow_run_id)
+        dependencies = self.get_workflow_dependencies(workflow_run_id)
+
+        return WorkflowRunSummary(
+            workflow=workflow,
+            executions=executions,
+            dependencies=dependencies,
+        )
+
+
     def create_dependency(self, dependency: RunDependency) -> None:
         self._executor.execute(
             '''
@@ -185,6 +239,37 @@ class RunRepository:
             WHERE consumer_run_id = :consumer_run_id
             ''',
             {'consumer_run_id': consumer_run_id},
+        )
+
+        return tuple(
+            RunDependency(
+                consumer_run_id=row['consumer_run_id'],
+                producer_run_id=row['producer_run_id'],
+                input_role=row['input_role'],
+            )
+            for row in rows
+        )
+
+
+    def get_workflow_dependencies(
+        self,
+        workflow_run_id: UUID,
+    ) -> tuple[RunDependency, ...]:
+        rows = self._executor.fetch_all(
+            '''
+            SELECT
+                run_dependency.consumer_run_id,
+                run_dependency.producer_run_id,
+                run_dependency.input_role
+            FROM core.run_dependency
+            JOIN core.execution_run
+                ON execution_run.run_id = run_dependency.consumer_run_id
+            WHERE execution_run.workflow_run_id = :workflow_run_id
+            ORDER BY
+                run_dependency.consumer_run_id,
+                run_dependency.producer_run_id
+            ''',
+            {'workflow_run_id': workflow_run_id},
         )
 
         return tuple(

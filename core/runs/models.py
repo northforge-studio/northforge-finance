@@ -51,6 +51,13 @@ class RunIdentity:
 
 
 @dataclass(frozen=True)
+class WorkflowRunSummary:
+    workflow: WorkflowRun
+    executions: tuple[ExecutionRun, ...]
+    dependencies: tuple[RunDependency, ...]
+
+
+@dataclass(frozen=True)
 class ZoneResult:
     identity: RunIdentity
     zone: str
