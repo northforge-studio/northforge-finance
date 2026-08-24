@@ -1,6 +1,6 @@
 import pytest
 
-from atlas.repository import CsvRepository
+from atlas.repository import AtlasRepository
 from core.store import CsvStore
 
 
@@ -13,7 +13,7 @@ def repository(spark):
             'MAPPING_DATA': 'data/atlas/mapping_data.csv',
         },
     )
-    return CsvRepository(store)
+    return AtlasRepository(store)
 
 
 def test_reconstruct_entity_mapping_definition(repository):
@@ -75,3 +75,40 @@ def test_reconstruct_entity_mapping_data(repository):
         'POSTING_MEASURE_FUNC_CCY_CD',
         'WEIGHTAGE',
     ]
+
+
+class _FakeStore:
+    """A minimal Store stand-in, to prove AtlasRepository is backend-agnostic."""
+
+    def __init__(self, tables):
+        self._tables = tables
+
+    def read(self, table_name, schema=None):
+        return self._tables[table_name]
+
+
+def test_get_definition_works_against_a_fake_store(spark):
+    meta_df = spark.createDataFrame(
+        [
+            ('ENTITY_MAPPING', 'ENTITY_MAPPING_DATASET', 'SRC_APP_CD', 'SRC_APP_CD', 'INPUT', 'VALUE', 'SRC_APP_CD', 'STRING', 1),
+        ],
+        [
+            'MAPPING_NAME',
+            'MAPPING_DATA_NAME',
+            'METADATA_FIELD_NAME',
+            'LOGICAL_FIELD_NAME',
+            'FIELD_TYPE',
+            'LOOKUP_TYPE',
+            'SRC_FIELD_NAME',
+            'DATATYPE',
+            'UI_FIELD_ORDER',
+        ],
+    )
+
+    store = _FakeStore({'MAPPING_META': meta_df})
+    repository = AtlasRepository(store)
+
+    definition = repository.get_definition('ENTITY_MAPPING')
+
+    assert definition.mapping_name == 'ENTITY_MAPPING'
+    assert definition.mapping_data_name == 'ENTITY_MAPPING_DATASET'

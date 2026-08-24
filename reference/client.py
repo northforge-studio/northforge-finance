@@ -5,14 +5,11 @@ from pyspark.sql import SparkSession, DataFrame
 from core.store import CsvStore
 
 from reference.manager import ReferenceManager
-from reference.repository import (
-    CsvRepository,
-    Repository,
-)
+from reference.repository import ReferenceRepository
 
 
 class ReferenceClient:
-    def __init__(self, repository: Repository):
+    def __init__(self, repository: ReferenceRepository):
         self._repository = repository
         self._manager = ReferenceManager(repository)
 
@@ -32,7 +29,7 @@ class ReferenceClient:
             },
         )
 
-        return cls(CsvRepository(store))
+        return cls(ReferenceRepository(store))
 
 
     def enrich_fx_rate(self, df: DataFrame) -> DataFrame:

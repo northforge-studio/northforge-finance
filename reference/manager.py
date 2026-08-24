@@ -1,11 +1,11 @@
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from reference.repository import Repository
+from reference.repository import ReferenceRepository
 
 
 class ReferenceManager:
-    def __init__(self, repository: Repository):
+    def __init__(self, repository: ReferenceRepository):
         self.repository = repository
 
 

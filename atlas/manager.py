@@ -3,7 +3,7 @@ from functools import reduce
 from pyspark.sql import functions as F
 from pyspark.sql import Column, DataFrame, Window
 
-from atlas.repository import Repository
+from atlas.repository import AtlasRepository
 from atlas.models import (
     Mapping,
     PostingRule,
@@ -15,7 +15,7 @@ class MappingManager:
     _ROW_ID = '__mapping_row_id'
 
 
-    def __init__(self, repository: Repository):
+    def __init__(self, repository: AtlasRepository):
         self._repository = repository
 
 

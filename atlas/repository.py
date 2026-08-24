@@ -13,7 +13,7 @@ from atlas.models import (
 from atlas.contracts import MAPPING_META_SCHEMA, MAPPING_DATA_SCHEMA
 
 
-class CsvRepository:
+class AtlasRepository:
     def __init__(self, store: Store):
         self._store = store
 

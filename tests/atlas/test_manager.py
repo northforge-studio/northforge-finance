@@ -2,10 +2,7 @@ import pytest
 
 from atlas.manager import MappingManager
 from atlas.models import PostingRule, GatewayRule
-from atlas.repository import (
-    Repository,
-    CsvRepository,
-)
+from atlas.repository import AtlasRepository
 from core.store import CsvStore
 
 
@@ -17,7 +14,7 @@ def _make_repository(spark):
             'MAPPING_DATA': 'data/atlas/mapping_data.csv',
         },
     )
-    return CsvRepository(store)
+    return AtlasRepository(store)
 
 
 @pytest.fixture(scope='module')
@@ -212,13 +209,3 @@ def test_get_rule_config_unmatched_dataclass_returns_empty(manager):
     rule_cfg = manager.get_rule_config('NON_EXISTENT_DATACLASS')
 
     assert rule_cfg == []
-
-
-def test_csv_repository_satisfies_protocol(spark):
-        repository: Repository = _make_repository(spark)
-
-        definition = repository.get_definition(
-            'ENTITY_MAPPING',
-        )
-
-        assert definition.mapping_name == 'ENTITY_MAPPING'

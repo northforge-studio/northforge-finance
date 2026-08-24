@@ -6,14 +6,11 @@ from core.store import CsvStore
 
 from atlas.manager import MappingManager
 from atlas.models import Mapping, MappingDefinition, GatewayRule
-from atlas.repository import (
-    CsvRepository,
-    Repository,
-)
+from atlas.repository import AtlasRepository
 
 
 class AtlasClient:
-    def __init__(self, repository: Repository):
+    def __init__(self, repository: AtlasRepository):
         self._repository = repository
         self._manager = MappingManager(repository)
 
@@ -33,7 +30,7 @@ class AtlasClient:
             },
         )
 
-        return cls(CsvRepository(store))
+        return cls(AtlasRepository(store))
 
 
     def apply(
