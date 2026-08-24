@@ -1,5 +1,4 @@
 from datetime import date
-from uuid import uuid4
 
 from pyspark.sql import SparkSession
 
@@ -72,9 +71,7 @@ pipeline = TrialBalancePipeline(
     run_tracker=run_tracker,
 )
 
-workflow_run_id = uuid4()
-
-pipeline_result = pipeline.run(workflow_run_id=workflow_run_id)
+pipeline_result = pipeline.execute()
 
 print(f"Pipeline run complete: {pipeline_result}")
 

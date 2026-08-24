@@ -49,6 +49,24 @@ class BasePipeline(ABC):
         )
 
 
+    def execute(self) -> PipelineResult:
+        workflow = self._run_tracker.start_workflow(
+            dataclass=self._config.dataclass,
+            business_dt=self._config.business_dt,
+            batch_id=self._config.batch_id,
+        )
+
+        try:
+            result = self.run(workflow_run_id=workflow.workflow_run_id)
+        except Exception:
+            self._run_tracker.fail_workflow(workflow.workflow_run_id)
+            raise
+
+        self._run_tracker.complete_workflow(workflow.workflow_run_id)
+
+        return result
+
+
     def run(self, workflow_run_id: UUID) -> PipelineResult:
         pipeline_execution = self._run_tracker.start_execution(
             workflow_run_id=workflow_run_id,
@@ -62,6 +80,14 @@ class BasePipeline(ABC):
                 parent_run_id=pipeline_execution.run_id,
             )
             enrichment_result = self.enrichment(
+                workflow_run_id=workflow_run_id,
+                parent_run_id=pipeline_execution.run_id,
+            )
+            reporting_result = self.reporting(
+                workflow_run_id=workflow_run_id,
+                parent_run_id=pipeline_execution.run_id,
+            )
+            posting_result = self.posting(
                 workflow_run_id=workflow_run_id,
                 parent_run_id=pipeline_execution.run_id,
             )
@@ -81,6 +107,8 @@ class BasePipeline(ABC):
             zones=(
                 staging_result,
                 enrichment_result,
+                reporting_result,
+                posting_result,
             ),
         )
 
@@ -159,20 +187,78 @@ class BasePipeline(ABC):
         )
 
 
-    def reporting(self) -> tuple[date, str]:
-        df = self.pre_reporting()
-        df = self.main_reporting(df)
-        self.post_reporting(df)
+    def reporting(
+        self,
+        *,
+        workflow_run_id: UUID,
+        parent_run_id: UUID | None = None,
+    ) -> ZoneResult:
+        execution_run = self._run_tracker.start_execution(
+            workflow_run_id=workflow_run_id,
+            component='FOUNDRY',
+            operation='REPORTING',
+            parent_run_id=parent_run_id,
+        )
 
-        return tuple([self._config.business_dt, self._config.batch_id])
+        try:
+            df = self.pre_reporting()
+            df = self.main_reporting(df)
+            self.post_reporting(df)
+
+            record_count = df.count()
+        except Exception:
+            self._run_tracker.fail_execution(execution_run.run_id)
+            raise
+
+        self._run_tracker.complete_execution(execution_run.run_id)
+
+        return ZoneResult(
+            identity=RunIdentity(
+                workflow_run_id=workflow_run_id,
+                run_id=execution_run.run_id,
+                parent_run_id=parent_run_id,
+            ),
+            zone='REPORTING',
+            status=RunStatus.SUCCEEDED,
+            record_count=record_count,
+        )
 
 
-    def posting(self) -> tuple[date, str]:
-        df = self.pre_posting()
-        df = self.main_posting(df)
-        self.post_posting(df)
+    def posting(
+        self,
+        *,
+        workflow_run_id: UUID,
+        parent_run_id: UUID | None = None,
+    ) -> ZoneResult:
+        execution_run = self._run_tracker.start_execution(
+            workflow_run_id=workflow_run_id,
+            component='FOUNDRY',
+            operation='POSTING',
+            parent_run_id=parent_run_id,
+        )
 
-        return tuple([self._config.business_dt, self._config.batch_id])
+        try:
+            df = self.pre_posting()
+            df = self.main_posting(df)
+            self.post_posting(df)
+
+            record_count = df.count()
+        except Exception:
+            self._run_tracker.fail_execution(execution_run.run_id)
+            raise
+
+        self._run_tracker.complete_execution(execution_run.run_id)
+
+        return ZoneResult(
+            identity=RunIdentity(
+                workflow_run_id=workflow_run_id,
+                run_id=execution_run.run_id,
+                parent_run_id=parent_run_id,
+            ),
+            zone='POSTING',
+            status=RunStatus.SUCCEEDED,
+            record_count=record_count,
+        )
 
 
     @abstractmethod
