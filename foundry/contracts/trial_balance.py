@@ -86,6 +86,9 @@ TRIAL_BALANCE_STAGING_SCHEMA = StructType(
         StructField('POSTING_MEASURE_FUNC_AMT', DecimalType(28, 12), False),
 
         StructField('CR_DR_EVALUATOR', StringType(), True),
+
+        StructField('WORKFLOW_RUN_ID', StringType(), False),
+        StructField('PRODUCER_RUN_ID', StringType(), False),
     ]
 )
 
@@ -166,6 +169,9 @@ TRIAL_BALANCE_ENRICHMENT_SCHEMA = StructType(
         StructField('GL_BOOK_CD', StringType(), True),
         StructField('GL_COA_SRC_SEGMENT', StringType(), True),
         StructField('GL_PRODUCT_CD', StringType(), True),
+
+        StructField('WORKFLOW_RUN_ID', StringType(), False),
+        StructField('PRODUCER_RUN_ID', StringType(), False),
     ]
 )
 
@@ -247,6 +253,9 @@ TRIAL_BALANCE_REPORTING_SCHEMA = StructType(
         StructField('GL_BOOK_CD', StringType(), True),
         StructField('GL_COA_SRC_SEGMENT', StringType(), True),
         StructField('GL_PRODUCT_CD', StringType(), True),
+
+        StructField('WORKFLOW_RUN_ID', StringType(), False),
+        StructField('PRODUCER_RUN_ID', StringType(), False),
     ]
 )
 
@@ -343,5 +352,8 @@ TRIAL_BALANCE_POSTING_SCHEMA = StructType(
         StructField('POSTING_CURRENT_DAY_EOD_BALANCE', DecimalType(28, 12), False),
         StructField('POSTING_BACK_VALUE_ADJUSTED_BALANCE', DecimalType(28, 12), True),
         StructField('POSTING_ADJUSTED_BALANCE', DecimalType(28, 12), False),
+
+        StructField('WORKFLOW_RUN_ID', StringType(), False),
+        StructField('PRODUCER_RUN_ID', StringType(), False),
     ]
 )

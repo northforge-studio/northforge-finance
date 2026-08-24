@@ -52,4 +52,7 @@ class PostgresConfig:
             'user': self.user,
             'password': self.password,
             'driver': 'org.postgresql.Driver',
+            # Allows Spark's string-typed run-identity literals to write
+            # into Postgres UUID columns without an explicit cast.
+            'stringtype': 'unspecified',
         }

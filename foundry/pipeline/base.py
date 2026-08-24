@@ -129,6 +129,7 @@ class BasePipeline(ABC):
         try:
             df = self.pre_staging()
             df = self.main_staging(df)
+            df = self._stamp_run_identity(df, workflow_run_id, execution_run.run_id)
             self.post_staging(df)
 
             record_count = df.count()
@@ -166,6 +167,7 @@ class BasePipeline(ABC):
         try:
             df = self.pre_enrichment()
             df = self.main_enrichment(df)
+            df = self._stamp_run_identity(df, workflow_run_id, execution_run.run_id)
             self.post_enrichment(df)
 
             record_count = df.count()
@@ -203,6 +205,7 @@ class BasePipeline(ABC):
         try:
             df = self.pre_reporting()
             df = self.main_reporting(df)
+            df = self._stamp_run_identity(df, workflow_run_id, execution_run.run_id)
             self.post_reporting(df)
 
             record_count = df.count()
@@ -240,6 +243,7 @@ class BasePipeline(ABC):
         try:
             df = self.pre_posting()
             df = self.main_posting(df)
+            df = self._stamp_run_identity(df, workflow_run_id, execution_run.run_id)
             self.post_posting(df)
 
             record_count = df.count()
@@ -323,6 +327,19 @@ class BasePipeline(ABC):
 
     def rollback(self) -> None:
         pass
+
+
+    def _stamp_run_identity(
+        self,
+        df: DataFrame,
+        workflow_run_id: UUID,
+        producer_run_id: UUID,
+    ) -> DataFrame:
+        return (
+            df
+            .withColumn('WORKFLOW_RUN_ID', F.lit(str(workflow_run_id)))
+            .withColumn('PRODUCER_RUN_ID', F.lit(str(producer_run_id)))
+        )
 
 
     def _add_row_id(self, df: DataFrame) -> DataFrame:
