@@ -76,8 +76,7 @@ def test_get_transformations_resolves_logical_table_against_postgres():
 
         store = PostgresStore(
             spark=spark,
-            config=CONFIG,
-            table_locations=POSTGRES_TABLE_LOCATIONS,
+            table_names=POSTGRES_TABLE_LOCATIONS,
         )
 
         repository = TransformationRepository(store)

@@ -10,18 +10,17 @@ class PostgresStore:
     def __init__(
         self,
         spark: SparkSession,
-        config: PostgresConfig,
-        table_locations: dict[str, str],
+        table_names: dict[str, str],
     ):
         self._spark = spark
-        self._config = config
-        self._table_locations = table_locations
-        self._executor = PostgresExecutor(config)
+        self._config = PostgresConfig.from_env()
+        self._table_names = table_names
+        self._executor = PostgresExecutor(self._config)
 
 
     def _resolve(self, table_name: str) -> str:
         try:
-            return self._table_locations[table_name]
+            return self._table_names[table_name]
         except KeyError:
             raise KeyError(f'Unknown table: {table_name!r}') from None
 

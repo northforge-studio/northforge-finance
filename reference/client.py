@@ -2,7 +2,11 @@ from pathlib import Path
 
 from pyspark.sql import SparkSession, DataFrame
 
-from core.store import CsvStore
+from core.store import (
+    CsvStore,
+    PostgresStore
+)
+from core.db import PostgresConfig
 
 from reference.models import ReferenceData
 from reference.manager import ReferenceManager
@@ -27,6 +31,24 @@ class ReferenceClient:
             table_locations={
                 ReferenceData.FX_RATE: Path(fx_rate_path),
                 ReferenceData.COUNTERPARTY: Path(counterparty_path),
+            },
+        )
+
+        return cls(ReferenceRepository(store))
+
+
+    @classmethod
+    def from_db(
+        cls,
+        spark: SparkSession,
+        fx_rate_table_name: str | Path,
+        counterparty_table_name: str | Path,
+    ) -> 'ReferenceClient':
+        store = PostgresStore(
+            spark=spark,
+            table_names={
+                ReferenceData.FX_RATE: fx_rate_table_name,
+                ReferenceData.COUNTERPARTY: counterparty_table_name,
             },
         )
 

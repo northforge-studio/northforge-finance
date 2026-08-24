@@ -1,6 +1,6 @@
 import pytest
 
-from reference import ReferenceClient
+from reference import ReferenceClient, ReferenceData
 
 
 @pytest.fixture(scope='module')
@@ -24,7 +24,7 @@ def test_enrich_fx_rate_joins_on_currency_pair(spark, reference):
         ],
     )
 
-    result = reference.enrich_fx_rate(df)
+    result = reference.enrich_reference_data(df, ReferenceData.FX_RATE)
 
     assert result.count() == 1
     assert 'FX_RATE' in result.columns
@@ -45,7 +45,7 @@ def test_enrich_fx_rate_preserves_unmatched_source_row(spark, reference):
         ],
     )
 
-    result = reference.enrich_fx_rate(df)
+    result = reference.enrich_reference_data(df, ReferenceData.FX_RATE)
 
     assert result.count() == 1
     assert result.first()['FX_RATE'] is None
@@ -62,7 +62,7 @@ def test_enrich_counterparty_joins_on_cpty_ref_id(spark, reference):
         ],
     )
 
-    result = reference.enrich_counterparty(df)
+    result = reference.enrich_reference_data(df, ReferenceData.COUNTERPARTY)
 
     assert result.count() == 1
     assert result.first()['CLIENT_ID_TYPE'] == 'THIRDPARTY'
@@ -79,7 +79,7 @@ def test_enrich_counterparty_preserves_unmatched_source_row(spark, reference):
         ],
     )
 
-    result = reference.enrich_counterparty(df)
+    result = reference.enrich_reference_data(df, ReferenceData.COUNTERPARTY)
 
     assert result.count() == 1
     assert result.first()['CLIENT_ID_TYPE'] is None

@@ -29,8 +29,7 @@ def test_read_resolves_logical_table_to_physical_table(mock_executor):
 
     store = PostgresStore(
         spark=spark,
-        config=CONFIG,
-        table_locations=TABLE_LOCATIONS,
+        table_names=TABLE_LOCATIONS,
     )
 
     store.read('CFG_TRANSFORMATIONS')
@@ -48,8 +47,7 @@ def test_write_resolves_logical_table_to_physical_table(mock_executor):
 
     store = PostgresStore(
         spark=spark,
-        config=CONFIG,
-        table_locations=TABLE_LOCATIONS,
+        table_names=TABLE_LOCATIONS,
     )
 
     store.write(df, table_name='CFG_TRANSFORMATIONS')
@@ -67,8 +65,7 @@ def test_delete_uses_resolved_physical_table(mock_executor):
 
     store = PostgresStore(
         spark=spark,
-        config=CONFIG,
-        table_locations=TABLE_LOCATIONS,
+        table_names=TABLE_LOCATIONS,
     )
 
     store.delete(
@@ -87,8 +84,7 @@ def test_delete_requires_at_least_one_filter(mock_executor):
 
     store = PostgresStore(
         spark=spark,
-        config=CONFIG,
-        table_locations=TABLE_LOCATIONS,
+        table_names=TABLE_LOCATIONS,
     )
 
     with pytest.raises(ValueError):
@@ -100,8 +96,7 @@ def test_read_unknown_table_raises_key_error(mock_executor):
 
     store = PostgresStore(
         spark=spark,
-        config=CONFIG,
-        table_locations=TABLE_LOCATIONS,
+        table_names=TABLE_LOCATIONS,
     )
 
     with pytest.raises(KeyError, match='UNKNOWN'):
@@ -113,8 +108,7 @@ def test_delete_unknown_table_raises_key_error(mock_executor):
 
     store = PostgresStore(
         spark=spark,
-        config=CONFIG,
-        table_locations=TABLE_LOCATIONS,
+        table_names=TABLE_LOCATIONS,
     )
 
     with pytest.raises(KeyError, match='UNKNOWN'):

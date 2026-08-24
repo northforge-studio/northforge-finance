@@ -1,7 +1,9 @@
 import pytest
 
-from reference.repository import ReferenceRepository
 from core.store import CsvStore
+
+from reference import ReferenceData
+from reference.repository import ReferenceRepository
 
 
 @pytest.fixture(scope='module')
@@ -17,7 +19,7 @@ def repository(spark):
 
 
 def test_get_fx_rate_reads_configured_columns(repository):
-    df = repository.get_fx_rate()
+    df = repository.get_reference_data(ReferenceData.FX_RATE)
 
     assert df.columns == [
         'AUD_LOAD_ID',
@@ -31,7 +33,7 @@ def test_get_fx_rate_reads_configured_columns(repository):
 
 
 def test_get_counterparty_reads_configured_columns(repository):
-    df = repository.get_counterparty()
+    df = repository.get_reference_data(ReferenceData.COUNTERPARTY)
 
     assert df.columns == [
         'AUD_LOAD_ID',
@@ -64,7 +66,7 @@ def test_get_fx_rate_works_against_a_fake_store(spark):
     store = _FakeStore({'REF_FX_RATE': fx_rate_df})
     repository = ReferenceRepository(store)
 
-    df = repository.get_fx_rate()
+    df = repository.get_reference_data(ReferenceData.FX_RATE)
 
     assert df.count() == 1
     assert df.first()['FX_RATE'] == 1.35

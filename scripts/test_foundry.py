@@ -17,7 +17,6 @@ from core.store import (
     CsvStore,
     PostgresStore,
 )
-from core.db import PostgresConfig
 
 from atlas import AtlasClient
 from reference import ReferenceClient
@@ -40,8 +39,7 @@ csv_store = CsvStore(spark, table_locations=CSV_TABLE_LOCATIONS)
 
 postgres_store = PostgresStore(
     spark, 
-    config = PostgresConfig.from_env(),
-    table_locations = POSTGRES_TABLE_LOCATIONS
+    table_names = POSTGRES_TABLE_LOCATIONS
 )
 
 repository = TrialBalanceRepository(csv_store)
@@ -49,10 +47,10 @@ repository = TrialBalanceRepository(csv_store)
 transformation_repository = TransformationRepository(postgres_store)
 transformation_manager = TransformationManager(transformation_repository)
 
-reference = ReferenceClient.from_csv(
-    spark=spark,
-    fx_rate_path='data/reference/fx_rate.csv',
-    counterparty_path='data/reference/counterparty.csv',
+reference = ReferenceClient.from_db(
+    spark = spark,
+    fx_rate_table_name='reference.fx_rate',
+    counterparty_table_name='reference.counterparty',
 )
 
 atlas = AtlasClient.from_csv(
