@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Mapping
 
 from sqlalchemy import create_engine, text
 
@@ -20,3 +20,17 @@ class PostgresExecutor:
                 text(sql),
                 parameters or {},
             )
+
+
+    def fetch_one(
+        self,
+        sql: str,
+        parameters: dict[str, Any] | None = None,
+    ) -> Mapping[str, Any] | None:
+        with self._engine.connect() as connection:
+            row = connection.execute(
+                text(sql),
+                parameters or {},
+            ).mappings().first()
+
+        return dict(row) if row is not None else None
