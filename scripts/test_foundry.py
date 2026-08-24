@@ -1,4 +1,5 @@
 from datetime import date
+from uuid import uuid4
 
 from pyspark.sql import SparkSession
 
@@ -17,6 +18,7 @@ from core.store import (
     CsvStore,
     PostgresStore,
 )
+from core.runs import RunRepository, RunTracker
 
 from atlas import AtlasClient
 from reference import ReferenceClient
@@ -59,22 +61,30 @@ atlas = AtlasClient.from_csv(
     data_path='data/atlas/mapping_data.csv',
 )
 
+run_tracker = RunTracker(RunRepository())
+
 pipeline = TrialBalancePipeline(
     business_dt=BUSINESS_DT,
     atlas=atlas,
     repository=repository,
     reference=reference,
     transformation_manager=transformation_manager,
+    run_tracker=run_tracker,
 )
 
-business_dt, batch_id = pipeline.run()
+workflow_run_id = uuid4()
 
-print(f"Pipeline run complete for business_dt={business_dt}, batch_id={batch_id}")
+pipeline_result = pipeline.run(workflow_run_id=workflow_run_id)
 
-posting_df = repository.read_posting(business_dt=business_dt, batch_id=batch_id)
+print(f"Pipeline run complete: {pipeline_result}")
 
-posting_df.show()
+business_dt = pipeline._config.business_dt
+batch_id = pipeline._config.batch_id
 
-posting_df.printSchema()
+staging_df = repository.read_staging(business_dt=business_dt, batch_id=batch_id)
+
+staging_df.show()
+
+staging_df.printSchema()
 
 spark.stop()

@@ -18,6 +18,8 @@ from atlas import AtlasClient
 
 from reference import ReferenceClient, ReferenceData
 
+from core.runs import RunTracker
+
 
 class TrialBalancePipeline(BasePipeline):
     DATACLASS = 'TRIAL_BALANCE'
@@ -30,6 +32,7 @@ class TrialBalancePipeline(BasePipeline):
         repository: TrialBalanceRepository,
         reference: ReferenceClient,
         transformation_manager: TransformationManager,
+        run_tracker: RunTracker,
     ):
         config = PipelineConfig(
             dataclass=self.DATACLASS,
@@ -39,7 +42,8 @@ class TrialBalancePipeline(BasePipeline):
             config = config,
             atlas = atlas,
             reference = reference,
-            transformation_manager = transformation_manager
+            transformation_manager = transformation_manager,
+            run_tracker = run_tracker,
         )
         self._atlas = atlas
         self._repository = repository

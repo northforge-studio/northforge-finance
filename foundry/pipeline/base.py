@@ -1,5 +1,6 @@
 from datetime import date
 from abc import ABC, abstractmethod
+from uuid import UUID
 
 from pyspark.sql import DataFrame, Column
 from pyspark.sql import functions as F
@@ -15,6 +16,7 @@ from foundry.models import PipelineConfig
 
 from atlas import AtlasClient, GatewayRule
 from reference import ReferenceClient
+from core.runs import RunTracker, RunIdentity, ZoneResult, PipelineResult, RunStatus
 
 
 class BasePipeline(ABC):
@@ -24,11 +26,13 @@ class BasePipeline(ABC):
         atlas: AtlasClient,
         reference: ReferenceClient,
         transformation_manager: TransformationManager,
+        run_tracker: RunTracker,
     ):
         self._config = config
         self._atlas = atlas
         self._reference = reference
         self._transformation_manager = transformation_manager
+        self._run_tracker = run_tracker
 
         posting_rule_processor = PostingRuleProcessor(
             dataclass=config.dataclass,
@@ -45,25 +49,70 @@ class BasePipeline(ABC):
         )
 
 
-    def run(self) -> tuple[date, str]:
+    def run(self, workflow_run_id: UUID) -> PipelineResult:
+        pipeline_execution = self._run_tracker.start_execution(
+            workflow_run_id=workflow_run_id,
+            component='FOUNDRY',
+            operation='PIPELINE',
+        )
+
         try:
-            self.staging()
-            self.enrichment()
-            self.reporting()
-            self.posting()
+            staging_result = self.staging(
+                workflow_run_id=workflow_run_id,
+                parent_run_id=pipeline_execution.run_id,
+            )
         except Exception:
-            self.rollback()
+            self._run_tracker.fail_execution(pipeline_execution.run_id)
             raise
 
-        return tuple([self._config.business_dt, self._config.batch_id])
+        self._run_tracker.complete_execution(pipeline_execution.run_id)
+
+        return PipelineResult(
+            identity=RunIdentity(
+                workflow_run_id=workflow_run_id,
+                run_id=pipeline_execution.run_id,
+                parent_run_id=pipeline_execution.parent_run_id,
+            ),
+            status=RunStatus.SUCCEEDED,
+            zones=(staging_result,),
+        )
 
 
-    def staging(self) -> tuple[date, str]:
-        df = self.pre_staging()
-        df = self.main_staging(df)
-        self.post_staging(df)
+    def staging(
+        self,
+        *,
+        workflow_run_id: UUID,
+        parent_run_id: UUID | None = None,
+    ) -> ZoneResult:
+        execution_run = self._run_tracker.start_execution(
+            workflow_run_id=workflow_run_id,
+            component='FOUNDRY',
+            operation='STAGING',
+            parent_run_id=parent_run_id,
+        )
 
-        return tuple([self._config.business_dt, self._config.batch_id])
+        try:
+            df = self.pre_staging()
+            df = self.main_staging(df)
+            self.post_staging(df)
+
+            record_count = df.count()
+        except Exception:
+            self._run_tracker.fail_execution(execution_run.run_id)
+            raise
+
+        self._run_tracker.complete_execution(execution_run.run_id)
+
+        return ZoneResult(
+            identity=RunIdentity(
+                workflow_run_id=workflow_run_id,
+                run_id=execution_run.run_id,
+                parent_run_id=parent_run_id,
+            ),
+            zone='STAGING',
+            status=RunStatus.SUCCEEDED,
+            record_count=record_count,
+        )
 
 
     def enrichment(self) -> tuple[date, str]:
