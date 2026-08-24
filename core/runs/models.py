@@ -37,6 +37,13 @@ class ExecutionRun:
 
 
 @dataclass(frozen=True)
+class RunDependency:
+    consumer_run_id: UUID
+    producer_run_id: UUID
+    input_role: str | None = None
+
+
+@dataclass(frozen=True)
 class RunIdentity:
     workflow_run_id: UUID
     run_id: UUID

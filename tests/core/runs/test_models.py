@@ -8,6 +8,7 @@ from core.runs import (
     RunStatus,
     WorkflowRun,
     ExecutionRun,
+    RunDependency,
     RunIdentity,
     ZoneResult,
     PipelineResult,
@@ -69,6 +70,26 @@ def test_execution_run_links_to_parent_and_retry():
 
     assert child.parent_run_id == parent.run_id
     assert child.retry_of_run_id == retried.run_id
+
+
+def test_run_dependency_is_frozen():
+    dependency = RunDependency(
+        consumer_run_id=uuid4(),
+        producer_run_id=uuid4(),
+        input_role='posting',
+    )
+
+    with pytest.raises(FrozenInstanceError):
+        dependency.input_role = 'oracle_accounting'
+
+
+def test_run_dependency_input_role_defaults_to_none():
+    dependency = RunDependency(
+        consumer_run_id=uuid4(),
+        producer_run_id=uuid4(),
+    )
+
+    assert dependency.input_role is None
 
 
 def test_run_status_values():

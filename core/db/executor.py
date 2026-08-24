@@ -34,3 +34,17 @@ class PostgresExecutor:
             ).mappings().first()
 
         return dict(row) if row is not None else None
+
+
+    def fetch_all(
+        self,
+        sql: str,
+        parameters: dict[str, Any] | None = None,
+    ) -> list[Mapping[str, Any]]:
+        with self._engine.connect() as connection:
+            rows = connection.execute(
+                text(sql),
+                parameters or {},
+            ).mappings().all()
+
+        return [dict(row) for row in rows]

@@ -3,7 +3,7 @@ from uuid import UUID
 
 from core.db import PostgresConfig, PostgresExecutor
 
-from core.runs.models import RunStatus, WorkflowRun, ExecutionRun
+from core.runs.models import RunStatus, WorkflowRun, ExecutionRun, RunDependency
 
 
 class RunRepository:
@@ -154,4 +154,44 @@ class RunRepository:
                 'status': status,
                 'completed_at': completed_at,
             },
+        )
+
+
+    def create_dependency(self, dependency: RunDependency) -> None:
+        self._executor.execute(
+            '''
+            INSERT INTO core.run_dependency (
+                consumer_run_id, producer_run_id, input_role
+            ) VALUES (
+                :consumer_run_id, :producer_run_id, :input_role
+            )
+            ''',
+            {
+                'consumer_run_id': dependency.consumer_run_id,
+                'producer_run_id': dependency.producer_run_id,
+                'input_role': dependency.input_role,
+            },
+        )
+
+
+    def get_dependencies(
+        self,
+        consumer_run_id: UUID,
+    ) -> tuple[RunDependency, ...]:
+        rows = self._executor.fetch_all(
+            '''
+            SELECT consumer_run_id, producer_run_id, input_role
+            FROM core.run_dependency
+            WHERE consumer_run_id = :consumer_run_id
+            ''',
+            {'consumer_run_id': consumer_run_id},
+        )
+
+        return tuple(
+            RunDependency(
+                consumer_run_id=row['consumer_run_id'],
+                producer_run_id=row['producer_run_id'],
+                input_role=row['input_role'],
+            )
+            for row in rows
         )
