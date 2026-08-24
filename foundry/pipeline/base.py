@@ -61,6 +61,10 @@ class BasePipeline(ABC):
                 workflow_run_id=workflow_run_id,
                 parent_run_id=pipeline_execution.run_id,
             )
+            enrichment_result = self.enrichment(
+                workflow_run_id=workflow_run_id,
+                parent_run_id=pipeline_execution.run_id,
+            )
         except Exception:
             self._run_tracker.fail_execution(pipeline_execution.run_id)
             raise
@@ -74,7 +78,10 @@ class BasePipeline(ABC):
                 parent_run_id=pipeline_execution.parent_run_id,
             ),
             status=RunStatus.SUCCEEDED,
-            zones=(staging_result,),
+            zones=(
+                staging_result,
+                enrichment_result,
+            ),
         )
 
 
@@ -115,12 +122,41 @@ class BasePipeline(ABC):
         )
 
 
-    def enrichment(self) -> tuple[date, str]:
-        df = self.pre_enrichment()
-        df = self.main_enrichment(df)
-        self.post_enrichment(df)
+    def enrichment(
+        self,
+        *,
+        workflow_run_id: UUID,
+        parent_run_id: UUID | None = None,
+    ) -> ZoneResult:
+        execution_run = self._run_tracker.start_execution(
+            workflow_run_id=workflow_run_id,
+            component='FOUNDRY',
+            operation='ENRICHMENT',
+            parent_run_id=parent_run_id,
+        )
 
-        return tuple([self._config.business_dt, self._config.batch_id])
+        try:
+            df = self.pre_enrichment()
+            df = self.main_enrichment(df)
+            self.post_enrichment(df)
+
+            record_count = df.count()
+        except Exception:
+            self._run_tracker.fail_execution(execution_run.run_id)
+            raise
+
+        self._run_tracker.complete_execution(execution_run.run_id)
+
+        return ZoneResult(
+            identity=RunIdentity(
+                workflow_run_id=workflow_run_id,
+                run_id=execution_run.run_id,
+                parent_run_id=parent_run_id,
+            ),
+            zone='ENRICHMENT',
+            status=RunStatus.SUCCEEDED,
+            record_count=record_count,
+        )
 
 
     def reporting(self) -> tuple[date, str]:
