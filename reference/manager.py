@@ -1,21 +1,31 @@
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
+from reference.models import ReferenceData
 from reference.repository import ReferenceRepository
 
 
 class ReferenceManager:
     def __init__(self, repository: ReferenceRepository):
-        self.repository = repository
+        self._repository = repository
 
 
-    def enrich_fx_rate(self, df: DataFrame) -> DataFrame:
+    def enrich_reference_data(self, df: DataFrame, reference_data: ReferenceData) -> DataFrame:
+        if reference_data == ReferenceData.FX_RATE:
+            return self._enrich_fx_rate(df)
+        if reference_data == ReferenceData.COUNTERPARTY:
+            return self._enrich_counterparty(df)
+        else:
+            raise ValueError(f"Unsupported reference data: {reference_data}")
+
+
+    def _enrich_fx_rate(self, df: DataFrame) -> DataFrame:
         source_alias = 'source'
         reference_alias = 'reference'
 
         source_df = df.alias(source_alias)
         reference_df = (
-            self.repository.get_fx_rate()
+            self._repository.get_reference_data(ReferenceData.FX_RATE)
             .alias(reference_alias)
         )
 
@@ -39,13 +49,13 @@ class ReferenceManager:
         )
 
 
-    def enrich_counterparty(self, df: DataFrame) -> DataFrame:
+    def _enrich_counterparty(self, df: DataFrame) -> DataFrame:
         source_alias = 'source'
         reference_alias = 'reference'
 
         source_df = df.alias(source_alias)
         reference_df = (
-            self.repository.get_counterparty()
+            self._repository.get_reference_data(ReferenceData.COUNTERPARTY)
             .alias(reference_alias)
         )
 
@@ -63,7 +73,6 @@ class ReferenceManager:
                 F.lit(''),
             )
         )
-
 
         joined_df = source_df.join(
             reference_df,

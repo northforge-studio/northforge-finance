@@ -15,7 +15,8 @@ from foundry.models import PipelineConfig
 from foundry.repository import TrialBalanceRepository
 
 from atlas import AtlasClient
-from reference import ReferenceClient
+
+from reference import ReferenceClient, ReferenceData
 
 
 class TrialBalancePipeline(BasePipeline):
@@ -63,8 +64,8 @@ class TrialBalancePipeline(BasePipeline):
         df = self._atlas.apply(df, mapping_name='ENTITY_MAPPING')
         df = self._atlas.apply(df, mapping_name='MEASURE_TYPE_MAPPING')
 
-        df = self._reference.enrich_fx_rate(df)
-        df = self._reference.enrich_counterparty(df)
+        df = self._reference.enrich_reference_data(df, ReferenceData.FX_RATE)
+        df = self._reference.enrich_reference_data(df, ReferenceData.COUNTERPARTY)
 
         return df
 

@@ -4,6 +4,7 @@ from pyspark.sql import SparkSession, DataFrame
 
 from core.store import CsvStore
 
+from reference.models import ReferenceData
 from reference.manager import ReferenceManager
 from reference.repository import ReferenceRepository
 
@@ -24,17 +25,13 @@ class ReferenceClient:
         store = CsvStore(
             spark=spark,
             table_locations={
-                'REF_FX_RATE': Path(fx_rate_path),
-                'REF_COUNTERPARTY': Path(counterparty_path),
+                ReferenceData.FX_RATE: Path(fx_rate_path),
+                ReferenceData.COUNTERPARTY: Path(counterparty_path),
             },
         )
 
         return cls(ReferenceRepository(store))
 
 
-    def enrich_fx_rate(self, df: DataFrame) -> DataFrame:
-        return self._manager.enrich_fx_rate(df)
-
-
-    def enrich_counterparty(self, df: DataFrame) -> DataFrame:
-        return self._manager.enrich_counterparty(df)
+    def enrich_reference_data(self, df: DataFrame, reference_data: ReferenceData) -> DataFrame:
+        return self._manager.enrich_reference_data(df, reference_data)
