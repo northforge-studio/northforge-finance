@@ -1,7 +1,7 @@
 from datetime import date, datetime, timezone
 from uuid import UUID, uuid4
 
-from core.runs.models import RunStatus, WorkflowRun, ExecutionRun
+from core.runs.models import RunStatus, WorkflowRun, ExecutionRun, RunDependency
 from core.runs.repository import RunRepository
 
 
@@ -85,4 +85,20 @@ class RunTracker:
             run_id,
             RunStatus.FAILED,
             completed_at=datetime.now(timezone.utc),
+        )
+
+
+    def add_dependency(
+        self,
+        *,
+        consumer_run_id: UUID,
+        producer_run_id: UUID,
+        input_role: str | None = None,
+    ) -> None:
+        self._repository.create_dependency(
+            RunDependency(
+                consumer_run_id=consumer_run_id,
+                producer_run_id=producer_run_id,
+                input_role=input_role,
+            )
         )

@@ -2,7 +2,14 @@ from datetime import date, datetime, timezone
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
-from core.runs import RunRepository, RunStatus, RunTracker, WorkflowRun, ExecutionRun
+from core.runs import (
+    RunRepository,
+    RunStatus,
+    RunTracker,
+    WorkflowRun,
+    ExecutionRun,
+    RunDependency,
+)
 
 
 def _tracker():
@@ -153,3 +160,42 @@ def test_fail_execution_sets_failed_with_completed_at():
     assert args[1] == RunStatus.FAILED
     assert isinstance(kwargs['completed_at'], datetime)
     assert kwargs['completed_at'].tzinfo is not None
+
+
+def test_add_dependency_persists_run_dependency():
+    tracker, repository = _tracker()
+    consumer_run_id = uuid4()
+    producer_run_id = uuid4()
+
+    tracker.add_dependency(
+        consumer_run_id=consumer_run_id,
+        producer_run_id=producer_run_id,
+        input_role='STAGING',
+    )
+
+    repository.create_dependency.assert_called_once_with(
+        RunDependency(
+            consumer_run_id=consumer_run_id,
+            producer_run_id=producer_run_id,
+            input_role='STAGING',
+        )
+    )
+
+
+def test_add_dependency_input_role_defaults_to_none():
+    tracker, repository = _tracker()
+    consumer_run_id = uuid4()
+    producer_run_id = uuid4()
+
+    tracker.add_dependency(
+        consumer_run_id=consumer_run_id,
+        producer_run_id=producer_run_id,
+    )
+
+    repository.create_dependency.assert_called_once_with(
+        RunDependency(
+            consumer_run_id=consumer_run_id,
+            producer_run_id=producer_run_id,
+            input_role=None,
+        )
+    )

@@ -83,13 +83,30 @@ class BasePipeline(ABC):
                 workflow_run_id=workflow_run_id,
                 parent_run_id=pipeline_execution.run_id,
             )
+            self._run_tracker.add_dependency(
+                consumer_run_id=enrichment_result.identity.run_id,
+                producer_run_id=staging_result.identity.run_id,
+                input_role='STAGING',
+            )
+
             reporting_result = self.reporting(
                 workflow_run_id=workflow_run_id,
                 parent_run_id=pipeline_execution.run_id,
             )
+            self._run_tracker.add_dependency(
+                consumer_run_id=reporting_result.identity.run_id,
+                producer_run_id=enrichment_result.identity.run_id,
+                input_role='ENRICHMENT',
+            )
+
             posting_result = self.posting(
                 workflow_run_id=workflow_run_id,
                 parent_run_id=pipeline_execution.run_id,
+            )
+            self._run_tracker.add_dependency(
+                consumer_run_id=posting_result.identity.run_id,
+                producer_run_id=reporting_result.identity.run_id,
+                input_role='REPORTING',
             )
         except Exception:
             self._run_tracker.fail_execution(pipeline_execution.run_id)

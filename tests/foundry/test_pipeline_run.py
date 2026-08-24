@@ -201,6 +201,42 @@ def test_run_completes_pipeline_execution_on_success(spark):
     run_tracker.fail_execution.assert_not_called()
 
 
+def test_run_creates_dependencies_between_consecutive_zones(spark):
+    run_tracker = MagicMock(spec=RunTracker)
+    pipeline_execution = _make_execution_run()
+    zone_executions = _make_zone_executions()
+    run_tracker.start_execution.side_effect = [
+        pipeline_execution,
+        *[zone_executions[zone] for zone in ZONES],
+    ]
+
+    zone_dfs = {
+        zone: spark.createDataFrame([(1,)], ['ID'])
+        for zone in ZONES
+    }
+    pipeline = _make_pipeline(zone_dfs=zone_dfs, run_tracker=run_tracker)
+
+    pipeline.run(workflow_run_id=uuid4())
+
+    assert run_tracker.add_dependency.call_args_list == [
+        call(
+            consumer_run_id=zone_executions['enrichment'].run_id,
+            producer_run_id=zone_executions['staging'].run_id,
+            input_role='STAGING',
+        ),
+        call(
+            consumer_run_id=zone_executions['reporting'].run_id,
+            producer_run_id=zone_executions['enrichment'].run_id,
+            input_role='ENRICHMENT',
+        ),
+        call(
+            consumer_run_id=zone_executions['posting'].run_id,
+            producer_run_id=zone_executions['reporting'].run_id,
+            input_role='REPORTING',
+        ),
+    ]
+
+
 @pytest.mark.parametrize('failing_zone', ZONES)
 def test_run_fails_pipeline_execution_and_reraises_when_a_zone_fails(spark, failing_zone):
     run_tracker = MagicMock(spec=RunTracker)
