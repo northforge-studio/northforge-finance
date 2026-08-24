@@ -8,6 +8,7 @@ from core.runs.models import (
     PipelineResult,
 )
 from core.runs.repository import RunRepository
+from core.runs.tracker import RunTracker
 
 
 __all__ = [
@@ -19,4 +20,5 @@ __all__ = [
     'ZoneResult',
     'PipelineResult',
     'RunRepository',
+    'RunTracker',
 ]
