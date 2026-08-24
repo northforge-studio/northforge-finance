@@ -4,7 +4,14 @@ from uuid import uuid4
 
 import pytest
 
-from core.runs import RunStatus, WorkflowRun, ExecutionRun
+from core.runs import (
+    RunStatus,
+    WorkflowRun,
+    ExecutionRun,
+    RunIdentity,
+    ZoneResult,
+    PipelineResult,
+)
 
 
 def _make_workflow_run(**overrides):
@@ -72,3 +79,93 @@ def test_run_status_values():
         RunStatus.FAILED,
         RunStatus.CANCELLED,
     }
+
+
+def _make_identity(**overrides):
+    defaults = dict(
+        workflow_run_id=uuid4(),
+        run_id=uuid4(),
+        parent_run_id=None,
+    )
+    defaults.update(overrides)
+    return RunIdentity(**defaults)
+
+
+def _make_zone_result(**overrides):
+    defaults = dict(
+        identity=_make_identity(),
+        zone='STAGING',
+        status=RunStatus.SUCCEEDED,
+        record_count=100,
+    )
+    defaults.update(overrides)
+    return ZoneResult(**defaults)
+
+
+def test_run_identity_is_frozen():
+    identity = _make_identity()
+
+    with pytest.raises(FrozenInstanceError):
+        identity.run_id = uuid4()
+
+
+def test_zone_result_is_frozen():
+    zone_result = _make_zone_result()
+
+    with pytest.raises(FrozenInstanceError):
+        zone_result.status = RunStatus.FAILED
+
+
+def test_zone_result_carries_its_identity():
+    identity = _make_identity()
+    zone_result = _make_zone_result(identity=identity)
+
+    assert zone_result.identity is identity
+    assert zone_result.identity.run_id == identity.run_id
+
+
+def test_pipeline_result_is_frozen():
+    identity = _make_identity()
+    pipeline_result = PipelineResult(
+        identity=identity,
+        status=RunStatus.SUCCEEDED,
+        zones=(),
+    )
+
+    with pytest.raises(FrozenInstanceError):
+        pipeline_result.status = RunStatus.FAILED
+
+
+def test_pipeline_result_aggregates_zone_results():
+    identity = _make_identity()
+
+    staging = _make_zone_result(identity=identity, zone='STAGING')
+    enrichment = _make_zone_result(identity=identity, zone='ENRICHMENT')
+
+    pipeline_result = PipelineResult(
+        identity=identity,
+        status=RunStatus.SUCCEEDED,
+        zones=(staging, enrichment),
+    )
+
+    assert pipeline_result.identity == identity
+    assert [zone.zone for zone in pipeline_result.zones] == [
+        'STAGING',
+        'ENRICHMENT',
+    ]
+    assert all(
+        zone.identity == identity
+        for zone in pipeline_result.zones
+    )
+
+
+def test_pipeline_result_accepts_no_zones():
+    identity = _make_identity()
+
+    pipeline_result = PipelineResult(
+        identity=identity,
+        status=RunStatus.PENDING,
+        zones=(),
+    )
+
+    assert pipeline_result.zones == ()
