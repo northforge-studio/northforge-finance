@@ -49,8 +49,8 @@ transformation_manager = TransformationManager(transformation_repository)
 
 reference = ReferenceClient.from_db(
     spark = spark,
-    fx_rate_table_name='reference.fx_rate',
-    counterparty_table_name='reference.counterparty',
+    fx_rate_table='reference.fx_rate',
+    counterparty_table='reference.counterparty',
 )
 
 atlas = AtlasClient.from_csv(

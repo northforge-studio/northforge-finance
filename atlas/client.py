@@ -2,7 +2,10 @@ from pathlib import Path
 
 from pyspark.sql import SparkSession, DataFrame
 
-from core.store import CsvStore
+from core.store import (
+    CsvStore,
+    PostgresStore
+)
 
 from atlas.manager import MappingManager
 from atlas.models import Mapping, MappingDefinition, GatewayRule
@@ -27,6 +30,24 @@ class AtlasClient:
             table_locations={
                 'MAPPING_META': Path(metadata_path),
                 'MAPPING_DATA': Path(data_path),
+            },
+        )
+
+        return cls(AtlasRepository(store))
+
+
+    @classmethod
+    def from_db(
+        cls,
+        spark: SparkSession,
+        metadata_table: str | Path,
+        data_table: str | Path,
+    ) -> 'AtlasClient':
+        store = PostgresStore(
+            spark=spark,
+            table_names={
+                'MAPPING_META': metadata_table,
+                'MAPPING_DATA': data_table,
             },
         )
 

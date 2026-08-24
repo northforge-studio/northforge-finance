@@ -1,7 +1,8 @@
 from typing import Any
 
-from pyspark.sql import DataFrame, SparkSession
+from pyspark.sql import functions as F
 from pyspark.sql.types import StructType
+from pyspark.sql import DataFrame, SparkSession
 
 from core.db import PostgresConfig, PostgresExecutor
 
@@ -32,7 +33,7 @@ class PostgresStore:
     ) -> DataFrame:
         physical_table = self._resolve(table_name)
 
-        return (
+        df = (
             self._spark.read
             .jdbc(
                 url=self._config.jdbc_url,
@@ -40,6 +41,11 @@ class PostgresStore:
                 properties=self._config.jdbc_properties,
             )
         )
+
+        if schema is not None:
+            df = self._normalize_columns(df, schema)
+
+        return df
 
 
     def write(
@@ -96,3 +102,32 @@ class PostgresStore:
             sql,
             parameters,
         )
+
+
+    def _normalize_columns(
+        self,
+        df: DataFrame,
+        schema: StructType,
+    ) -> DataFrame:
+        actual_columns = {
+            column.lower(): column
+            for column in df.columns
+        }
+
+        expressions = []
+
+        for field in schema.fields:
+            actual_name = actual_columns.get(field.name.lower())
+
+            if actual_name is None:
+                raise ValueError(
+                    f'Expected column {field.name!r} '
+                    f'not found in table. '
+                    f'Available columns: {df.columns}'
+                )
+
+            expressions.append(
+                F.col(actual_name).alias(field.name)
+            )
+
+        return df.select(*expressions)

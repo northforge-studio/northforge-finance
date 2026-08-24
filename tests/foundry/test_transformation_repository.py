@@ -22,8 +22,10 @@ def _write_transformations_csv(path):
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, 'w') as f:
         f.write(
-            'DATACLASS,ZONE,STAGE,SUB_STAGE,STATUS,SEQ\n'
-            'TRIAL_BALANCE,FOUNDRY,STAGING,,A,1\n'
+            'SRC_APP_CD,DATACLASS,OUTPUT_COL_NAME,SEQ,ZONE,STAGE,'
+            'SUB_STAGE,EXPRESSION,STATUS\n'
+            '11392,TRIAL_BALANCE,DATACLASS,1,FOUNDRY,STAGING,,'
+            "'TRIAL_BALANCE',A\n"
         )
 
 
@@ -46,12 +48,15 @@ def test_get_transformations_reads_configured_logical_table_from_csv(spark, tmp_
 
     assert rows == [
         {
+            'SRC_APP_CD': '11392',
             'DATACLASS': 'TRIAL_BALANCE',
+            'OUTPUT_COL_NAME': 'DATACLASS',
+            'SEQ': 1,
             'ZONE': 'FOUNDRY',
             'STAGE': 'STAGING',
-            'SUB_STAGE': None,
+            'SUB_STAGE': '',
+            'EXPRESSION': "'TRIAL_BALANCE'",
             'STATUS': 'A',
-            'SEQ': 1,
         }
     ]
 
@@ -60,17 +65,32 @@ def test_get_transformations_resolves_logical_table_against_postgres():
     with patch('core.store.postgres.PostgresExecutor'):
         spark = MagicMock()
         mock_df = spark.read.jdbc.return_value
+        mock_df.columns = [
+            'src_app_cd',
+            'dataclass',
+            'output_col_name',
+            'seq',
+            'zone',
+            'stage',
+            'sub_stage',
+            'expression',
+            'status',
+        ]
+        mock_df.select.return_value = mock_df
         mock_df.filter.return_value = mock_df
         mock_df.orderBy.return_value = mock_df
 
         row = MagicMock()
         row.asDict.return_value = {
+            'SRC_APP_CD': '11392',
             'DATACLASS': 'TRIAL_BALANCE',
+            'OUTPUT_COL_NAME': 'DATACLASS',
+            'SEQ': 1,
             'ZONE': 'FOUNDRY',
             'STAGE': 'STAGING',
             'SUB_STAGE': None,
+            'EXPRESSION': "'TRIAL_BALANCE'",
             'STATUS': 'A',
-            'SEQ': 1,
         }
         mock_df.collect.return_value = [row]
 
