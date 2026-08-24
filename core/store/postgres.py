@@ -56,6 +56,8 @@ class PostgresStore:
     ) -> None:
         physical_table = self._resolve(table_name)
 
+        df = self._to_physical_columns(df)
+
         (
             df.write
             .jdbc(
@@ -86,7 +88,7 @@ class PostgresStore:
             parameter_name = f'value_{index}'
 
             conditions.append(
-                f'"{column}" = :{parameter_name}'
+                f'"{column.lower()}" = :{parameter_name}'
             )
 
             parameters[parameter_name] = value
@@ -131,3 +133,10 @@ class PostgresStore:
             )
 
         return df.select(*expressions)
+
+
+    def _to_physical_columns(self, df: DataFrame) -> DataFrame:
+        return df.toDF(*[
+            column.lower()
+            for column in df.columns
+        ])
