@@ -2,6 +2,8 @@ from pyspark.sql import functions as F
 
 from core.store import Store
 
+from foundry.contracts import TRANSFORMATION_SCHEMA
+
 
 class TransformationRepository:
     def __init__(self, store: Store):
@@ -15,7 +17,10 @@ class TransformationRepository:
         stage: str,
         sub_stage: str = '',
     ) -> list[dict]:
-        config_df = self.store.read(table_name='CFG_TRANSFORMATIONS')
+        config_df = self.store.read(
+            table_name='CFG_TRANSFORMATIONS',
+            schema=TRANSFORMATION_SCHEMA,
+        )
 
         rows = (
             config_df
