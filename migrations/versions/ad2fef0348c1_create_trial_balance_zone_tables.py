@@ -123,9 +123,9 @@ def upgrade() -> None:
         sa.Column('gl_account', sa.String(), nullable=True),
         sa.Column('gl_sub_account', sa.String(), nullable=True),
         sa.Column('gl_affiliate_cd', sa.String(), nullable=True),
+        sa.Column('gl_product_cd', sa.String(), nullable=True),
         sa.Column('gl_book_cd', sa.String(), nullable=True),
         sa.Column('gl_coa_src_segment', sa.String(), nullable=True),
-        sa.Column('gl_product_cd', sa.String(), nullable=True),
 
         schema='foundry_enrichment',
     )
@@ -193,9 +193,9 @@ def upgrade() -> None:
         sa.Column('gl_account', sa.String(), nullable=True),
         sa.Column('gl_sub_account', sa.String(), nullable=True),
         sa.Column('gl_affiliate_cd', sa.String(), nullable=True),
+        sa.Column('gl_product_cd', sa.String(), nullable=True),
         sa.Column('gl_book_cd', sa.String(), nullable=True),
         sa.Column('gl_coa_src_segment', sa.String(), nullable=True),
-        sa.Column('gl_product_cd', sa.String(), nullable=True),
 
         schema='foundry_reporting',
     )
@@ -264,9 +264,9 @@ def upgrade() -> None:
         sa.Column('gl_account', sa.String(), nullable=True),
         sa.Column('gl_sub_account', sa.String(), nullable=True),
         sa.Column('gl_affiliate_cd', sa.String(), nullable=True),
+        sa.Column('gl_product_cd', sa.String(), nullable=True),
         sa.Column('gl_book_cd', sa.String(), nullable=True),
         sa.Column('gl_coa_src_segment', sa.String(), nullable=True),
-        sa.Column('gl_product_cd', sa.String(), nullable=True),
         sa.Column('previous_day_balance', sa.Numeric(28, 12), nullable=False),
         sa.Column('current_day_debit_balance', sa.Numeric(28, 12), nullable=False),
         sa.Column('current_day_credit_balance', sa.Numeric(28, 12), nullable=False),

@@ -166,9 +166,9 @@ TRIAL_BALANCE_ENRICHMENT_SCHEMA = StructType(
         StructField('GL_ACCOUNT', StringType(), True),
         StructField('GL_SUB_ACCOUNT', StringType(), True),
         StructField('GL_AFFILIATE_CD', StringType(), True),
+        StructField('GL_PRODUCT_CD', StringType(), True),
         StructField('GL_BOOK_CD', StringType(), True),
         StructField('GL_COA_SRC_SEGMENT', StringType(), True),
-        StructField('GL_PRODUCT_CD', StringType(), True),
 
         StructField('WORKFLOW_RUN_ID', StringType(), False),
         StructField('PRODUCER_RUN_ID', StringType(), False),
@@ -251,8 +251,8 @@ TRIAL_BALANCE_REPORTING_SCHEMA = StructType(
         StructField('GL_SUB_ACCOUNT', StringType(), True),
         StructField('GL_AFFILIATE_CD', StringType(), True),
         StructField('GL_BOOK_CD', StringType(), True),
-        StructField('GL_COA_SRC_SEGMENT', StringType(), True),
         StructField('GL_PRODUCT_CD', StringType(), True),
+        StructField('GL_COA_SRC_SEGMENT', StringType(), True),
 
         StructField('WORKFLOW_RUN_ID', StringType(), False),
         StructField('PRODUCER_RUN_ID', StringType(), False),
@@ -335,9 +335,9 @@ TRIAL_BALANCE_POSTING_SCHEMA = StructType(
         StructField('GL_ACCOUNT', StringType(), True),
         StructField('GL_SUB_ACCOUNT', StringType(), True),
         StructField('GL_AFFILIATE_CD', StringType(), True),
+        StructField('GL_PRODUCT_CD', StringType(), True),
         StructField('GL_BOOK_CD', StringType(), True),
         StructField('GL_COA_SRC_SEGMENT', StringType(), True),
-        StructField('GL_PRODUCT_CD', StringType(), True),
 
         StructField('PREVIOUS_DAY_BALANCE', DecimalType(28, 12), False),
         StructField('CURRENT_DAY_DEBIT_BALANCE', DecimalType(28, 12), False),

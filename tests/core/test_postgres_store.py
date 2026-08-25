@@ -1,6 +1,13 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
+from pyspark.sql.types import (
+    IntegerType,
+    StringType,
+    StructField,
+    StructType,
+)
+
 from core.db import PostgresConfig
 from core.store import PostgresStore
 
@@ -77,6 +84,32 @@ def test_write_lowercases_dataframe_columns_before_writing(mock_executor):
     store.write(df, table_name='CFG_TRANSFORMATIONS')
 
     df.toDF.assert_called_once_with('business_dt', 'batch_id')
+
+
+def test_write_fills_null_string_columns_with_empty_string(mock_executor, spark):
+    schema = StructType([
+        StructField('SRC_ACCOUNT_ID', StringType(), nullable=True),
+        StructField('OUTPUT_COL6', StringType(), nullable=True),
+        StructField('AMOUNT', IntegerType(), nullable=True),
+    ])
+
+    df = spark.createDataFrame(
+        [('11392', None, None)],
+        schema=schema,
+    )
+
+    store = PostgresStore(
+        spark=spark,
+        table_names=TABLE_LOCATIONS,
+    )
+
+    filled = store._fill_null_strings(df)
+
+    rows = filled.collect()
+
+    assert rows[0]['SRC_ACCOUNT_ID'] == '11392'
+    assert rows[0]['OUTPUT_COL6'] == ''
+    assert rows[0]['AMOUNT'] is None
 
 
 def test_delete_uses_resolved_physical_table(mock_executor):
