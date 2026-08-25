@@ -362,7 +362,7 @@ TRIAL_BALANCE_POSTING_SCHEMA = StructType(
 )
 
 
-GL_INGESTION_TRIAL_BALANCE_SCHEMA = StructType(
+TRIAL_BALANCE_INTERFACE_SCHEMA = StructType(
     [
         # Run identity
         StructField('WORKFLOW_RUN_ID', StringType(), False),

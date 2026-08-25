@@ -11,6 +11,7 @@ from foundry.contracts import (
     TRIAL_BALANCE_ENRICHMENT_SCHEMA,
     TRIAL_BALANCE_REPORTING_SCHEMA,
     TRIAL_BALANCE_POSTING_SCHEMA,
+    TRIAL_BALANCE_INTERFACE_SCHEMA,
 )
 
 
@@ -87,6 +88,20 @@ class TrialBalanceRepository:
         return posting_df
 
 
+    def read_interface(self, business_dt: date, batch_id: str) -> DataFrame:
+        interface_df = self.store.read(
+            table_name='TRIAL_BALANCE_INTERFACE',
+            schema=TRIAL_BALANCE_INTERFACE_SCHEMA,
+        ).filter(
+            (F.col('AS_OF_DATE') == business_dt) & (F.col('BATCH_ID') == batch_id)
+        )
+
+        if interface_df.isEmpty():
+            raise ValueError(f"No interface data found for business date: {business_dt} and batch ID: {batch_id}")
+
+        return interface_df
+
+
     def write_staging(self, df: DataFrame) -> None:
         self.store.write(
             df,
@@ -112,6 +127,13 @@ class TrialBalanceRepository:
         self.store.write(
             df,
             table_name='TRIAL_BALANCE_POSTING',
+        )
+
+
+    def write_interface(self, df: DataFrame) -> None:
+        self.store.write(
+            df,
+            table_name='TRIAL_BALANCE_INTERFACE',
         )
 
 
@@ -144,6 +166,14 @@ class TrialBalanceRepository:
             table_name='TRIAL_BALANCE_POSTING',
             filters={'BUSINESS_DT': business_dt, 'BATCH_ID': batch_id},
             schema=TRIAL_BALANCE_POSTING_SCHEMA,
+        )
+
+
+    def delete_interface(self, business_dt: date, batch_id: str) -> None:
+        self.store.delete(
+            table_name='TRIAL_BALANCE_INTERFACE',
+            filters={'AS_OF_DATE': business_dt, 'BATCH_ID': batch_id},
+            schema=TRIAL_BALANCE_INTERFACE_SCHEMA,
         )
 
 

@@ -35,4 +35,6 @@ POSTGRES_TABLE_LOCATIONS = {
     'TRIAL_BALANCE_ENRICHMENT': 'foundry_enrichment.trial_balance',
     'TRIAL_BALANCE_REPORTING': 'foundry_reporting.trial_balance',
     'TRIAL_BALANCE_POSTING': 'foundry_posting.trial_balance',
+
+    'TRIAL_BALANCE_INTERFACE': 'interface.trial_balance',
 }

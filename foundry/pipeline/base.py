@@ -108,6 +108,16 @@ class BasePipeline(ABC):
                 producer_run_id=reporting_result.identity.run_id,
                 input_role='REPORTING',
             )
+
+            interface_result = self.interface(
+                workflow_run_id=workflow_run_id,
+                parent_run_id=pipeline_execution.run_id,
+            )
+            self._run_tracker.add_dependency(
+                consumer_run_id=interface_result.identity.run_id,
+                producer_run_id=posting_result.identity.run_id,
+                input_role='POSTING',
+            )
         except Exception:
             self._run_tracker.fail_execution(pipeline_execution.run_id)
             raise
@@ -126,6 +136,7 @@ class BasePipeline(ABC):
                 enrichment_result,
                 reporting_result,
                 posting_result,
+                interface_result,
             ),
         )
 
@@ -282,6 +293,44 @@ class BasePipeline(ABC):
         )
 
 
+    def interface(
+        self,
+        *,
+        workflow_run_id: UUID,
+        parent_run_id: UUID | None = None
+    ):
+        execution_run = self._run_tracker.start_execution(
+            workflow_run_id=workflow_run_id,
+            component='FOUNDRY',
+            operation='INTERFACE',
+            parent_run_id=parent_run_id,
+        )
+
+        try:
+            df = self.pre_interface()
+            df = self.main_interface(df)
+            df = self._stamp_run_identity(df, workflow_run_id, execution_run.run_id)
+            self.post_interface(df)
+
+            record_count = df.count()
+        except Exception:
+            self._run_tracker.fail_execution(execution_run.run_id)
+            raise
+
+        self._run_tracker.complete_execution(execution_run.run_id)
+
+        return ZoneResult(
+            identity=RunIdentity(
+                workflow_run_id=workflow_run_id,
+                run_id=execution_run.run_id,
+                parent_run_id=parent_run_id,
+            ),
+            zone='INTERFACE',
+            status=RunStatus.SUCCEEDED,
+            record_count=record_count,
+        )
+
+
     @abstractmethod
     def pre_staging(self) -> DataFrame:
         ...
@@ -293,7 +342,7 @@ class BasePipeline(ABC):
 
 
     @abstractmethod
-    def post_staging(self, df: DataFrame) -> tuple[date, str]:
+    def post_staging(self, df: DataFrame) -> None:
         ...
 
 
@@ -308,7 +357,7 @@ class BasePipeline(ABC):
 
 
     @abstractmethod
-    def post_enrichment(self, df: DataFrame) -> tuple[date, str]:
+    def post_enrichment(self, df: DataFrame) -> None:
         ...
 
 
@@ -323,7 +372,7 @@ class BasePipeline(ABC):
 
 
     @abstractmethod
-    def post_reporting(self, df: DataFrame) -> tuple[date, str]:
+    def post_reporting(self, df: DataFrame) -> None:
         ...
 
 
@@ -338,7 +387,22 @@ class BasePipeline(ABC):
 
 
     @abstractmethod
-    def post_posting(self, df: DataFrame) -> tuple[date, str]:
+    def post_posting(self, df: DataFrame) -> None:
+        ...
+
+
+    @abstractmethod
+    def pre_interface(self) -> DataFrame:
+        ...
+
+
+    @abstractmethod
+    def main_interface(self, df: DataFrame) -> DataFrame:
+        ...
+
+
+    @abstractmethod
+    def post_interface(self, df: DataFrame) -> None:
         ...
 
 

@@ -9,6 +9,8 @@ from foundry.contracts import (
     TRIAL_BALANCE_ENRICHMENT_SCHEMA,
     TRIAL_BALANCE_REPORTING_SCHEMA,
     TRIAL_BALANCE_POSTING_SCHEMA,
+    TRIAL_BALANCE_INTERFACE_SCHEMA,
+
 )
 from foundry.models import PipelineConfig
 from foundry.repository import TrialBalanceRepository
@@ -85,7 +87,7 @@ class TrialBalancePipeline(BasePipeline):
         return df
 
 
-    def post_staging(self, df: DataFrame) -> tuple[date, str]:
+    def post_staging(self, df: DataFrame) -> None:
         df = self._add_row_id(df)
         df = self._get_total_acct_func_amt(df)
 
@@ -102,9 +104,7 @@ class TrialBalancePipeline(BasePipeline):
             self._numeric_id('STAGING_ID')
         )
 
-        self._repository.write_staging(df)
-
-        return tuple([self._config.business_dt, self._config.batch_id])
+        self._repository.write_staging(df)  
 
 
     def pre_enrichment(self) -> DataFrame:
@@ -122,7 +122,7 @@ class TrialBalancePipeline(BasePipeline):
         return df
 
 
-    def post_enrichment(self, df: DataFrame) -> tuple[date, str]:
+    def post_enrichment(self, df: DataFrame) -> None:
         df = self._add_row_id(df)
 
         df = self._spec.apply_transformation(
@@ -139,9 +139,7 @@ class TrialBalancePipeline(BasePipeline):
             self._numeric_id('ENRICHMENT_ID'),
         )
 
-        self._repository.write_enrichment(df)
-
-        return tuple([self._config.business_dt, self._config.batch_id])
+        self._repository.write_enrichment(df)     
 
 
     def pre_reporting(self) -> DataFrame:
@@ -177,7 +175,7 @@ class TrialBalancePipeline(BasePipeline):
         return df
 
 
-    def post_reporting(self, df: DataFrame) -> tuple[date, str]:
+    def post_reporting(self, df: DataFrame) -> None:
         df = self._add_row_id(df)
 
         df = self._spec.apply_transformation(
@@ -195,9 +193,7 @@ class TrialBalancePipeline(BasePipeline):
             self._numeric_id('REPORTING_ID'),
         )
 
-        self._repository.write_reporting(df)
-
-        return tuple([self._config.business_dt, self._config.batch_id])
+        self._repository.write_reporting(df) 
 
 
     def pre_posting(self) -> DataFrame:
@@ -229,7 +225,7 @@ class TrialBalancePipeline(BasePipeline):
         return df
 
 
-    def post_posting(self, df: DataFrame) -> tuple[date, str]:
+    def post_posting(self, df: DataFrame) -> None:
         df = self._add_row_id(df)
 
         df = self._spec.apply_transformation(
@@ -250,8 +246,58 @@ class TrialBalancePipeline(BasePipeline):
 
         self._repository.write_posting(df)
 
-        return tuple([self._config.business_dt, self._config.batch_id])
 
+    def pre_interface(self) -> DataFrame:
+        df = self._repository.read_posting(
+            business_dt=self._config.business_dt,
+            batch_id=self._config.batch_id,
+        )
+
+        df = self._spec.apply_transformation(
+            df,
+            dataclass=self.DATACLASS,
+            zone='INT',
+            stage='PRE',
+        )
+
+        return df
+
+
+    def main_interface(self, df: DataFrame) -> DataFrame:
+        df = self._spec.apply_transformation(
+            df,
+            dataclass=self.DATACLASS,
+            zone='INT',
+            stage='MAIN',
+        )
+        
+        df = self._spec.apply_file_layout(
+            df,
+            dataclass=self.DATACLASS,
+        )
+
+        return df
+
+
+    def post_interface(self, df: DataFrame) -> None:
+        df = self._spec.apply_transformation(
+            df,
+            dataclass=self.DATACLASS,
+            zone='INT',
+            stage='POST',
+        )
+
+        df = self._align_to_schema(df, TRIAL_BALANCE_INTERFACE_SCHEMA)
+        df = df.orderBy(
+            self._numeric_id('SRC_RECORD_ID'),
+            self._numeric_id('STAGING_ID'),
+            self._numeric_id('ENRICHMENT_ID'),
+            self._numeric_id('REPORTING_ID'),
+            self._numeric_id('POSTING_ID'),
+        )
+
+        self._repository.write_interface(df)
+    
 
     def rollback(self) -> None:
         business_dt = self._config.business_dt
@@ -263,6 +309,7 @@ class TrialBalancePipeline(BasePipeline):
         self._repository.delete_staging(business_dt, batch_id)
         self._repository.delete_enrichment(business_dt, batch_id)
         self._repository.delete_reporting(business_dt, batch_id)
+        self._repository.delete_interface(business_dt, batch_id)
 
 
     def _combine_staging_and_enrichment(
