@@ -17,3 +17,13 @@ TRANSFORMATION_SCHEMA = StructType([
     StructField('EXPRESSION', StringType(), False),
     StructField('STATUS', StringType(), False),
 ])
+
+
+FILE_LAYOUT_SCHEMA = StructType([
+    StructField('SRC_APP_CD', StringType(), False),
+    StructField('DATACLASS', StringType(), False),
+    StructField('POSTING_ATTRIBUTE_NAME', StringType(), False),
+    StructField('GL_ATTRIBUTE_NAME', StringType(), False),
+    StructField('EXPRESSION', StringType(), False),
+    StructField('SEQ', IntegerType(), False),
+])

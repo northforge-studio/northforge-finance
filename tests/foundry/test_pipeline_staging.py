@@ -73,7 +73,7 @@ def _make_pipeline(staging_df, run_tracker, raise_error=False):
         config=config,
         atlas=MagicMock(),
         reference=MagicMock(),
-        transformation_manager=MagicMock(),
+        spec=MagicMock(),
         run_tracker=run_tracker,
     )
 

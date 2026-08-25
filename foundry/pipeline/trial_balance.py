@@ -10,13 +10,13 @@ from foundry.contracts import (
     TRIAL_BALANCE_REPORTING_SCHEMA,
     TRIAL_BALANCE_POSTING_SCHEMA,
 )
-from foundry.enrichments import TransformationManager
 from foundry.models import PipelineConfig
 from foundry.repository import TrialBalanceRepository
 
 from atlas import AtlasClient
 
 from reference import ReferenceClient, ReferenceData
+from spec import SpecClient
 
 from core.runs import RunTracker
 
@@ -31,7 +31,7 @@ class TrialBalancePipeline(BasePipeline):
         atlas: AtlasClient,
         repository: TrialBalanceRepository,
         reference: ReferenceClient,
-        transformation_manager: TransformationManager,
+        spec: SpecClient,
         run_tracker: RunTracker,
     ):
         config = PipelineConfig(
@@ -42,13 +42,13 @@ class TrialBalancePipeline(BasePipeline):
             config = config,
             atlas = atlas,
             reference = reference,
-            transformation_manager = transformation_manager,
+            spec = spec,
             run_tracker = run_tracker,
         )
         self._atlas = atlas
         self._repository = repository
         self._reference = reference
-        self._transformation_manager = transformation_manager
+        self._spec = spec
 
 
     def pre_staging(self) -> DataFrame:
@@ -58,7 +58,7 @@ class TrialBalancePipeline(BasePipeline):
 
         df = self._resolve_batch_id(df)
 
-        df = self._transformation_manager.apply(
+        df = self._spec.apply_transformation(
             df,
             dataclass=self.DATACLASS,
             zone='STG',
@@ -75,7 +75,7 @@ class TrialBalancePipeline(BasePipeline):
 
 
     def main_staging(self, df: DataFrame) -> DataFrame:
-        df = self._transformation_manager.apply(
+        df = self._spec.apply_transformation(
             df,
             dataclass=self.DATACLASS,
             zone='STG',
@@ -89,7 +89,7 @@ class TrialBalancePipeline(BasePipeline):
         df = self._add_row_id(df)
         df = self._get_total_acct_func_amt(df)
 
-        df = self._transformation_manager.apply(
+        df = self._spec.apply_transformation(
             df,
             dataclass=self.DATACLASS,
             zone='STG',
@@ -125,7 +125,7 @@ class TrialBalancePipeline(BasePipeline):
     def post_enrichment(self, df: DataFrame) -> tuple[date, str]:
         df = self._add_row_id(df)
 
-        df = self._transformation_manager.apply(
+        df = self._spec.apply_transformation(
             df,
             dataclass=self.DATACLASS,
             zone='ENR',
@@ -156,7 +156,7 @@ class TrialBalancePipeline(BasePipeline):
 
         df = self._combine_staging_and_enrichment(staging_df, enrichment_df)
 
-        df = self._transformation_manager.apply(
+        df = self._spec.apply_transformation(
             df,
             dataclass=self.DATACLASS,
             zone='RPT',
@@ -167,7 +167,7 @@ class TrialBalancePipeline(BasePipeline):
 
 
     def main_reporting(self, df: DataFrame) -> DataFrame:
-        df = self._transformation_manager.apply(
+        df = self._spec.apply_transformation(
             df,
             dataclass=self.DATACLASS,
             zone='RPT',
@@ -180,7 +180,7 @@ class TrialBalancePipeline(BasePipeline):
     def post_reporting(self, df: DataFrame) -> tuple[date, str]:
         df = self._add_row_id(df)
 
-        df = self._transformation_manager.apply(
+        df = self._spec.apply_transformation(
             df,
             dataclass=self.DATACLASS,
             zone='RPT',
@@ -208,7 +208,7 @@ class TrialBalancePipeline(BasePipeline):
 
         df = self._transpose_measures(df)
 
-        df = self._transformation_manager.apply(
+        df = self._spec.apply_transformation(
             df,
             dataclass=self.DATACLASS,
             zone='PST',
@@ -219,7 +219,7 @@ class TrialBalancePipeline(BasePipeline):
 
 
     def main_posting(self, df: DataFrame) -> DataFrame:
-        df = self._transformation_manager.apply(
+        df = self._spec.apply_transformation(
             df,
             dataclass=self.DATACLASS,
             zone='PST',
@@ -232,7 +232,7 @@ class TrialBalancePipeline(BasePipeline):
     def post_posting(self, df: DataFrame) -> tuple[date, str]:
         df = self._add_row_id(df)
 
-        df = self._transformation_manager.apply(
+        df = self._spec.apply_transformation(
             df,
             dataclass=self.DATACLASS,
             zone='PST',

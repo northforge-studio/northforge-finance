@@ -18,22 +18,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute('CREATE SCHEMA foundry_config')
     op.execute('CREATE SCHEMA foundry_source')
     op.execute('CREATE SCHEMA foundry_staging')
     op.execute('CREATE SCHEMA foundry_enrichment')
     op.execute('CREATE SCHEMA foundry_reporting')
     op.execute('CREATE SCHEMA foundry_posting')
 
+    op.execute('CREATE SCHEMA spec')
     op.execute('CREATE SCHEMA atlas')
     op.execute('CREATE SCHEMA reference')
+
     op.execute('CREATE SCHEMA core')
 
 
 def downgrade() -> None:
     op.execute('DROP SCHEMA core')
+
     op.execute('DROP SCHEMA reference')
     op.execute('DROP SCHEMA atlas')
+    op.execute('DROP SCHEMA spec')
 
     op.execute('DROP SCHEMA foundry_posting')
     op.execute('DROP SCHEMA foundry_reporting')

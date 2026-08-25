@@ -2,12 +2,8 @@ from datetime import date
 
 from pyspark.sql import SparkSession
 
-from foundry.repository import (
-    TrialBalanceRepository,
-    TransformationRepository,
-)
+from foundry.repository import TrialBalanceRepository
 from foundry.pipeline import TrialBalancePipeline
-from foundry.enrichments import TransformationManager
 from foundry.config.settings import (
     CSV_TABLE_LOCATIONS,
     POSTGRES_TABLE_LOCATIONS,
@@ -21,6 +17,7 @@ from core.runs import RunRepository, RunTracker
 
 from atlas import AtlasClient
 from reference import ReferenceClient
+from spec import SpecClient
 
 
 BUSINESS_DT = date(2025, 3, 31)
@@ -43,8 +40,11 @@ store = PostgresStore(
 
 repository = TrialBalanceRepository(store)
 
-transformation_repository = TransformationRepository(store)
-transformation_manager = TransformationManager(transformation_repository)
+spec = SpecClient.from_db(
+    spark=spark,
+    transformation_table='foundry_config.transformation',
+    file_layout_table='foundry_config.file_layout',
+)
 
 reference = ReferenceClient.from_db(
     spark = spark,
@@ -65,7 +65,7 @@ pipeline = TrialBalancePipeline(
     atlas=atlas,
     repository=repository,
     reference=reference,
-    transformation_manager=transformation_manager,
+    spec=spec,
     run_tracker=run_tracker,
 )
 

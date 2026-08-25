@@ -1,20 +1,19 @@
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from foundry.enrichments import TransformationManager
-
 from atlas import AtlasClient, PostingRule
+from spec import SpecClient
 
 
 class PostingRuleProcessor:
     def __init__(
         self,
         dataclass: str,
-        transformation_manager: TransformationManager,
+        spec: SpecClient,
         atlas: AtlasClient,
     ):
         self._dataclass = dataclass
-        self._transformation_manager = transformation_manager
+        self._spec = spec
         self._atlas = atlas
 
 
@@ -47,7 +46,7 @@ class PostingRuleProcessor:
         df: DataFrame,
     ) -> DataFrame:
 
-        df = self._transformation_manager.apply(
+        df = self._spec.apply_transformation(
             df,
             dataclass=self._dataclass,
             zone='ENR',
@@ -57,7 +56,7 @@ class PostingRuleProcessor:
 
         df = self._apply_coa_enrichments(df)
 
-        df = self._transformation_manager.apply(
+        df = self._spec.apply_transformation(
             df,
             dataclass=self._dataclass,
             zone='ENR',

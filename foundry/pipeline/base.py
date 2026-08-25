@@ -11,11 +11,11 @@ from foundry.rules import (
     GatewayRuleProcessor,
     RuleExecutionEngine
 )
-from foundry.enrichments import TransformationManager
 from foundry.models import PipelineConfig
 
 from atlas import AtlasClient, GatewayRule
 from reference import ReferenceClient
+from spec import SpecClient
 from core.runs import RunTracker, RunIdentity, ZoneResult, PipelineResult, RunStatus
 
 
@@ -25,23 +25,23 @@ class BasePipeline(ABC):
         config: PipelineConfig,
         atlas: AtlasClient,
         reference: ReferenceClient,
-        transformation_manager: TransformationManager,
+        spec: SpecClient,
         run_tracker: RunTracker,
     ):
         self._config = config
         self._atlas = atlas
         self._reference = reference
-        self._transformation_manager = transformation_manager
+        self._spec = spec
         self._run_tracker = run_tracker
 
         posting_rule_processor = PostingRuleProcessor(
             dataclass=config.dataclass,
-            transformation_manager=transformation_manager,
+            spec=spec,
             atlas=atlas
         )
         gateway_rule_processor = GatewayRuleProcessor(
             posting_rule_processor=posting_rule_processor,
-            transformation_manager=transformation_manager,
+            spec=spec,
             atlas=atlas
         )
         self._rule_execution_engine = RuleExecutionEngine(

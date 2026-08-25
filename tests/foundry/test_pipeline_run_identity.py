@@ -99,7 +99,7 @@ def _make_pipeline(zone_df, run_tracker):
         config=config,
         atlas=MagicMock(),
         reference=MagicMock(),
-        transformation_manager=MagicMock(),
+        spec=MagicMock(),
         run_tracker=run_tracker,
     )
 

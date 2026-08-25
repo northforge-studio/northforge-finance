@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, text
 from core.db import PostgresConfig
 
 
-TRANSFORMATIONS_PATH = Path('data/foundry/config/transformations.csv')
+TRANSFORMATIONS_PATH = Path('data/spec/transformations.csv')
 
 
 def main() -> None:
@@ -28,7 +28,7 @@ def main() -> None:
     with engine.begin() as connection:
         connection.execute(
             text(
-                'TRUNCATE TABLE foundry_config.transformation '
+                'TRUNCATE TABLE spec.transformation '
                 'RESTART IDENTITY'
             )
         )
@@ -36,14 +36,14 @@ def main() -> None:
         df.to_sql(
             name='transformation',
             con=connection,
-            schema='foundry_config',
+            schema='spec',
             if_exists='append',
             index=False,
         )
 
     print(
         f'Seeded {len(df)} transformations into '
-        'foundry_config.transformation'
+        'spec.transformation'
     )
 
 

@@ -83,7 +83,7 @@ def _make_pipeline(zone_dfs, run_tracker, raise_error_in=None):
         config=config,
         atlas=MagicMock(),
         reference=MagicMock(),
-        transformation_manager=MagicMock(),
+        spec=MagicMock(),
         run_tracker=run_tracker,
     )
 

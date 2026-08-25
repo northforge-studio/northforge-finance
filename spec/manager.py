@@ -1,15 +1,15 @@
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from foundry.repository import TransformationRepository
+from spec.repository import SpecRepository
 
 
-class TransformationManager:
-    def __init__(self, repository: TransformationRepository):
-        self.repository = repository
+class SpecManager:
+    def __init__(self, repository: SpecRepository):
+        self._repository = repository
 
 
-    def apply(
+    def apply_transformation(
         self,
         df: DataFrame,
         dataclass: str,
@@ -17,7 +17,7 @@ class TransformationManager:
         stage: str,
         sub_stage: str = '',
     ) -> DataFrame:
-        transformations = self.repository.get_transformations(
+        transformations = self._repository.get_transformations(
             dataclass=dataclass,
             zone=zone,
             stage=stage,
@@ -31,3 +31,13 @@ class TransformationManager:
             )
 
         return df
+
+
+    def apply_file_layout(
+        self,
+        df: DataFrame,
+        dataclass: str
+    ) -> DataFrame:
+        expressions = self._repository.get_file_layout_expressions(dataclass=dataclass)
+
+        return df.selectExpr(*expressions)

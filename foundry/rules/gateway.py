@@ -4,20 +4,20 @@ from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
 from foundry.rules.posting import PostingRuleProcessor
-from foundry.enrichments import TransformationManager
 
 from atlas import AtlasClient, GatewayRule
+from spec import SpecClient
 
 
 class GatewayRuleProcessor:
     def __init__(
         self,
         posting_rule_processor: PostingRuleProcessor,
-        transformation_manager: TransformationManager,
+        spec: SpecClient,
         atlas: AtlasClient,
     ):
         self._posting_rule_processor = posting_rule_processor
-        self._transformation_manager = transformation_manager
+        self._spec = spec
         self._atlas = atlas
 
 
