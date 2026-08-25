@@ -9,6 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -22,8 +23,18 @@ def upgrade() -> None:
     op.create_table(
         'trial_balance',
 
-        sa.Column('workflow_run_id', sa.String(), nullable=False),
-        sa.Column('producer_run_id', sa.String(), nullable=False),
+        sa.Column(
+            'workflow_run_id',
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey('core.workflow_run.workflow_run_id'),
+            nullable=False,
+        ),
+        sa.Column(
+            'producer_run_id',
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey('core.execution_run.run_id'),
+            nullable=False,
+        ),
 
         sa.Column('transaction_number', sa.String(), nullable=True),
         sa.Column('line_number', sa.String(), nullable=True),
