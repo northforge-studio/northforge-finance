@@ -360,3 +360,83 @@ TRIAL_BALANCE_POSTING_SCHEMA = StructType(
         StructField('PRODUCER_RUN_ID', StringType(), False),
     ]
 )
+
+
+GL_INGESTION_TRIAL_BALANCE_SCHEMA = StructType(
+    [
+        # Run identity
+        StructField('WORKFLOW_RUN_ID', StringType(), False),
+        StructField('PRODUCER_RUN_ID', StringType(), False),
+
+        StructField('TRANSACTION_NUMBER', StringType(), True),
+        StructField('LINE_NUMBER', StringType(), True),
+
+        # GL attributes
+        StructField('DEFAULT_CURRENCY', StringType(), False),
+        StructField('ENTITY_CD', StringType(), True),
+        StructField('DEPT_CD', StringType(), True),
+        StructField('BRANCH_CD', StringType(), True),
+        StructField('GL_ACCOUNT', StringType(), True),
+        StructField('SUB_ACCOUNT', StringType(), True),
+        StructField('AFFILIATE_CD', StringType(), True),
+        StructField('PRODUCT_CD', StringType(), True),
+        StructField('BOOK_CD', StringType(), True),
+        StructField('SOURCE_CD', StringType(), True),
+
+        # Foundry lineage
+        StructField('FOUNDRY_RULE_ID', StringType(), True),
+        StructField('LINE_DESCRIPTION', StringType(), True),
+        StructField('POSTING_ID', StringType(), True),
+        StructField('POSTING_MEASURE_NAME', StringType(), True),
+        StructField('POSTING_STREAM', StringType(), True),
+
+        # Source lineage
+        StructField('SRC_RECORD_ID', StringType(), False),
+        StructField('SRC_ENTITY_ID', StringType(), False),
+        StructField('SRC_ACCOUNT_ID', StringType(), False),
+
+        # Currency / account metadata
+        StructField('POSTING_MEASURE_ISO_CY_CD', StringType(), False),
+        StructField('POSTING_MEASURE_FUNC_CCY_CD', StringType(), True),
+        StructField('SRC_ACCOUNT_DESCRIPTION', StringType(), False),
+        StructField('SRC_ACCOUNT_TYPE', StringType(), False),
+        StructField('SRC_ACCOUNT_CATEGORY', StringType(), False),
+        StructField('SRC_BOOKING_DEPT_CD', StringType(), False),
+        StructField('SRC_ACCOUNT_NORMAN_SIGNAGE', StringType(), False),
+
+        # Client metadata
+        StructField('SRC_CLIENT_ID', StringType(), True),
+        StructField('CLIENT_NAME', StringType(), True),
+        StructField('CLIENT_ID_TYPE', StringType(), True),
+        StructField('INTERGORUP_IDENTIFIER', StringType(), True),
+
+        StructField('ACCT_FUNC_SIGNAGE', StringType(), False),
+
+        # Source metadata
+        StructField('BATCH_ID', IntegerType(), False),
+        StructField('SRC_APP_CD', StringType(), False),
+        StructField('SRC_APP_NM', StringType(), False),
+
+        # Amounts
+        StructField('DEFAULT_AMOUNT', DecimalType(28, 12), False),
+        StructField('ACCOUNTED_AMOUNT', DecimalType(28, 12), False),
+        StructField('FX_RATE', DecimalType(28, 12), False),
+
+        # Trial Balance measures
+        StructField('SRC_PREV_DAY_BAL_AMT', DecimalType(28, 12), False),
+        StructField('SRC_CRNT_DAY_DEBIT', DecimalType(28, 12), False),
+        StructField('SRC_CRNT_DAY_CREDIT', DecimalType(28, 12), False),
+        StructField('SRC_CRNT_DAY_EOD_BALANCE', DecimalType(28, 12), False),
+        StructField(
+            'SRC_BACK_VALUED_ADJUSTMENT',
+            DecimalType(28, 12),
+            False,
+        ),
+        StructField('SRC_MEASURE_TRANS_AMT', DecimalType(28, 12), False),
+        StructField('SRC_ACCT_FUNC_AMT', DecimalType(28, 12), False),
+
+        # Dates
+        StructField('AS_OF_DATE', DateType(), False),
+        StructField('EXTRACT_DATE', DateType(), False),
+    ]
+)
