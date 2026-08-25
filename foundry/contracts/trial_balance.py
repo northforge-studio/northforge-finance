@@ -143,6 +143,7 @@ TRIAL_BALANCE_ENRICHMENT_SCHEMA = StructType(
         StructField('CR_DR_IND', StringType(), True),
 
         StructField('POSTING_RULE_ID', StringType(), True),
+        StructField('RULE_ID_DESC', StringType(), True),
         StructField('POSTING_STREAM', StringType(), True),
         StructField('POSTING_SWITCH', StringType(), True),
         StructField('MEASURE_PERIOD_TYPE', StringType(), True),
@@ -227,6 +228,7 @@ TRIAL_BALANCE_REPORTING_SCHEMA = StructType(
         StructField('CR_DR_IND', StringType(), True),
 
         StructField('POSTING_RULE_ID', StringType(), True),
+        StructField('RULE_ID_DESC', StringType(), True),
         StructField('POSTING_STREAM', StringType(), True),
         StructField('POSTING_SWITCH', StringType(), True),
         StructField('MEASURE_PERIOD_TYPE', StringType(), True),
@@ -312,6 +314,7 @@ TRIAL_BALANCE_POSTING_SCHEMA = StructType(
         StructField('CR_DR_IND', StringType(), True),
 
         StructField('POSTING_RULE_ID', StringType(), True),
+        StructField('RULE_ID_DESC', StringType(), True),
         StructField('POSTING_STREAM', StringType(), True),
         StructField('POSTING_SWITCH', StringType(), True),
         StructField('MEASURE_PERIOD_TYPE', StringType(), True),
