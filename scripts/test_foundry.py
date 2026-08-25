@@ -36,16 +36,14 @@ spark = (
     .getOrCreate()
 )
 
-csv_store = CsvStore(spark, table_locations=CSV_TABLE_LOCATIONS)
-
-postgres_store = PostgresStore(
+store = PostgresStore(
     spark, 
     table_names = POSTGRES_TABLE_LOCATIONS
 )
 
-repository = TrialBalanceRepository(csv_store)
+repository = TrialBalanceRepository(store)
 
-transformation_repository = TransformationRepository(postgres_store)
+transformation_repository = TransformationRepository(store)
 transformation_manager = TransformationManager(transformation_repository)
 
 reference = ReferenceClient.from_db(
@@ -78,10 +76,10 @@ print(f"Pipeline run complete: {pipeline_result}")
 business_dt = pipeline._config.business_dt
 batch_id = pipeline._config.batch_id
 
-staging_df = repository.read_staging(business_dt=business_dt, batch_id=batch_id)
+posting_df = repository.read_staging(business_dt=business_dt, batch_id=batch_id)
 
-staging_df.show()
+posting_df.show()
 
-staging_df.printSchema()
+posting_df.printSchema()
 
 spark.stop()
