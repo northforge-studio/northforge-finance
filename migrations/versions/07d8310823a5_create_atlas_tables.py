@@ -21,41 +21,25 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     # Column types/nullability mirror atlas/contracts.py's
     # MAPPING_META_SCHEMA / MAPPING_DATA_SCHEMA exactly (all fields are
-    # nullable there, and AUD_LOAD_ID/MDM_ID are StringType, not numeric).
+    # nullable there).
     op.create_table(
         'meta',
         sa.Column('id', sa.Integer(), sa.Identity(), primary_key=True),
-        sa.Column('aud_load_id', sa.String(), nullable=True),
-        sa.Column('rcd_dt', sa.Date(), nullable=True),
-        sa.Column('ver_nb', sa.Integer(), nullable=True),
-        sa.Column('eff_start_date', sa.Date(), nullable=True),
-        sa.Column('eff_end_date', sa.Date(), nullable=True),
-        sa.Column('mapping_category', sa.String(), nullable=True),
         sa.Column('mapping_name', sa.String(), nullable=True),
         sa.Column('mapping_data_name', sa.String(), nullable=True),
         sa.Column('metadata_field_name', sa.String(), nullable=True),
         sa.Column('logical_field_name', sa.String(), nullable=True),
         sa.Column('field_type', sa.String(), nullable=True),
         sa.Column('lookup_type', sa.String(), nullable=True),
-        sa.Column('datatype', sa.String(), nullable=True),
         sa.Column('src_field_name', sa.String(), nullable=True),
-        sa.Column('ui_field_visibility', sa.String(), nullable=True),
-        sa.Column('control', sa.String(), nullable=True),
+        sa.Column('datatype', sa.String(), nullable=True),
         sa.Column('ui_field_order', sa.Integer(), nullable=True),
         schema='atlas',
     )
 
     columns = [
         sa.Column('id', sa.Integer(), sa.Identity(), primary_key=True),
-        sa.Column('aud_load_id', sa.String(), nullable=True),
-        sa.Column('rcd_dt', sa.Date(), nullable=True),
-        sa.Column('ver_nb', sa.Integer(), nullable=True),
-        sa.Column('eff_start_date', sa.Date(), nullable=True),
-        sa.Column('eff_end_date', sa.Date(), nullable=True),
-        sa.Column('mdm_id', sa.String(), nullable=True),
-        sa.Column('mapping_category', sa.String(), nullable=True),
         sa.Column('mapping_name', sa.String(), nullable=True),
-        sa.Column('mapping_data_name', sa.String(), nullable=True),
     ]
 
     columns.extend(

@@ -47,18 +47,17 @@ def test_validate_entity_mapping_source_columns(spark, manager):
 def test_validate_entity_mapping_missing_source_column(spark, manager):
     df = spark.createDataFrame(
         [
-            ('SRC_SYS', '100', 'TRIAL_BALANCE'),
+            ('SRC_SYS', '100'),
         ],
         [
             'SRC_APP_CD',
             'SRC_ENTITY_CD',
-            'DATACLASS',
         ],
     )
 
     with pytest.raises(
         ValueError,
-        match='COA_RULE_ID',
+        match='DATACLASS',
     ):
 
         mapping = manager.get_mapping('ENTITY_MAPPING')
@@ -193,11 +192,11 @@ def test_get_rule_config_groups_posting_rules_by_gateway_rule_id(manager):
 
     assert rule_cfg == [
         GatewayRule(
-            id='TB-GRS-001-BK-01',
+            id='TB-GROSS-UP',
             posting_measure_nm='ADJUSTED_BALANCE',
             posting_rules=(
                 PostingRule(
-                    id='TB-GRS-001-BK-01',
+                    id='TB-GROSS-UP',
                     posting_stream='GROSS_UP',
                 ),
             ),

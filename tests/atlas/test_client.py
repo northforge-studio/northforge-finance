@@ -39,7 +39,6 @@ def test_atlas_client_apply(spark, atlas):
                 row['SRC_APP_CD'],
                 row['SRC_ENTITY_CD'],
                 row['DATACLASS'],
-                row['COA_RULE_ID'],
             ),
         ],
         [
@@ -47,7 +46,6 @@ def test_atlas_client_apply(spark, atlas):
             'SRC_APP_CD',
             'SRC_ENTITY_CD',
             'DATACLASS',
-            'COA_RULE_ID',
         ],
     )
 

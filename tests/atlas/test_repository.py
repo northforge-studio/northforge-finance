@@ -22,7 +22,7 @@ def test_reconstruct_entity_mapping_definition(repository):
     )
 
     assert definition.mapping_name == 'ENTITY_MAPPING'
-    assert definition.mapping_data_name == 'ENTITY_MAPPING_DATASET'
+    assert definition.mapping_data_name == 'NORTHFORGE_MAPPING_DATA'
 
     assert [
         field.logical_name
@@ -31,17 +31,12 @@ def test_reconstruct_entity_mapping_definition(repository):
         'SRC_APP_CD',
         'SRC_ENTITY_CD',
         'DATACLASS',
-        'COA_RULE_ID',
     ]
 
     assert [
         field.logical_name
         for field in definition.informational_fields
-    ] == [
-        'SOURCE_SYSTEM_NAME',
-        'ENTITY_NAME',
-        'RULE_ID_DESC',
-    ]
+    ] == []
 
     assert [
         field.logical_name
@@ -65,10 +60,6 @@ def test_reconstruct_entity_mapping_data(repository):
         'SRC_APP_CD',
         'SRC_ENTITY_CD',
         'DATACLASS',
-        'COA_RULE_ID',
-        'SOURCE_SYSTEM_NAME',
-        'ENTITY_NAME',
-        'RULE_ID_DESC',
         'GL_ENTITY_CD',
         'GL_BRANCH_CD',
         'ENTITY_SUN_ID',

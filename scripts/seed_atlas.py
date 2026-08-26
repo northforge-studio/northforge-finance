@@ -1,39 +1,19 @@
-from datetime import date
 from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import create_engine, text, Date
+from sqlalchemy import create_engine, text
 
 from core.db import PostgresConfig
 
 
-META_PATH = Path('data/atlas/mapping_meta.csv')
-DATA_PATH = Path('data/atlas/mapping_data.csv')
-
-DATE_COLUMNS = [
-    'RCD_DT',
-    'EFF_START_DATE',
-    'EFF_END_DATE',
-]
+META_PATH = Path('data/atlas/meta.csv')
+DATA_PATH = Path('data/atlas/data.csv')
 
 IO_COLUMNS = [
     f'{prefix}_COL{i}'
     for prefix in ('INPUT', 'OUTPUT')
     for i in range(1, 21)
 ]
-
-
-def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
-    for column in DATE_COLUMNS:
-        df[column] = df[column].map(
-            lambda value: (
-                date.fromisoformat(value)
-                if pd.notna(value)
-                else None
-            )
-        )
-
-    return df
 
 
 def fill_blank_io_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -57,19 +37,12 @@ def seed_table(
 
     schema, table = table_name.split('.', maxsplit=1)
 
-    date_columns = {
-        column.lower(): Date()
-        for column in DATE_COLUMNS
-        if column.lower() in df.columns
-    }
-
     df.to_sql(
         name=table,
         con=connection,
         schema=schema,
         if_exists='append',
         index=False,
-        dtype=date_columns,
     )
 
 
@@ -87,8 +60,6 @@ def main() -> None:
         },
     )
 
-    meta_df = parse_dates(meta_df)
-    data_df = parse_dates(data_df)
     data_df = fill_blank_io_columns(data_df)
 
     meta_df.columns = [
