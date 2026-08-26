@@ -1,12 +1,14 @@
-from core.db import PostgresConfig, PostgresExecutor
+from pyspark.sql import functions as F
 
+from core.store import Store
+
+from gl.contracts import SEGMENT_DEFAULT_SCHEMA
 from gl.models import SegmentDefault
 
 
 class GLRepository:
-    def __init__(self):
-        self._config = PostgresConfig.from_env()
-        self._executor = PostgresExecutor(self._config)
+    def __init__(self, store: Store):
+        self._store = store
 
 
     def get_segment_default(
@@ -15,27 +17,29 @@ class GLRepository:
         context_type: str,
         context_value: str,
     ) -> SegmentDefault | None:
-        row = self._executor.fetch_one(
-            '''
-            SELECT segment_type, context_type, context_value, default_value
-            FROM gl.segments_default
-            WHERE segment_type = :segment_type
-              AND context_type = :context_type
-              AND context_value = :context_value
-            ''',
-            {
-                'segment_type': segment_type,
-                'context_type': context_type,
-                'context_value': context_value,
-            },
+        df = self._store.read(
+            table_name='SEGMENT_DEFAULT',
+            schema=SEGMENT_DEFAULT_SCHEMA,
         )
 
-        if row is None:
+        rows = (
+            df
+            .filter(
+                (F.col('SEGMENT_TYPE') == segment_type)
+                & (F.col('CONTEXT_TYPE') == context_type)
+                & (F.col('CONTEXT_VALUE') == context_value)
+            )
+            .collect()
+        )
+
+        if not rows:
             return None
 
+        row = rows[0]
+
         return SegmentDefault(
-            segment_type=row['segment_type'],
-            context_type=row['context_type'],
-            context_value=row['context_value'],
-            default_value=row['default_value'],
+            segment_type=row['SEGMENT_TYPE'],
+            context_type=row['CONTEXT_TYPE'],
+            context_value=row['CONTEXT_VALUE'],
+            default_value=row['DEFAULT_VALUE'],
         )

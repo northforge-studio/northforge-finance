@@ -1,8 +1,8 @@
+from gl.client import GLClient
 from gl.models import SegmentDefault
-from gl.repository import GLRepository
 
 
 __all__ = [
+    'GLClient',
     'SegmentDefault',
-    'GLRepository',
 ]

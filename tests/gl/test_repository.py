@@ -1,105 +1,97 @@
 import pytest
 
-from core.db import PostgresConfig, PostgresExecutor
-from gl import GLRepository, SegmentDefault
+from core.store import CsvStore
+
+from gl.models import SegmentDefault
+from gl.repository import GLRepository
 
 
 @pytest.fixture(scope='module')
-def executor():
-    return PostgresExecutor(PostgresConfig.from_env())
-
-
-@pytest.fixture(scope='module')
-def repository():
-    return GLRepository()
-
-
-@pytest.fixture
-def segment_defaults(executor):
-    rows = [
-        ('TEST_SEGMENT_TYPE', 'ENTITY_CD', 'ZZTEST', 'A1'),
-        ('TEST_SEGMENT_TYPE', '*', '*', 'GLOBAL1'),
-        ('TEST_SEGMENT_TYPE_NUMERIC', 'ENTITY_CD', '0099', '999999'),
-    ]
-
-    for segment_type, context_type, context_value, default_value in rows:
-        executor.execute(
-            '''
-            INSERT INTO gl.segments_default (
-                segment_type, context_type, context_value, default_value
-            ) VALUES (
-                :segment_type, :context_type, :context_value, :default_value
-            )
-            ''',
-            {
-                'segment_type': segment_type,
-                'context_type': context_type,
-                'context_value': context_value,
-                'default_value': default_value,
-            },
-        )
-
-    yield
-
-    executor.execute(
-        "DELETE FROM gl.segments_default WHERE segment_type LIKE 'TEST\\_%' ESCAPE '\\'"
+def repository(spark):
+    store = CsvStore(
+        spark=spark,
+        table_locations={
+            'SEGMENT_DEFAULT': 'data/gl/segment_defaults.csv',
+        },
     )
+    return GLRepository(store)
 
 
-def test_get_segment_default_returns_contextual_default(repository, segment_defaults):
-    result = repository.get_segment_default(
-        'TEST_SEGMENT_TYPE', 'ENTITY_CD', 'ZZTEST',
-    )
+def test_get_segment_default_returns_contextual_default(repository):
+    result = repository.get_segment_default('DEPT_CD', 'ENTITY_CD', 'USM')
 
     assert result == SegmentDefault(
-        segment_type='TEST_SEGMENT_TYPE',
+        segment_type='DEPT_CD',
         context_type='ENTITY_CD',
-        context_value='ZZTEST',
-        default_value='A1',
+        context_value='USM',
+        default_value='9999',
     )
 
 
-def test_get_segment_default_returns_global_default(repository, segment_defaults):
-    result = repository.get_segment_default(
-        'TEST_SEGMENT_TYPE', '*', '*',
-    )
+def test_get_segment_default_returns_global_default(repository):
+    result = repository.get_segment_default('SUB_ACCOUNT', '*', '*')
 
     assert result == SegmentDefault(
-        segment_type='TEST_SEGMENT_TYPE',
+        segment_type='SUB_ACCOUNT',
         context_type='*',
         context_value='*',
-        default_value='GLOBAL1',
+        default_value='UNASSIGNED',
     )
 
 
-def test_get_segment_default_returns_none_for_unknown_combination(
-    repository, segment_defaults,
-):
-    result = repository.get_segment_default(
-        'TEST_SEGMENT_TYPE', 'ENTITY_CD', 'UNKNOWN',
-    )
+def test_get_segment_default_returns_none_for_unknown_combination(repository):
+    result = repository.get_segment_default('DEPT_CD', 'ENTITY_CD', 'UNKNOWN')
 
     assert result is None
 
 
-def test_get_segment_default_contextual_lookup_does_not_return_global_row(
-    repository, segment_defaults,
+def test_get_segment_default_does_not_fall_back_from_contextual_request_to_global_row(
+    repository,
 ):
-    result = repository.get_segment_default(
-        'TEST_SEGMENT_TYPE', 'ENTITY_CD', 'NOT_CONFIGURED',
-    )
+    # AFFILIATE_CD only has a global (*, *) row configured.
+    result = repository.get_segment_default('AFFILIATE_CD', 'ENTITY_CD', 'USM')
 
     assert result is None
 
 
-def test_get_segment_default_preserves_numeric_looking_values_as_strings(
-    repository, segment_defaults,
+def test_get_segment_default_does_not_fall_back_from_global_request_to_contextual_row(
+    repository,
 ):
-    result = repository.get_segment_default(
-        'TEST_SEGMENT_TYPE_NUMERIC', 'ENTITY_CD', '0099',
-    )
+    # DEPT_CD only has ENTITY_CD-contextual rows configured.
+    result = repository.get_segment_default('DEPT_CD', '*', '*')
 
-    assert result.context_value == '0099'
+    assert result is None
+
+
+def test_get_segment_default_preserves_numeric_looking_values_as_strings(repository):
+    result = repository.get_segment_default('GL_ACCOUNT', 'ENTITY_CD', 'USM')
+
     assert result.default_value == '999999'
-    assert isinstance(result.context_value, str)
+    assert isinstance(result.default_value, str)
+
+
+class _FakeStore:
+    """A minimal Store stand-in, to prove GLRepository is backend-agnostic."""
+
+    def __init__(self, tables):
+        self._tables = tables
+
+    def read(self, table_name, schema=None):
+        return self._tables[table_name]
+
+
+def test_get_segment_default_works_against_a_fake_store(spark):
+    df = spark.createDataFrame(
+        [
+            ('DEPT_CD', 'ENTITY_CD', 'ZZZ', '0099'),
+        ],
+        ['SEGMENT_TYPE', 'CONTEXT_TYPE', 'CONTEXT_VALUE', 'DEFAULT_VALUE'],
+    )
+
+    store = _FakeStore({'SEGMENT_DEFAULT': df})
+    repository = GLRepository(store)
+
+    result = repository.get_segment_default('DEPT_CD', 'ENTITY_CD', 'ZZZ')
+
+    assert result.default_value == '0099'
     assert isinstance(result.default_value, str)

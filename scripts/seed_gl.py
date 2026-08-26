@@ -6,14 +6,14 @@ from sqlalchemy import create_engine, text
 from core.db import PostgresConfig
 
 
-SEGMENTS_DEFAULT_PATH = Path('data/gl/segment_defaults.csv')
+SEGMENT_DEFAULT_PATH = Path('data/gl/segment_defaults.csv')
 
 
 def main() -> None:
     # Read everything as string so codes such as leading-zero values are
     # preserved exactly.
     df = pd.read_csv(
-        SEGMENTS_DEFAULT_PATH,
+        SEGMENT_DEFAULT_PATH,
         dtype=str,
     )
 
@@ -31,12 +31,12 @@ def main() -> None:
     with engine.begin() as connection:
         connection.execute(
             text(
-                'TRUNCATE TABLE gl.segments_default'
+                'TRUNCATE TABLE gl.segment_default'
             )
         )
 
         df.to_sql(
-            name='segments_default',
+            name='segment_default',
             con=connection,
             schema='gl',
             if_exists='append',
@@ -45,7 +45,7 @@ def main() -> None:
 
     print(
         f'Seeded {len(df)} segment defaults into '
-        'gl.segments_default'
+        'gl.segment_default'
     )
 
 

@@ -1,4 +1,4 @@
-"""create gl segments default table
+"""create gl segment default table
 
 Revision ID: 1685d51261ec
 Revises: f7d5990e47bc
@@ -25,14 +25,14 @@ def upgrade() -> None:
     op.execute('CREATE SCHEMA IF NOT EXISTS gl')
 
     op.create_table(
-        'segments_default',
+        'segment_default',
         sa.Column('segment_type', sa.String(), nullable=False),
         sa.Column('context_type', sa.String(), nullable=False),
         sa.Column('context_value', sa.String(), nullable=False),
         sa.Column('default_value', sa.String(), nullable=False),
         sa.UniqueConstraint(
             'segment_type', 'context_type', 'context_value',
-            name='uq_segments_default_segment_type_context_type_context_value',
+            name='uq_segment_default_segment_type_context_type_context_value',
         ),
         schema='gl',
     )
@@ -42,4 +42,4 @@ def downgrade() -> None:
     # The gl schema is expected to hold further GL-owned tables, so only
     # the table this revision created is dropped; the schema itself is
     # left for future gl revisions to manage.
-    op.drop_table('segments_default', schema='gl')
+    op.drop_table('segment_default', schema='gl')
