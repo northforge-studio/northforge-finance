@@ -7,3 +7,11 @@ class SegmentDefault:
     context_type: str
     context_value: str
     default_value: str
+
+
+@dataclass(frozen=True)
+class SegmentResolution:
+    segment_type: str
+    supplied_value: str | None
+    resolved_value: str | None
+    defaulted: bool

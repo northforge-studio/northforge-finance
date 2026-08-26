@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 
 from pyspark.sql import SparkSession
@@ -7,14 +8,18 @@ from core.store import (
     PostgresStore,
 )
 
+from registry import RegistryClient
+
 from gl.manager import GLManager
+from gl.models import SegmentResolution
 from gl.repository import GLRepository
 
 
 class GLClient:
-    def __init__(self, repository: GLRepository):
+    def __init__(self, repository: GLRepository, registry: RegistryClient):
         self._repository = repository
-        self._manager = GLManager(repository)
+        self._registry = registry
+        self._manager = GLManager(repository, registry)
 
 
     @classmethod
@@ -22,6 +27,7 @@ class GLClient:
         cls,
         spark: SparkSession,
         segment_default_path: str | Path,
+        registry: RegistryClient,
     ) -> 'GLClient':
         store = CsvStore(
             spark=spark,
@@ -30,7 +36,7 @@ class GLClient:
             },
         )
 
-        return cls(GLRepository(store))
+        return cls(GLRepository(store), registry)
 
 
     @classmethod
@@ -38,6 +44,7 @@ class GLClient:
         cls,
         spark: SparkSession,
         segment_default_table: str,
+        registry: RegistryClient,
     ) -> 'GLClient':
         store = PostgresStore(
             spark=spark,
@@ -46,7 +53,7 @@ class GLClient:
             },
         )
 
-        return cls(GLRepository(store))
+        return cls(GLRepository(store), registry)
 
 
     def get_segment_default(
@@ -57,5 +64,21 @@ class GLClient:
     ) -> str | None:
         return self._manager.get_segment_default(
             segment_type,
+            entity_cd=entity_cd,
+        )
+
+
+    def resolve_segment(
+        self,
+        segment_type: str,
+        segment_value: str | None,
+        *,
+        business_dt: date,
+        entity_cd: str | None = None,
+    ) -> SegmentResolution:
+        return self._manager.resolve_segment(
+            segment_type,
+            segment_value,
+            business_dt=business_dt,
             entity_cd=entity_cd,
         )
