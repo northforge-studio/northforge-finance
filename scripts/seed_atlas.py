@@ -2,7 +2,7 @@ from datetime import date
 from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, text, Date
 
 from core.db import PostgresConfig
 
@@ -25,7 +25,13 @@ IO_COLUMNS = [
 
 def parse_dates(df: pd.DataFrame) -> pd.DataFrame:
     for column in DATE_COLUMNS:
-        df[column] = df[column].map(date.fromisoformat)
+        df[column] = df[column].map(
+            lambda value: (
+                date.fromisoformat(value)
+                if pd.notna(value)
+                else None
+            )
+        )
 
     return df
 
@@ -51,12 +57,19 @@ def seed_table(
 
     schema, table = table_name.split('.', maxsplit=1)
 
+    date_columns = {
+        column.lower(): Date()
+        for column in DATE_COLUMNS
+        if column.lower() in df.columns
+    }
+
     df.to_sql(
         name=table,
         con=connection,
         schema=schema,
         if_exists='append',
         index=False,
+        dtype=date_columns,
     )
 
 

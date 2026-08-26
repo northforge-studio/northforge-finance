@@ -1,8 +1,8 @@
-"""create workflow run tables
+"""create run identity tables
 
-Revision ID: dc5b1823b24c
-Revises: dd7b22456645
-Create Date: 2026-08-24 17:08:24.362368
+Revision ID: 2e93dbffb6d4
+Revises: e1ce1c36ac40
+Create Date: 2026-08-25 23:12:17.364713
 
 """
 from typing import Sequence, Union
@@ -13,8 +13,8 @@ from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'dc5b1823b24c'
-down_revision: Union[str, Sequence[str], None] = 'dd7b22456645'
+revision: str = '2e93dbffb6d4'
+down_revision: Union[str, Sequence[str], None] = 'e1ce1c36ac40'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -93,7 +93,28 @@ def upgrade() -> None:
         schema='core',
     )
 
+    op.create_table(
+        'run_dependency',
+
+        sa.Column(
+            'consumer_run_id',
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey('core.execution_run.run_id'),
+            primary_key=True,
+        ),
+        sa.Column(
+            'producer_run_id',
+            postgresql.UUID(as_uuid=True),
+            sa.ForeignKey('core.execution_run.run_id'),
+            primary_key=True,
+        ),
+        sa.Column('input_role', sa.String(), nullable=True),
+
+        schema='core',
+    )
+
 
 def downgrade() -> None:
+    op.drop_table('run_dependency', schema='core')
     op.drop_table('execution_run', schema='core')
     op.drop_table('workflow_run', schema='core')

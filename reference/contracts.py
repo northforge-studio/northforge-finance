@@ -9,24 +9,20 @@ from pyspark.sql.types import (
 
 FX_RATE_SCHEMA = StructType(
     [
-        StructField('AUD_LOAD_ID', StringType(), True),
-        StructField('CONVERSION_DT', DateType(), True),
-        StructField('VER_NB', StringType(), True),
-        StructField('FROM_CURRENCY', StringType(), True),
-        StructField('TO_CURRENCY', StringType(), True),
-        StructField('FX_RATE', DecimalType(28, 12), True),
+        StructField('CONVERSION_DT', DateType(), False),
+        StructField('FROM_CURRENCY', StringType(), False),
+        StructField('TO_CURRENCY', StringType(), False),
+        StructField('FX_RATE', DecimalType(28, 12), False),
     ]
 )
 
 
 COUNTERPARTY_SCHEMA = StructType(
     [
-        StructField('AUD_LOAD_ID', StringType(), True),
-        StructField('BUSINESS_DT', DateType(), True),
-        StructField('VER_NB', StringType(), True),
-        StructField('CPTY_REF_ID', StringType(), True),
-        StructField('CLIENT_ID', StringType(), True),
-        StructField('CPTY_NM', StringType(), True),
-        StructField('CLIENT_ID_TYPE', StringType(), True),
+        StructField('BUSINESS_DT', DateType(), False),
+        StructField('CPTY_REF_ID', StringType(), False),
+        StructField('CLIENT_ID', StringType(), False),
+        StructField('CPTY_NM', StringType(), False),
+        StructField('CLIENT_ID_TYPE', StringType(), False),
     ]
 )

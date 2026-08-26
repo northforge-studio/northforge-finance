@@ -41,14 +41,6 @@ def load_csv(table_name: str) -> pd.DataFrame:
         for column in df.columns
     ]
 
-    # Explicitly convert only the columns whose database contract
-    # is not String.
-    if 'ver_nb' in df.columns:
-        df['ver_nb'] = (
-            pd.to_numeric(df['ver_nb'])
-            .astype('Int64')
-        )
-
     for column in DATE_COLUMNS:
         if column in df.columns:
             df[column] = df[column].map(

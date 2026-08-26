@@ -9,7 +9,7 @@ from foundry.pipeline.base import BasePipeline
 from foundry.models import PipelineConfig
 
 
-ZONES = ('staging', 'enrichment', 'reporting', 'posting')
+ZONES = ('staging', 'enrichment', 'reporting', 'posting', 'interface')
 
 
 class _FullPipeline(BasePipeline):
@@ -53,6 +53,10 @@ class _FullPipeline(BasePipeline):
     def pre_posting(self): return self._pre('posting')
     def main_posting(self, df): return df
     def post_posting(self, df): return self._post(df)
+
+    def pre_interface(self): return self._pre('interface')
+    def main_interface(self, df): return df
+    def post_interface(self, df): return self._post(df)
 
 
 def _make_execution_run(**overrides):
@@ -146,6 +150,7 @@ def test_run_returns_pipeline_result_with_all_zones_in_order(spark):
         'enrichment': spark.createDataFrame([(1,), (2,)], ['ID']),
         'reporting': spark.createDataFrame([(1,)], ['ID']),
         'posting': spark.createDataFrame([(1,), (2,), (3,), (4,)], ['ID']),
+        'interface': spark.createDataFrame([(1,), (2,)], ['ID']),
     }
     pipeline = _make_pipeline(zone_dfs=zone_dfs, run_tracker=run_tracker)
 
@@ -159,9 +164,9 @@ def test_run_returns_pipeline_result_with_all_zones_in_order(spark):
     assert result.identity.run_id == pipeline_execution.run_id
     assert result.identity.parent_run_id is None
 
-    assert len(result.zones) == 4
+    assert len(result.zones) == 5
     assert [z.zone for z in result.zones] == [
-        'STAGING', 'ENRICHMENT', 'REPORTING', 'POSTING',
+        'STAGING', 'ENRICHMENT', 'REPORTING', 'POSTING', 'INTERFACE',
     ]
 
     expected_record_counts = {
@@ -169,6 +174,7 @@ def test_run_returns_pipeline_result_with_all_zones_in_order(spark):
         'ENRICHMENT': 2,
         'REPORTING': 1,
         'POSTING': 4,
+        'INTERFACE': 2,
     }
     for zone_result in result.zones:
         assert zone_result.status == RunStatus.SUCCEEDED
@@ -197,7 +203,7 @@ def test_run_completes_pipeline_execution_on_success(spark):
     for zone in ZONES:
         run_tracker.complete_execution.assert_any_call(zone_executions[zone].run_id)
     run_tracker.complete_execution.assert_any_call(pipeline_execution.run_id)
-    assert run_tracker.complete_execution.call_count == 5
+    assert run_tracker.complete_execution.call_count == len(ZONES) + 1
     run_tracker.fail_execution.assert_not_called()
 
 
@@ -233,6 +239,11 @@ def test_run_creates_dependencies_between_consecutive_zones(spark):
             consumer_run_id=zone_executions['posting'].run_id,
             producer_run_id=zone_executions['reporting'].run_id,
             input_role='REPORTING',
+        ),
+        call(
+            consumer_run_id=zone_executions['interface'].run_id,
+            producer_run_id=zone_executions['posting'].run_id,
+            input_role='POSTING',
         ),
     ]
 

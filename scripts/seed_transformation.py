@@ -28,8 +28,7 @@ def main() -> None:
     with engine.begin() as connection:
         connection.execute(
             text(
-                'TRUNCATE TABLE spec.transformation '
-                'RESTART IDENTITY'
+                'TRUNCATE TABLE spec.transformation'
             )
         )
 

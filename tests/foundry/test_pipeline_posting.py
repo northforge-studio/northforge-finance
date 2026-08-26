@@ -45,6 +45,11 @@ class _PostingPipeline(BasePipeline):
         return (self._config.business_dt, self._config.batch_id)
 
 
+    def pre_interface(self): ...
+    def main_interface(self, df): ...
+    def post_interface(self, df): ...
+
+
 def _make_execution_run(**overrides):
     defaults = dict(
         run_id=uuid4(),

@@ -18,6 +18,7 @@ class _FullPipeline(BasePipeline):
         self.post_enrichment_called_with = None
         self.post_reporting_called_with = None
         self.post_posting_called_with = None
+        self.post_interface_called_with = None
 
 
     def pre_staging(self):
@@ -69,6 +70,19 @@ class _FullPipeline(BasePipeline):
 
     def post_posting(self, df):
         self.post_posting_called_with = df
+        return (self._config.business_dt, self._config.batch_id)
+
+
+    def pre_interface(self):
+        return self._zone_df
+
+
+    def main_interface(self, df):
+        return df
+
+
+    def post_interface(self, df):
+        self.post_interface_called_with = df
         return (self._config.business_dt, self._config.batch_id)
 
 

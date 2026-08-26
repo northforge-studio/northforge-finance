@@ -1,6 +1,6 @@
 from datetime import date
 
-from pyspark.sql import DataFrame, Window
+from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
 from foundry.pipeline.base import BasePipeline
@@ -89,7 +89,6 @@ class TrialBalancePipeline(BasePipeline):
 
     def post_staging(self, df: DataFrame) -> None:
         df = self._add_row_id(df)
-        df = self._get_total_acct_func_amt(df)
 
         df = self._spec.apply_transformation(
             df,
@@ -101,10 +100,10 @@ class TrialBalancePipeline(BasePipeline):
         df = self._align_to_schema(df, TRIAL_BALANCE_STAGING_SCHEMA)
         df = df.orderBy(
             self._numeric_id('SRC_RECORD_ID'),
-            self._numeric_id('STAGING_ID')
+            'SRC_MEASURE_NM',
         )
 
-        self._repository.write_staging(df)  
+        self._repository.write_staging(df)
 
 
     def pre_enrichment(self) -> DataFrame:
@@ -135,11 +134,9 @@ class TrialBalancePipeline(BasePipeline):
         df = self._align_to_schema(df, TRIAL_BALANCE_ENRICHMENT_SCHEMA)
         df = df.orderBy(
             self._numeric_id('SRC_RECORD_ID'),
-            self._numeric_id('STAGING_ID'),
-            self._numeric_id('ENRICHMENT_ID'),
         )
 
-        self._repository.write_enrichment(df)     
+        self._repository.write_enrichment(df)
 
 
     def pre_reporting(self) -> DataFrame:
@@ -188,12 +185,10 @@ class TrialBalancePipeline(BasePipeline):
         df = self._align_to_schema(df, TRIAL_BALANCE_REPORTING_SCHEMA)
         df = df.orderBy(
             self._numeric_id('SRC_RECORD_ID'),
-            self._numeric_id('STAGING_ID'),
-            self._numeric_id('ENRICHMENT_ID'),
-            self._numeric_id('REPORTING_ID'),
+            'SRC_MEASURE_NM',
         )
 
-        self._repository.write_reporting(df) 
+        self._repository.write_reporting(df)
 
 
     def pre_posting(self) -> DataFrame:
@@ -238,9 +233,6 @@ class TrialBalancePipeline(BasePipeline):
         df = self._align_to_schema(df, TRIAL_BALANCE_POSTING_SCHEMA)
         df = df.orderBy(
             self._numeric_id('SRC_RECORD_ID'),
-            self._numeric_id('STAGING_ID'),
-            self._numeric_id('ENRICHMENT_ID'),
-            self._numeric_id('REPORTING_ID'),
             self._numeric_id('POSTING_ID'),
         )
 
@@ -290,10 +282,7 @@ class TrialBalancePipeline(BasePipeline):
         df = self._align_to_schema(df, TRIAL_BALANCE_INTERFACE_SCHEMA)
         df = df.orderBy(
             self._numeric_id('SRC_RECORD_ID'),
-            self._numeric_id('STAGING_ID'),
-            self._numeric_id('ENRICHMENT_ID'),
-            self._numeric_id('REPORTING_ID'),
-            self._numeric_id('POSTING_ID'),
+            self._numeric_id('LINE_NUMBER'),
         )
 
         self._repository.write_interface(df)
@@ -309,6 +298,7 @@ class TrialBalancePipeline(BasePipeline):
         self._repository.delete_staging(business_dt, batch_id)
         self._repository.delete_enrichment(business_dt, batch_id)
         self._repository.delete_reporting(business_dt, batch_id)
+        self._repository.delete_posting(business_dt, batch_id)
         self._repository.delete_interface(business_dt, batch_id)
 
 
@@ -323,9 +313,11 @@ class TrialBalancePipeline(BasePipeline):
             if field.name not in {f.name for f in TRIAL_BALANCE_STAGING_SCHEMA.fields}
         ]
 
+        row_identity_columns = ['SRC_RECORD_ID', 'SRC_MEASURE_NM']
+
         unprocessed_staging_df = staging_df.join(
-            enrichment_df.select('STAGING_ID'),
-            on='STAGING_ID',
+            enrichment_df.select(*row_identity_columns),
+            on=row_identity_columns,
             how='left_anti',
         )
 
@@ -342,17 +334,6 @@ class TrialBalancePipeline(BasePipeline):
         self._config.batch_id = batch_id
 
         return df.withColumn('BATCH_ID', F.lit(batch_id))
-
-
-    def _get_total_acct_func_amt(self, df: DataFrame) -> DataFrame:
-        account_window = Window.partitionBy('SRC_ACCOUNT_ID')
-
-        return df.withColumn(
-            'TOTAL_ACCT_FUNC_AMT',
-            F.sum('POSTING_MEASURE_FUNC_AMT')
-            .over(account_window)
-            .cast('decimal(28,12)'),
-        )
 
 
     def _transpose_measures(self, df: DataFrame) -> DataFrame:

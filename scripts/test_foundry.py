@@ -20,7 +20,7 @@ from reference import ReferenceClient
 from spec import SpecClient
 
 
-BUSINESS_DT = date(2025, 3, 31)
+BUSINESS_DT = date(2026, 3, 31)
 
 spark = (
     SparkSession.builder
@@ -42,8 +42,8 @@ repository = TrialBalanceRepository(store)
 
 spec = SpecClient.from_db(
     spark=spark,
-    transformation_table='foundry_config.transformation',
-    file_layout_table='foundry_config.file_layout',
+    transformation_table='spec.transformation',
+    file_layout_table='spec.file_layout',
 )
 
 reference = ReferenceClient.from_db(

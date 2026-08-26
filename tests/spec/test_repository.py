@@ -17,8 +17,8 @@ CONFIG = PostgresConfig(
 )
 
 POSTGRES_TABLE_LOCATIONS = {
-    'CFG_TRANSFORMATIONS': 'foundry_config.transformation',
-    'CFG_FILE_LAYOUT': 'foundry_config.file_layout',
+    'CFG_TRANSFORMATIONS': 'spec.transformation',
+    'CFG_FILE_LAYOUT': 'spec.file_layout',
 }
 
 
@@ -124,7 +124,7 @@ def test_get_transformations_resolves_logical_table_against_postgres():
 
         spark.read.jdbc.assert_called_once_with(
             url=CONFIG.jdbc_url,
-            table='foundry_config.transformation',
+            table='spec.transformation',
             properties=CONFIG.jdbc_properties,
         )
 

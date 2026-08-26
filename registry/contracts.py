@@ -1,6 +1,5 @@
 from pyspark.sql.types import (
     DateType,
-    IntegerType,
     StringType,
     StructField,
     StructType,
@@ -11,131 +10,93 @@ from registry.models import SegmentType
 
 ENTITY_SCHEMA = StructType(
     [
-        StructField('AUD_LOAD_ID', StringType(), True),
-        StructField('BUSINESS_DT', DateType(), True),
-        StructField('VER_NB', IntegerType(), True),
-        StructField('ENT_CD', StringType(), True),
-        StructField('ENT_DS', StringType(), True),
-        StructField('SUN_ID', StringType(), True),
-        StructField('PARENT_ENT_1_CD', StringType(), True),
-        StructField('PARENT_ENT_2_CD', StringType(), True),
-        StructField('PARENT_ENT_2_NM', StringType(), True),
-        StructField('RGN_CD', StringType(), True),
-        StructField('STATUS', StringType(), True),
+        StructField('BUSINESS_DT', DateType(), False),
+        StructField('ENT_CD', StringType(), False),
+        StructField('ENT_DS', StringType(), False),
+        StructField('STATUS', StringType(), False),
     ]
 )
 
 
 DEPARTMENT_SCHEMA = StructType(
     [
-        StructField('AUD_LOAD_ID', StringType(), True),
-        StructField('BUSINESS_DT', DateType(), True),
-        StructField('VER_NB', IntegerType(), True),
-        StructField('DEPT_CD', StringType(), True),
-        StructField('DEPT_DS', StringType(), True),
-        StructField('LGCY_DEPT_CD', StringType(), True),
-        StructField('PARNT_DEPT_CD', StringType(), True),
-        StructField('PARNT_DEPT_DS', StringType(), True),
-        StructField('ENT_CD', StringType(), True),
-        StructField('ENT_NM', StringType(), True),
-        StructField('BCH_CD', StringType(), True),
-        StructField('RGN_CD', StringType(), True),
-        StructField('STATUS', StringType(), True),
+        StructField('BUSINESS_DT', DateType(), False),
+        StructField('DEPT_CD', StringType(), False),
+        StructField('DEPT_DS', StringType(), False),
+        StructField('ENT_CD', StringType(), False),
+        StructField('BCH_CD', StringType(), False),
+        StructField('STATUS', StringType(), False),
     ]
 )
 
 
 BRANCH_SCHEMA = StructType(
     [
-        StructField('AUD_LOAD_ID', StringType(), True),
-        StructField('BUSINESS_DT', DateType(), True),
-        StructField('VER_NB', IntegerType(), True),
-        StructField('BCH_CD', StringType(), True),
-        StructField('BCH_DS', StringType(), True),
-        StructField('RGN_CD', StringType(), True),
-        StructField('STATUS', StringType(), True),
+        StructField('BUSINESS_DT', DateType(), False),
+        StructField('BCH_CD', StringType(), False),
+        StructField('BCH_DS', StringType(), False),
+        StructField('STATUS', StringType(), False),
     ]
 )
 
 
 ACCOUNT_SCHEMA = StructType(
     [
-        StructField('AUD_LOAD_ID', StringType(), True),
-        StructField('BUSINESS_DT', DateType(), True),
-        StructField('VER_NB', IntegerType(), True),
-        StructField('ACCT_CD', StringType(), True),
-        StructField('ACCT_DS', StringType(), True),
-        StructField('PARNT_ACCT_CD', StringType(), True),
-        StructField('PARNT_ACCT_NM', StringType(), True),
-        StructField('SUSPNS_IN', StringType(), True),
-        StructField('IG_IN', StringType(), True),
-        StructField('RGN_CD', StringType(), True),
-        StructField('STATUS', StringType(), True),
+        StructField('BUSINESS_DT', DateType(), False),
+        StructField('ACCT_CD', StringType(), False),
+        StructField('ACCT_DS', StringType(), False),
+        StructField('SUSPNS_IN', StringType(), False),
+        StructField('STATUS', StringType(), False),
     ]
 )
 
 
 SUB_ACCOUNT_SCHEMA = StructType(
     [
-        StructField('AUD_LOAD_ID', StringType(), True),
-        StructField('BUSINESS_DT', DateType(), True),
-        StructField('VER_NB', IntegerType(), True),
-        StructField('SUB_ACCT_CD', StringType(), True),
-        StructField('SUB_ACCT_DS', StringType(), True),
-        StructField('RGN_CD', StringType(), True),
-        StructField('STATUS', StringType(), True),
+        StructField('BUSINESS_DT', DateType(), False),
+        StructField('SUB_ACCT_CD', StringType(), False),
+        StructField('SUB_ACCT_DS', StringType(), False),
+        StructField('STATUS', StringType(), False),
     ]
 )
 
 
 AFFILIATE_SCHEMA = StructType(
     [
-        StructField('AUD_LOAD_ID', StringType(), True),
-        StructField('BUSINESS_DT', DateType(), True),
-        StructField('VER_NB', IntegerType(), True),
-        StructField('AFFIL_CD', StringType(), True),
-        StructField('AFFIL_DS', StringType(), True),
-        StructField('RGN_CD', StringType(), True),
-        StructField('STATUS', StringType(), True),
+        StructField('BUSINESS_DT', DateType(), False),
+        StructField('AFFIL_CD', StringType(), False),
+        StructField('AFFIL_DS', StringType(), False),
+        StructField('STATUS', StringType(), False),
     ]
 )
 
 
 PRODUCT_SCHEMA = StructType(
     [
-        StructField('AUD_LOAD_ID', StringType(), True),
-        StructField('BUSINESS_DT', DateType(), True),
-        StructField('VER_NB', IntegerType(), True),
-        StructField('PROD_CD', StringType(), True),
-        StructField('PROD_DS', StringType(), True),
-        StructField('RGN_CD', StringType(), True),
-        StructField('STATUS', StringType(), True),
+        StructField('BUSINESS_DT', DateType(), False),
+        StructField('PROD_CD', StringType(), False),
+        StructField('PROD_DS', StringType(), False),
+        StructField('STATUS', StringType(), False),
     ]
 )
 
 
 BOOK_SCHEMA = StructType(
     [
-        StructField('AUD_LOAD_ID', StringType(), True),
-        StructField('BUSINESS_DT', DateType(), True),
-        StructField('VER_NB', IntegerType(), True),
-        StructField('BK_CD', StringType(), True),
-        StructField('BK_DS', StringType(), True),
-        StructField('RGN_CD', StringType(), True),
-        StructField('STATUS', StringType(), True),
+        StructField('BUSINESS_DT', DateType(), False),
+        StructField('BK_CD', StringType(), False),
+        StructField('BK_DS', StringType(), False),
+        StructField('STATUS', StringType(), False),
     ]
 )
 
 
 SOURCE_SCHEMA = StructType(
     [
-        StructField('AUD_LOAD_ID', StringType(), True),
-        StructField('BUSINESS_DT', DateType(), True),
-        StructField('VER_NB', IntegerType(), True),
-        StructField('SRCE_CD', StringType(), True),
-        StructField('SRCE_DS', StringType(), True),
-        StructField('RGN_CD', StringType(), True),
-        StructField('STATUS', StringType(), True),
+        StructField('BUSINESS_DT', DateType(), False),
+        StructField('SRCE_CD', StringType(), False),
+        StructField('SRCE_DS', StringType(), False),
+        StructField('STATUS', StringType(), False),
     ]
 )
 

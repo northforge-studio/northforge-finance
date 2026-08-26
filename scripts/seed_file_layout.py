@@ -42,8 +42,7 @@ def main() -> None:
     with engine.begin() as connection:
         connection.execute(
             text(
-                'TRUNCATE TABLE spec.file_layout '
-                'RESTART IDENTITY'
+                'TRUNCATE TABLE spec.file_layout'
             )
         )
 

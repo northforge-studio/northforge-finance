@@ -21,7 +21,7 @@ CONFIG = PostgresConfig(
 )
 
 TABLE_LOCATIONS = {
-    'CFG_TRANSFORMATIONS': 'foundry_config.transformation',
+    'CFG_TRANSFORMATIONS': 'spec.transformation',
 }
 
 
@@ -43,7 +43,7 @@ def test_read_resolves_logical_table_to_physical_table(mock_executor):
 
     spark.read.jdbc.assert_called_once_with(
         url=CONFIG.jdbc_url,
-        table='foundry_config.transformation',
+        table='spec.transformation',
         properties=CONFIG.jdbc_properties,
     )
 
@@ -65,7 +65,7 @@ def test_write_resolves_logical_table_to_physical_table(mock_executor):
     lowered_df = df.toDF.return_value
     lowered_df.write.jdbc.assert_called_once_with(
         url=CONFIG.jdbc_url,
-        table='foundry_config.transformation',
+        table='spec.transformation',
         mode='append',
         properties=CONFIG.jdbc_properties,
     )
@@ -127,7 +127,7 @@ def test_delete_uses_resolved_physical_table(mock_executor):
 
     sql, parameters = mock_executor.execute.call_args[0]
 
-    assert 'foundry_config.transformation' in sql
+    assert 'spec.transformation' in sql
     assert parameters == {'value_0': 'TRIAL_BALANCE'}
 
 

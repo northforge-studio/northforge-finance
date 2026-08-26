@@ -93,7 +93,7 @@ class TrialBalanceRepository:
             table_name='TRIAL_BALANCE_INTERFACE',
             schema=TRIAL_BALANCE_INTERFACE_SCHEMA,
         ).filter(
-            (F.col('AS_OF_DATE') == business_dt) & (F.col('BATCH_ID') == batch_id)
+            (F.col('BUSINESS_DATE') == business_dt) & (F.col('BATCH_ID') == batch_id)
         )
 
         if interface_df.isEmpty():
@@ -172,7 +172,7 @@ class TrialBalanceRepository:
     def delete_interface(self, business_dt: date, batch_id: str) -> None:
         self.store.delete(
             table_name='TRIAL_BALANCE_INTERFACE',
-            filters={'AS_OF_DATE': business_dt, 'BATCH_ID': batch_id},
+            filters={'BUSINESS_DATE': business_dt, 'BATCH_ID': batch_id},
             schema=TRIAL_BALANCE_INTERFACE_SCHEMA,
         )
 

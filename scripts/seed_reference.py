@@ -17,8 +17,7 @@ def seed_table(
 ) -> None:
     connection.execute(
         text(
-            f'TRUNCATE TABLE {table_name} '
-            f'RESTART IDENTITY'
+            f'TRUNCATE TABLE {table_name}'
         )
     )
 
