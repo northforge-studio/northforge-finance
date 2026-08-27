@@ -6,7 +6,8 @@ import pytest
 
 from core.store import CsvStore
 
-from gl.models import GLPosting, SegmentDefault
+from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
+from gl.models import GLInstruction, GLPosting, GLRejection, SegmentDefault
 from gl.repository import GLRepository
 
 
@@ -260,3 +261,281 @@ def test_write_posting_preserves_decimal_precision(posting_repository):
     assert result.transaction_amount == Decimal('12345.123456789012')
     assert result.fx_rate == Decimal('1.123456789012')
     assert isinstance(result.fx_rate, Decimal)
+
+
+# -- write_rejection / get_rejections -------------------------------------
+
+def _rejection(**overrides) -> GLRejection:
+    fields = dict(
+        gl_rejection_id=uuid4(),
+        rejected_at=datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        workflow_run_id=uuid4(),
+        producer_run_id=uuid4(),
+        dataclass='TRIAL_BALANCE',
+        transaction_number='TXN-1',
+        line_number='1',
+        foundry_rule_id='RULE-1',
+        posting_id='POST-1',
+        posting_stream='STREAM-1',
+        src_record_id='REC-1',
+        batch_id=1,
+        src_app_cd='NFM',
+        business_date=date(2026, 1, 1),
+        as_of_date=date(2026, 1, 1),
+        rejection_type='STRUCTURAL_VALIDATION',
+        rejection_detail='MISSING_POSTING_ID',
+    )
+    fields.update(overrides)
+    return GLRejection(**fields)
+
+
+@pytest.fixture
+def rejection_repository(spark, tmp_path):
+    store = CsvStore(
+        spark=spark,
+        table_locations={
+            'REJECTION': tmp_path / 'REJECTION',
+        },
+    )
+    return GLRepository(store, spark)
+
+
+def test_write_rejection_persists_lineage_and_diagnostics(rejection_repository):
+    rejection = _rejection()
+
+    rejection_repository.write_rejection(rejection)
+
+    results = rejection_repository.get_rejections(date(2026, 1, 1), 1)
+
+    assert len(results) == 1
+    result = results[0]
+    assert result.gl_rejection_id == rejection.gl_rejection_id
+    assert result.workflow_run_id == rejection.workflow_run_id
+    assert result.producer_run_id == rejection.producer_run_id
+    assert result.dataclass == rejection.dataclass
+    assert result.transaction_number == rejection.transaction_number
+    assert result.line_number == rejection.line_number
+    assert result.foundry_rule_id == rejection.foundry_rule_id
+    assert result.posting_id == rejection.posting_id
+    assert result.posting_stream == rejection.posting_stream
+    assert result.src_record_id == rejection.src_record_id
+    assert result.batch_id == rejection.batch_id
+    assert result.src_app_cd == rejection.src_app_cd
+    assert result.business_date == rejection.business_date
+    assert result.as_of_date == rejection.as_of_date
+    assert result.rejection_type == rejection.rejection_type
+    assert result.rejection_detail == rejection.rejection_detail
+
+
+def test_write_rejection_stores_segment_resolution_rejection_type(rejection_repository):
+    rejection = _rejection(
+        rejection_type='SEGMENT_RESOLUTION',
+        rejection_detail='DEPT_CD,BRANCH_CD',
+    )
+
+    rejection_repository.write_rejection(rejection)
+
+    result = rejection_repository.get_rejections(date(2026, 1, 1), 1)[0]
+
+    assert result.rejection_type == 'SEGMENT_RESOLUTION'
+    assert result.rejection_detail == 'DEPT_CD,BRANCH_CD'
+
+
+def test_get_rejections_excludes_different_batch_id(rejection_repository):
+    rejection_repository.write_rejection(_rejection(batch_id=1))
+    rejection_repository.write_rejection(_rejection(batch_id=2))
+
+    results = rejection_repository.get_rejections(date(2026, 1, 1), 1)
+
+    assert len(results) == 1
+    assert results[0].batch_id == 1
+
+
+def test_get_rejections_excludes_different_business_date(rejection_repository):
+    rejection_repository.write_rejection(_rejection(business_date=date(2026, 1, 1)))
+    rejection_repository.write_rejection(_rejection(business_date=date(2026, 1, 2)))
+
+    results = rejection_repository.get_rejections(date(2026, 1, 1), 1)
+
+    assert len(results) == 1
+    assert results[0].business_date == date(2026, 1, 1)
+
+
+# -- get_instructions -------------------------------------------------------
+
+def _instruction(**overrides) -> GLInstruction:
+    fields = dict(
+        workflow_run_id=uuid4(),
+        producer_run_id=uuid4(),
+        dataclass='TRIAL_BALANCE',
+        transaction_number='TXN-1',
+        line_number='1',
+        foundry_rule_id='RULE-1',
+        posting_id='POST-1',
+        posting_stream='STREAM-1',
+        src_record_id='REC-1',
+        batch_id=1,
+        src_app_cd='NFM',
+        entity_cd='USM',
+        dept_cd='4000',
+        branch_cd='100',
+        gl_account='123456',
+        sub_account='001',
+        affiliate_cd='AFF1',
+        product_cd='PRD1',
+        book_cd='BK1',
+        source_cd='SRC1',
+        cr_dr_ind='DR',
+        transaction_currency='USD',
+        transaction_amount=Decimal('100.00'),
+        accounted_currency='USD',
+        accounted_amount=Decimal('100.00'),
+        fx_rate=Decimal('1.0'),
+        as_of_date=date(2026, 1, 1),
+        business_date=date(2026, 1, 1),
+    )
+    fields.update(overrides)
+    return GLInstruction(**fields)
+
+
+@pytest.fixture
+def interface_repository(spark, tmp_path):
+    store = CsvStore(
+        spark=spark,
+        table_locations={
+            'INTERFACE_TRIAL_BALANCE': tmp_path / 'INTERFACE_TRIAL_BALANCE',
+        },
+    )
+    return GLRepository(store, spark)
+
+
+def _write_instruction_row(repository, instruction: GLInstruction) -> None:
+    row = (
+        str(instruction.workflow_run_id),
+        str(instruction.producer_run_id),
+        instruction.dataclass,
+        instruction.transaction_number,
+        instruction.line_number,
+        instruction.entity_cd,
+        instruction.dept_cd,
+        instruction.branch_cd,
+        instruction.gl_account,
+        instruction.sub_account,
+        instruction.affiliate_cd,
+        instruction.product_cd,
+        instruction.book_cd,
+        instruction.source_cd,
+        instruction.cr_dr_ind,
+        instruction.foundry_rule_id,
+        instruction.posting_id,
+        instruction.posting_stream,
+        instruction.src_record_id,
+        instruction.batch_id,
+        instruction.src_app_cd,
+        instruction.transaction_currency,
+        instruction.transaction_amount,
+        instruction.accounted_currency,
+        instruction.accounted_amount,
+        instruction.fx_rate,
+        instruction.as_of_date,
+        instruction.business_date,
+    )
+
+    df = repository._spark.createDataFrame([row], schema=INTERFACE_TRIAL_BALANCE_SCHEMA)
+    repository._store.write(df, table_name='INTERFACE_TRIAL_BALANCE')
+
+
+def test_get_instructions_returns_correct_partition(interface_repository):
+    _write_instruction_row(interface_repository, _instruction())
+
+    results = interface_repository.get_instructions(date(2026, 1, 1), 1)
+
+    assert len(results) == 1
+    assert results[0].transaction_number == 'TXN-1'
+    assert results[0].business_date == date(2026, 1, 1)
+    assert results[0].batch_id == 1
+
+
+def test_get_instructions_excludes_other_business_dates(interface_repository):
+    _write_instruction_row(
+        interface_repository, _instruction(business_date=date(2026, 1, 1))
+    )
+    _write_instruction_row(
+        interface_repository, _instruction(business_date=date(2026, 1, 2))
+    )
+
+    results = interface_repository.get_instructions(date(2026, 1, 1), 1)
+
+    assert len(results) == 1
+    assert results[0].business_date == date(2026, 1, 1)
+
+
+def test_get_instructions_excludes_other_batch_ids(interface_repository):
+    _write_instruction_row(interface_repository, _instruction(batch_id=1))
+    _write_instruction_row(interface_repository, _instruction(batch_id=2))
+
+    results = interface_repository.get_instructions(date(2026, 1, 1), 1)
+
+    assert len(results) == 1
+    assert results[0].batch_id == 1
+
+
+def test_get_instructions_maps_all_fields(interface_repository):
+    instruction = _instruction()
+    _write_instruction_row(interface_repository, instruction)
+
+    result = interface_repository.get_instructions(date(2026, 1, 1), 1)[0]
+
+    assert result.workflow_run_id == instruction.workflow_run_id
+    assert result.producer_run_id == instruction.producer_run_id
+    assert isinstance(result.workflow_run_id, type(instruction.workflow_run_id))
+    assert result.dataclass == instruction.dataclass
+    assert result.transaction_number == instruction.transaction_number
+    assert result.line_number == instruction.line_number
+    assert result.foundry_rule_id == instruction.foundry_rule_id
+    assert result.posting_id == instruction.posting_id
+    assert result.posting_stream == instruction.posting_stream
+    assert result.src_record_id == instruction.src_record_id
+    assert result.batch_id == instruction.batch_id
+    assert result.src_app_cd == instruction.src_app_cd
+    assert result.entity_cd == instruction.entity_cd
+    assert result.dept_cd == instruction.dept_cd
+    assert result.branch_cd == instruction.branch_cd
+    assert result.gl_account == instruction.gl_account
+    assert result.sub_account == instruction.sub_account
+    assert result.affiliate_cd == instruction.affiliate_cd
+    assert result.product_cd == instruction.product_cd
+    assert result.book_cd == instruction.book_cd
+    assert result.source_cd == instruction.source_cd
+    assert result.cr_dr_ind == instruction.cr_dr_ind
+    assert result.transaction_currency == instruction.transaction_currency
+    assert result.transaction_amount == instruction.transaction_amount
+    assert isinstance(result.transaction_amount, Decimal)
+    assert result.accounted_currency == instruction.accounted_currency
+    assert result.accounted_amount == instruction.accounted_amount
+    assert result.fx_rate == instruction.fx_rate
+    assert result.as_of_date == instruction.as_of_date
+    assert result.business_date == instruction.business_date
+
+
+def test_get_instructions_orders_deterministically(interface_repository):
+    _write_instruction_row(
+        interface_repository,
+        _instruction(transaction_number='TXN-2', line_number='1', posting_id='POST-A'),
+    )
+    _write_instruction_row(
+        interface_repository,
+        _instruction(transaction_number='TXN-1', line_number='2', posting_id='POST-B'),
+    )
+    _write_instruction_row(
+        interface_repository,
+        _instruction(transaction_number='TXN-1', line_number='1', posting_id='POST-C'),
+    )
+
+    results = interface_repository.get_instructions(date(2026, 1, 1), 1)
+
+    assert [(r.transaction_number, r.line_number) for r in results] == [
+        ('TXN-1', '1'),
+        ('TXN-1', '2'),
+        ('TXN-2', '1'),
+    ]

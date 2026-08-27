@@ -1,26 +1,47 @@
 from dataclasses import replace
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from registry import SegmentType
 
 from gl.manager import GLManager
-from gl.models import GLInstruction, GLPosting, GLSegments, SegmentDefault, SegmentResolution
+from gl.models import (
+    GLInstruction,
+    GLPosting,
+    GLSegments,
+    SegmentDefault,
+    SegmentResolution,
+)
 
 
 BUSINESS_DT = date(2026, 1, 1)
 
 
 class _FakeRepository:
-    def __init__(self, results):
+    def __init__(self, results, instructions=()):
         self._results = results
+        self._instructions = instructions
         self.calls = []
+        self.postings = []
+        self.rejections = []
 
 
     def get_segment_default(self, segment_type, context_type, context_value):
         self.calls.append((segment_type, context_type, context_value))
         return self._results.get((segment_type, context_type, context_value))
+
+
+    def write_posting(self, posting):
+        self.postings.append(posting)
+
+
+    def write_rejection(self, rejection):
+        self.rejections.append(rejection)
+
+
+    def get_instructions(self, business_dt, batch_id):
+        return self._instructions
 
 
 class _FakeRegistryClient:
@@ -876,3 +897,334 @@ def test_from_resolution_uses_resolved_segments_not_instruction_original():
     assert posting.dept_cd == '9999'
     # ...and the original Interface-supplied value did not leak in.
     assert posting.dept_cd != instruction.dept_cd
+
+
+# -- process_instruction ---------------------------------------------------
+
+def test_process_instruction_valid_posts_successfully():
+    repository = _FakeRepository({})
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+    instruction = _valid_instruction()
+
+    result = manager.process_instruction(instruction)
+
+    assert result.posted is True
+    assert result.rejection is None
+    assert result.validation.valid is True
+    assert result.segment_resolution.resolved is True
+    assert result.posting is not None
+    assert result.posting.dept_cd == instruction.dept_cd
+    assert repository.postings == [result.posting]
+    assert repository.rejections == []
+
+
+def test_process_instruction_defaulted_segment_posts_resolved_value():
+    repository = _FakeRepository({
+        ('DEPT_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type='DEPT_CD',
+            context_type='ENTITY_CD',
+            context_value='USM',
+            default_value='9999',
+        ),
+    })
+    registry = _FakeRegistryClient(
+        _valid_registry_entries() | {(SegmentType.DEPARTMENT, BUSINESS_DT, '9999')}
+    )
+    manager = GLManager(repository, registry)
+    instruction = replace(_valid_instruction(), dept_cd='BOGUS')
+
+    result = manager.process_instruction(instruction)
+
+    assert result.posted is True
+    assert result.posting.dept_cd == '9999'
+    # Original Interface-supplied value is untouched.
+    assert instruction.dept_cd == 'BOGUS'
+
+
+def test_process_instruction_structural_failure_rejects_without_posting():
+    repository = _FakeRepository({})
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+    instruction = replace(_valid_instruction(), cr_dr_ind='XX')
+
+    result = manager.process_instruction(instruction)
+
+    assert result.posted is False
+    assert result.posting is None
+    assert result.segment_resolution is None
+    assert result.rejection is not None
+    assert result.rejection.rejection_type == 'STRUCTURAL_VALIDATION'
+    assert 'INVALID_CR_DR_IND' in result.rejection.rejection_detail
+    assert repository.postings == []
+    assert repository.rejections == [result.rejection]
+    # Registry is never consulted once structural validation fails.
+    assert registry.calls == []
+
+
+def test_process_instruction_invalid_entity_rejects_via_segment_resolution():
+    repository = _FakeRepository({})
+    registry = _FakeRegistryClient(set())
+    manager = GLManager(repository, registry)
+    instruction = replace(_valid_instruction(), entity_cd='BOGUS')
+
+    result = manager.process_instruction(instruction)
+
+    assert result.posted is False
+    assert result.posting is None
+    assert result.rejection.rejection_type == 'SEGMENT_RESOLUTION'
+    assert result.rejection.rejection_detail == 'ENTITY_CD'
+    assert repository.postings == []
+
+
+def test_process_instruction_invalid_source_rejects_via_segment_resolution():
+    repository = _FakeRepository({})
+    registry = _FakeRegistryClient(
+        _valid_registry_entries() - {(SegmentType.SOURCE, BUSINESS_DT, 'SRC1')}
+    )
+    manager = GLManager(repository, registry)
+    instruction = replace(_valid_instruction(), source_cd='BOGUS')
+
+    result = manager.process_instruction(instruction)
+
+    assert result.posted is False
+    assert result.rejection.rejection_type == 'SEGMENT_RESOLUTION'
+    assert 'SOURCE_CD' in result.rejection.rejection_detail
+    assert repository.postings == []
+
+
+def test_process_instruction_registry_invalid_configured_default_rejects():
+    repository = _FakeRepository({
+        ('BRANCH_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type='BRANCH_CD',
+            context_type='ENTITY_CD',
+            context_value='USM',
+            default_value='BAD_DEFAULT',
+        ),
+    })
+    # 'BAD_DEFAULT' is configured but never registered as Registry-valid.
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+    instruction = replace(_valid_instruction(), branch_cd='BOGUS')
+
+    result = manager.process_instruction(instruction)
+
+    assert result.posted is False
+    assert result.rejection.rejection_type == 'SEGMENT_RESOLUTION'
+    assert 'BRANCH_CD' in result.rejection.rejection_detail
+    assert repository.postings == []
+
+
+def test_process_instruction_multiple_defaults_produce_one_posting():
+    repository = _FakeRepository({
+        ('DEPT_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type='DEPT_CD',
+            context_type='ENTITY_CD',
+            context_value='USM',
+            default_value='9999',
+        ),
+        ('SUB_ACCOUNT', '*', '*'): SegmentDefault(
+            segment_type='SUB_ACCOUNT',
+            context_type='*',
+            context_value='*',
+            default_value='UNASSIGNED',
+        ),
+        ('PRODUCT_CD', '*', '*'): SegmentDefault(
+            segment_type='PRODUCT_CD',
+            context_type='*',
+            context_value='*',
+            default_value='999999',
+        ),
+    })
+    registry = _FakeRegistryClient(
+        _valid_registry_entries() | {
+            (SegmentType.DEPARTMENT, BUSINESS_DT, '9999'),
+            (SegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED'),
+            (SegmentType.PRODUCT, BUSINESS_DT, '999999'),
+        }
+    )
+    manager = GLManager(repository, registry)
+    instruction = replace(
+        _valid_instruction(),
+        dept_cd='BOGUS',
+        sub_account='BOGUS',
+        product_cd='BOGUS',
+    )
+
+    result = manager.process_instruction(instruction)
+
+    assert result.posted is True
+    assert result.posting.dept_cd == '9999'
+    assert result.posting.sub_account == 'UNASSIGNED'
+    assert result.posting.product_cd == '999999'
+    assert len(repository.postings) == 1
+
+
+def test_process_instruction_generates_uuid_and_utc_timestamp_by_default():
+    repository = _FakeRepository({})
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+
+    result = manager.process_instruction(_valid_instruction())
+
+    assert isinstance(result.posting.gl_posting_id, UUID)
+    assert isinstance(result.posting.posted_at, datetime)
+    assert result.posting.posted_at.tzinfo is not None
+
+
+def test_process_instruction_accepts_injected_deterministic_ids():
+    repository = _FakeRepository({})
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+    fixed_id = uuid4()
+    fixed_time = datetime(2026, 1, 1, 9, 0, 0, tzinfo=timezone.utc)
+
+    result = manager.process_instruction(
+        _valid_instruction(),
+        gl_posting_id=fixed_id,
+        posted_at=fixed_time,
+    )
+
+    assert result.posting.gl_posting_id == fixed_id
+    assert result.posting.posted_at == fixed_time
+
+
+def test_process_instruction_accepts_injected_deterministic_rejection_ids():
+    repository = _FakeRepository({})
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+    fixed_id = uuid4()
+    fixed_time = datetime(2026, 1, 1, 9, 0, 0, tzinfo=timezone.utc)
+
+    result = manager.process_instruction(
+        replace(_valid_instruction(), cr_dr_ind='XX'),
+        gl_rejection_id=fixed_id,
+        rejected_at=fixed_time,
+    )
+
+    assert result.rejection.gl_rejection_id == fixed_id
+    assert result.rejection.rejected_at == fixed_time
+
+
+def test_process_instruction_never_writes_both_posting_and_rejection():
+    repository = _FakeRepository({})
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+
+    posted_result = manager.process_instruction(_valid_instruction())
+    assert posted_result.posted is True
+    assert len(repository.postings) == 1
+    assert len(repository.rejections) == 0
+
+    rejected_result = manager.process_instruction(
+        replace(_valid_instruction(), cr_dr_ind='XX')
+    )
+    assert rejected_result.posted is False
+    assert len(repository.postings) == 1
+    assert len(repository.rejections) == 1
+
+
+# -- import_instructions -----------------------------------------------
+
+def test_import_instructions_all_valid_partition_all_posted():
+    valid_1 = _valid_instruction()
+    valid_2 = replace(_valid_instruction(), transaction_number='TXN-2')
+    repository = _FakeRepository({}, instructions=(valid_1, valid_2))
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+
+    result = manager.import_instructions(BUSINESS_DT, 1)
+
+    assert result.business_date == BUSINESS_DT
+    assert result.batch_id == 1
+    assert result.received_count == 2
+    assert result.posted_count == 2
+    assert result.rejected_count == 0
+    assert all(r.posted for r in result.results)
+    assert len(repository.postings) == 2
+
+
+def test_import_instructions_mixed_partition_posts_valid_rejects_invalid():
+    valid = _valid_instruction()
+    invalid = replace(_valid_instruction(), transaction_number='TXN-2', cr_dr_ind='XX')
+    repository = _FakeRepository({}, instructions=(invalid, valid))
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+
+    result = manager.import_instructions(BUSINESS_DT, 1)
+
+    assert result.received_count == 2
+    assert result.posted_count == 1
+    assert result.rejected_count == 1
+    assert result.received_count == result.posted_count + result.rejected_count
+    # One rejection does not stop processing of the remaining instruction.
+    assert result.results[0].posted is False
+    assert result.results[1].posted is True
+
+
+def test_import_instructions_empty_partition_returns_zero_counts():
+    repository = _FakeRepository({}, instructions=())
+    registry = _FakeRegistryClient(set())
+    manager = GLManager(repository, registry)
+
+    result = manager.import_instructions(BUSINESS_DT, 1)
+
+    assert result.received_count == 0
+    assert result.posted_count == 0
+    assert result.rejected_count == 0
+    assert result.results == ()
+
+
+def test_import_instructions_results_retained_in_deterministic_order():
+    first = replace(_valid_instruction(), transaction_number='TXN-1')
+    second = replace(_valid_instruction(), transaction_number='TXN-2')
+    third = replace(_valid_instruction(), transaction_number='TXN-3')
+    repository = _FakeRepository({}, instructions=(first, second, third))
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+
+    result = manager.import_instructions(BUSINESS_DT, 1)
+
+    assert [r.posting.transaction_number for r in result.results] == [
+        'TXN-1', 'TXN-2', 'TXN-3',
+    ]
+
+
+def test_import_instructions_defaulted_segment_appears_in_posting():
+    repository = _FakeRepository(
+        {
+            ('DEPT_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
+                segment_type='DEPT_CD',
+                context_type='ENTITY_CD',
+                context_value='USM',
+                default_value='9999',
+            ),
+        },
+        instructions=(replace(_valid_instruction(), dept_cd='BOGUS'),),
+    )
+    registry = _FakeRegistryClient(
+        _valid_registry_entries() | {(SegmentType.DEPARTMENT, BUSINESS_DT, '9999')}
+    )
+    manager = GLManager(repository, registry)
+
+    result = manager.import_instructions(BUSINESS_DT, 1)
+
+    assert result.results[0].posting.dept_cd == '9999'
+    assert repository.postings[0].dept_cd == '9999'
+
+
+def test_import_instructions_does_not_prevent_duplicate_posting_id():
+    same_posting_id = replace(_valid_instruction(), transaction_number='TXN-1')
+    repository = _FakeRepository(
+        {}, instructions=(same_posting_id, same_posting_id)
+    )
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+
+    result = manager.import_instructions(BUSINESS_DT, 1)
+
+    assert result.posted_count == 2
+    assert len(repository.postings) == 2
+    assert {p.posting_id for p in repository.postings} == {same_posting_id.posting_id}
+    # No app-level uniqueness enforcement on posting_id.
+    assert repository.postings[0].gl_posting_id != repository.postings[1].gl_posting_id

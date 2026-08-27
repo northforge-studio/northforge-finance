@@ -5,9 +5,12 @@ from uuid import uuid4
 
 import pytest
 
+from core.store import CsvStore
+
 from registry import SegmentType
 
 from gl import GLClient, GLInstruction, GLSegments, SegmentResolution
+from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
 
 
 BUSINESS_DT = date(2026, 1, 1)
@@ -178,3 +181,87 @@ def test_validate_instruction_delegates_to_manager_for_invalid_instruction(gl):
 
     assert result.valid is False
     assert 'INVALID_CR_DR_IND' in result.errors
+
+
+# -- process_instruction / import_instructions -----------------------------
+
+@pytest.fixture
+def gl_with_posting_support(spark, registry, tmp_path):
+    return GLClient.from_csv(
+        spark=spark,
+        segment_default_path='data/gl/segment_defaults.csv',
+        registry=registry,
+        posting_path=tmp_path / 'POSTING',
+        rejection_path=tmp_path / 'REJECTION',
+        interface_trial_balance_path=tmp_path / 'INTERFACE_TRIAL_BALANCE',
+    )
+
+
+def test_process_instruction_delegates_to_manager_for_valid_instruction(
+    gl_with_posting_support,
+):
+    result = gl_with_posting_support.process_instruction(_valid_instruction())
+
+    assert result.posted is True
+    assert result.posting is not None
+    assert result.rejection is None
+
+
+def test_process_instruction_delegates_to_manager_for_invalid_instruction(
+    gl_with_posting_support,
+):
+    instruction = replace(_valid_instruction(), cr_dr_ind='XX')
+
+    result = gl_with_posting_support.process_instruction(instruction)
+
+    assert result.posted is False
+    assert result.posting is None
+    assert result.rejection.rejection_type == 'STRUCTURAL_VALIDATION'
+
+
+def test_import_instructions_delegates_to_manager(spark, tmp_path, gl_with_posting_support):
+    instruction = _valid_instruction()
+    row = (
+        str(instruction.workflow_run_id),
+        str(instruction.producer_run_id),
+        instruction.dataclass,
+        instruction.transaction_number,
+        instruction.line_number,
+        instruction.entity_cd,
+        instruction.dept_cd,
+        instruction.branch_cd,
+        instruction.gl_account,
+        instruction.sub_account,
+        instruction.affiliate_cd,
+        instruction.product_cd,
+        instruction.book_cd,
+        instruction.source_cd,
+        instruction.cr_dr_ind,
+        instruction.foundry_rule_id,
+        instruction.posting_id,
+        instruction.posting_stream,
+        instruction.src_record_id,
+        instruction.batch_id,
+        instruction.src_app_cd,
+        instruction.transaction_currency,
+        instruction.transaction_amount,
+        instruction.accounted_currency,
+        instruction.accounted_amount,
+        instruction.fx_rate,
+        instruction.as_of_date,
+        instruction.business_date,
+    )
+    interface_store = CsvStore(
+        spark=spark,
+        table_locations={
+            'INTERFACE_TRIAL_BALANCE': tmp_path / 'INTERFACE_TRIAL_BALANCE',
+        },
+    )
+    df = spark.createDataFrame([row], schema=INTERFACE_TRIAL_BALANCE_SCHEMA)
+    interface_store.write(df, table_name='INTERFACE_TRIAL_BALANCE')
+
+    result = gl_with_posting_support.import_instructions(BUSINESS_DT, 1)
+
+    assert result.received_count == 1
+    assert result.posted_count == 1
+    assert result.rejected_count == 0

@@ -1,9 +1,14 @@
-from datetime import date
+from datetime import date, datetime, timezone
+from uuid import UUID, uuid4
 
 from registry import RegistryClient, SegmentType
 
 from gl.models import (
+    GLImportResult,
     GLInstruction,
+    GLInstructionResult,
+    GLPosting,
+    GLRejection,
     GLSegmentResolution,
     GLSegments,
     InstructionValidation,
@@ -207,6 +212,121 @@ class GLManager:
             errors.append('INVALID_CR_DR_IND')
 
         return InstructionValidation(valid=not errors, errors=tuple(errors))
+
+
+    def process_instruction(
+        self,
+        instruction: GLInstruction,
+        *,
+        gl_posting_id: UUID | None = None,
+        posted_at: datetime | None = None,
+        gl_rejection_id: UUID | None = None,
+        rejected_at: datetime | None = None,
+    ) -> GLInstructionResult:
+        validation = self.validate_instruction(instruction)
+
+        if not validation.valid:
+            rejection = self._reject(
+                instruction,
+                rejection_type='STRUCTURAL_VALIDATION',
+                rejection_detail=','.join(validation.errors),
+                gl_rejection_id=gl_rejection_id,
+                rejected_at=rejected_at,
+            )
+            return GLInstructionResult(
+                posted=False,
+                posting=None,
+                rejection=rejection,
+                validation=validation,
+                segment_resolution=None,
+            )
+
+        segment_resolution = self.resolve_segments(
+            instruction.to_segments(),
+            business_dt=instruction.business_date,
+        )
+
+        if not segment_resolution.resolved:
+            unresolved = ','.join(
+                resolution.segment_type
+                for resolution in segment_resolution.resolutions
+                if resolution.resolved_value is None
+            )
+            rejection = self._reject(
+                instruction,
+                rejection_type='SEGMENT_RESOLUTION',
+                rejection_detail=unresolved,
+                gl_rejection_id=gl_rejection_id,
+                rejected_at=rejected_at,
+            )
+            return GLInstructionResult(
+                posted=False,
+                posting=None,
+                rejection=rejection,
+                validation=validation,
+                segment_resolution=segment_resolution,
+            )
+
+        posting = GLPosting.from_resolution(
+            instruction,
+            segment_resolution.segments,
+            gl_posting_id=gl_posting_id or uuid4(),
+            posted_at=posted_at or datetime.now(timezone.utc),
+        )
+        self._repository.write_posting(posting)
+
+        return GLInstructionResult(
+            posted=True,
+            posting=posting,
+            rejection=None,
+            validation=validation,
+            segment_resolution=segment_resolution,
+        )
+
+
+    def import_instructions(
+        self,
+        business_dt: date,
+        batch_id: int,
+    ) -> GLImportResult:
+        instructions = self._repository.get_instructions(business_dt, batch_id)
+
+        results = tuple(
+            self.process_instruction(instruction)
+            for instruction in instructions
+        )
+
+        posted_count = sum(1 for result in results if result.posted)
+
+        return GLImportResult(
+            business_date=business_dt,
+            batch_id=batch_id,
+            received_count=len(results),
+            posted_count=posted_count,
+            rejected_count=len(results) - posted_count,
+            results=results,
+        )
+
+
+    def _reject(
+        self,
+        instruction: GLInstruction,
+        *,
+        rejection_type: str,
+        rejection_detail: str,
+        gl_rejection_id: UUID | None,
+        rejected_at: datetime | None,
+    ) -> GLRejection:
+        rejection = GLRejection.from_instruction(
+            instruction,
+            gl_rejection_id=gl_rejection_id or uuid4(),
+            rejected_at=rejected_at or datetime.now(timezone.utc),
+            rejection_type=rejection_type,
+            rejection_detail=rejection_detail,
+        )
+        self._repository.write_rejection(rejection)
+
+        return rejection
 
 
     def _is_registry_valid(

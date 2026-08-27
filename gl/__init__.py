@@ -1,6 +1,10 @@
 from gl.client import GLClient
 from gl.models import (
+    GLImportResult,
     GLInstruction,
+    GLInstructionResult,
+    GLPosting,
+    GLRejection,
     GLSegmentResolution,
     GLSegments,
     InstructionValidation,
@@ -11,7 +15,11 @@ from gl.models import (
 
 __all__ = [
     'GLClient',
+    'GLImportResult',
     'GLInstruction',
+    'GLInstructionResult',
+    'GLPosting',
+    'GLRejection',
     'GLSegmentResolution',
     'GLSegments',
     'InstructionValidation',

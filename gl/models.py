@@ -175,3 +175,79 @@ class GLPosting:
             as_of_date=instruction.as_of_date,
             business_date=instruction.business_date,
         )
+
+
+@dataclass(frozen=True)
+class GLRejection:
+    gl_rejection_id: UUID
+    rejected_at: datetime
+
+    # lineage (enough to trace back to Interface/Foundry; the full
+    # instruction remains queryable in interface.trial_balance)
+    workflow_run_id: UUID
+    producer_run_id: UUID
+    dataclass: str
+    transaction_number: str
+    line_number: str
+    foundry_rule_id: str
+    posting_id: str
+    posting_stream: str
+    src_record_id: str
+    batch_id: int
+    src_app_cd: str
+    business_date: date
+    as_of_date: date
+
+    # diagnostics
+    rejection_type: str
+    rejection_detail: str
+
+
+    @classmethod
+    def from_instruction(
+        cls,
+        instruction: GLInstruction,
+        *,
+        gl_rejection_id: UUID,
+        rejected_at: datetime,
+        rejection_type: str,
+        rejection_detail: str,
+    ) -> 'GLRejection':
+        return cls(
+            gl_rejection_id=gl_rejection_id,
+            rejected_at=rejected_at,
+            workflow_run_id=instruction.workflow_run_id,
+            producer_run_id=instruction.producer_run_id,
+            dataclass=instruction.dataclass,
+            transaction_number=instruction.transaction_number,
+            line_number=instruction.line_number,
+            foundry_rule_id=instruction.foundry_rule_id,
+            posting_id=instruction.posting_id,
+            posting_stream=instruction.posting_stream,
+            src_record_id=instruction.src_record_id,
+            batch_id=instruction.batch_id,
+            src_app_cd=instruction.src_app_cd,
+            business_date=instruction.business_date,
+            as_of_date=instruction.as_of_date,
+            rejection_type=rejection_type,
+            rejection_detail=rejection_detail,
+        )
+
+
+@dataclass(frozen=True)
+class GLInstructionResult:
+    posted: bool
+    posting: GLPosting | None
+    rejection: GLRejection | None
+    validation: InstructionValidation
+    segment_resolution: GLSegmentResolution | None
+
+
+@dataclass(frozen=True)
+class GLImportResult:
+    business_date: date
+    batch_id: int
+    received_count: int
+    posted_count: int
+    rejected_count: int
+    results: tuple[GLInstructionResult, ...]

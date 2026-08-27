@@ -12,7 +12,9 @@ from registry import RegistryClient
 
 from gl.manager import GLManager
 from gl.models import (
+    GLImportResult,
     GLInstruction,
+    GLInstructionResult,
     GLSegmentResolution,
     GLSegments,
     InstructionValidation,
@@ -35,12 +37,20 @@ class GLClient:
         segment_default_path: str | Path,
         registry: RegistryClient,
         posting_path: str | Path | None = None,
+        rejection_path: str | Path | None = None,
+        interface_trial_balance_path: str | Path | None = None,
     ) -> 'GLClient':
         table_locations = {
             'SEGMENT_DEFAULT': Path(segment_default_path),
         }
         if posting_path is not None:
             table_locations['POSTING'] = Path(posting_path)
+        if rejection_path is not None:
+            table_locations['REJECTION'] = Path(rejection_path)
+        if interface_trial_balance_path is not None:
+            table_locations['INTERFACE_TRIAL_BALANCE'] = Path(
+                interface_trial_balance_path
+            )
 
         store = CsvStore(
             spark=spark,
@@ -57,12 +67,16 @@ class GLClient:
         segment_default_table: str,
         registry: RegistryClient,
         posting_table: str = 'gl.posting',
+        rejection_table: str = 'gl.rejection',
+        interface_trial_balance_table: str = 'interface.trial_balance',
     ) -> 'GLClient':
         store = PostgresStore(
             spark=spark,
             table_names={
                 'SEGMENT_DEFAULT': segment_default_table,
                 'POSTING': posting_table,
+                'REJECTION': rejection_table,
+                'INTERFACE_TRIAL_BALANCE': interface_trial_balance_table,
             },
         )
 
@@ -114,3 +128,18 @@ class GLClient:
         instruction: GLInstruction,
     ) -> InstructionValidation:
         return self._manager.validate_instruction(instruction)
+
+
+    def process_instruction(
+        self,
+        instruction: GLInstruction,
+    ) -> GLInstructionResult:
+        return self._manager.process_instruction(instruction)
+
+
+    def import_instructions(
+        self,
+        business_dt: date,
+        batch_id: int,
+    ) -> GLImportResult:
+        return self._manager.import_instructions(business_dt, batch_id)
