@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -92,3 +92,86 @@ class GLInstruction:
 class InstructionValidation:
     valid: bool
     errors: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class GLPosting:
+    gl_posting_id: UUID
+    posted_at: datetime
+
+    # lineage
+    workflow_run_id: UUID
+    producer_run_id: UUID
+    dataclass: str
+    transaction_number: str
+    line_number: str
+    foundry_rule_id: str
+    posting_id: str
+    posting_stream: str
+    src_record_id: str
+    batch_id: int
+    src_app_cd: str
+
+    # actual posted segments (resolved/defaulted, never the raw Interface values)
+    entity_cd: str
+    dept_cd: str
+    branch_cd: str
+    gl_account: str
+    sub_account: str
+    affiliate_cd: str
+    product_cd: str
+    book_cd: str
+    source_cd: str
+
+    # accounting
+    cr_dr_ind: str
+    transaction_currency: str
+    transaction_amount: Decimal
+    accounted_currency: str
+    accounted_amount: Decimal
+    fx_rate: Decimal
+    as_of_date: date
+    business_date: date
+
+
+    @classmethod
+    def from_resolution(
+        cls,
+        instruction: GLInstruction,
+        segments: GLSegments,
+        *,
+        gl_posting_id: UUID,
+        posted_at: datetime,
+    ) -> 'GLPosting':
+        return cls(
+            gl_posting_id=gl_posting_id,
+            posted_at=posted_at,
+            workflow_run_id=instruction.workflow_run_id,
+            producer_run_id=instruction.producer_run_id,
+            dataclass=instruction.dataclass,
+            transaction_number=instruction.transaction_number,
+            line_number=instruction.line_number,
+            foundry_rule_id=instruction.foundry_rule_id,
+            posting_id=instruction.posting_id,
+            posting_stream=instruction.posting_stream,
+            src_record_id=instruction.src_record_id,
+            batch_id=instruction.batch_id,
+            src_app_cd=instruction.src_app_cd,
+            entity_cd=segments.entity_cd,
+            dept_cd=segments.dept_cd,
+            branch_cd=segments.branch_cd,
+            gl_account=segments.gl_account,
+            sub_account=segments.sub_account,
+            affiliate_cd=segments.affiliate_cd,
+            product_cd=segments.product_cd,
+            book_cd=segments.book_cd,
+            source_cd=segments.source_cd,
+            cr_dr_ind=instruction.cr_dr_ind,
+            transaction_currency=instruction.transaction_currency,
+            transaction_amount=instruction.transaction_amount,
+            accounted_currency=instruction.accounted_currency,
+            accounted_amount=instruction.accounted_amount,
+            fx_rate=instruction.fx_rate,
+            as_of_date=instruction.as_of_date,
+            business_date=instruction.business_date,
+        )

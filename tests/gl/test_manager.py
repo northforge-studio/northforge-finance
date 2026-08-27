@@ -1,12 +1,12 @@
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
 from registry import SegmentType
 
 from gl.manager import GLManager
-from gl.models import GLInstruction, GLSegments, SegmentDefault, SegmentResolution
+from gl.models import GLInstruction, GLPosting, GLSegments, SegmentDefault, SegmentResolution
 
 
 BUSINESS_DT = date(2026, 1, 1)
@@ -820,3 +820,59 @@ def test_to_segments_produces_matching_gl_segments():
         book_cd='BK1',
         source_cd='SRC1',
     )
+
+
+# -- GLPosting.from_resolution --------------------------------------------
+
+def test_from_resolution_preserves_lineage_and_accounting_fields():
+    instruction = _valid_instruction()
+    gl_posting_id = uuid4()
+    posted_at = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+
+    posting = GLPosting.from_resolution(
+        instruction,
+        instruction.to_segments(),
+        gl_posting_id=gl_posting_id,
+        posted_at=posted_at,
+    )
+
+    assert posting.gl_posting_id == gl_posting_id
+    assert posting.posted_at == posted_at
+    assert posting.workflow_run_id == instruction.workflow_run_id
+    assert posting.producer_run_id == instruction.producer_run_id
+    assert posting.dataclass == instruction.dataclass
+    assert posting.transaction_number == instruction.transaction_number
+    assert posting.line_number == instruction.line_number
+    assert posting.foundry_rule_id == instruction.foundry_rule_id
+    assert posting.posting_id == instruction.posting_id
+    assert posting.posting_stream == instruction.posting_stream
+    assert posting.src_record_id == instruction.src_record_id
+    assert posting.batch_id == instruction.batch_id
+    assert posting.src_app_cd == instruction.src_app_cd
+    assert posting.cr_dr_ind == instruction.cr_dr_ind
+    assert posting.transaction_currency == instruction.transaction_currency
+    assert posting.transaction_amount == instruction.transaction_amount
+    assert posting.accounted_currency == instruction.accounted_currency
+    assert posting.accounted_amount == instruction.accounted_amount
+    assert posting.fx_rate == instruction.fx_rate
+    assert posting.as_of_date == instruction.as_of_date
+    assert posting.business_date == instruction.business_date
+
+
+def test_from_resolution_uses_resolved_segments_not_instruction_original():
+    # Interface supplied an invalid DEPT_CD; resolve_segments would have
+    # substituted the GL default ('9999') before this factory ever runs.
+    instruction = replace(_valid_instruction(), dept_cd='BOGUS_INVALID')
+    resolved_segments = replace(instruction.to_segments(), dept_cd='9999')
+
+    posting = GLPosting.from_resolution(
+        instruction,
+        resolved_segments,
+        gl_posting_id=uuid4(),
+        posted_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+
+    # The resolved value made it through...
+    assert posting.dept_cd == '9999'
+    # ...and the original Interface-supplied value did not leak in.
+    assert posting.dept_cd != instruction.dept_cd

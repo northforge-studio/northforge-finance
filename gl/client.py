@@ -34,15 +34,20 @@ class GLClient:
         spark: SparkSession,
         segment_default_path: str | Path,
         registry: RegistryClient,
+        posting_path: str | Path | None = None,
     ) -> 'GLClient':
+        table_locations = {
+            'SEGMENT_DEFAULT': Path(segment_default_path),
+        }
+        if posting_path is not None:
+            table_locations['POSTING'] = Path(posting_path)
+
         store = CsvStore(
             spark=spark,
-            table_locations={
-                'SEGMENT_DEFAULT': Path(segment_default_path),
-            },
+            table_locations=table_locations,
         )
 
-        return cls(GLRepository(store), registry)
+        return cls(GLRepository(store, spark), registry)
 
 
     @classmethod
@@ -51,15 +56,17 @@ class GLClient:
         spark: SparkSession,
         segment_default_table: str,
         registry: RegistryClient,
+        posting_table: str = 'gl.posting',
     ) -> 'GLClient':
         store = PostgresStore(
             spark=spark,
             table_names={
                 'SEGMENT_DEFAULT': segment_default_table,
+                'POSTING': posting_table,
             },
         )
 
-        return cls(GLRepository(store), registry)
+        return cls(GLRepository(store, spark), registry)
 
 
     def get_segment_default(
