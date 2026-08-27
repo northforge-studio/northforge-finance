@@ -56,9 +56,9 @@ _SEGMENT_FIELD_TYPES: tuple[tuple[str, str], ...] = (
 
 # Structural requiredness for GLInstruction, in Interface-contract field
 # order. "blank" flags None or an empty string; "none" flags only None,
-# so a legitimate falsy value (e.g. batch_id=0) is not misreported as
-# missing. Matches the actual interface.trial_balance migration, where
-# every one of these columns is nullable=False.
+# so a legitimate falsy value (e.g. transaction_amount=0) is not
+# misreported as missing. Matches the actual interface.trial_balance
+# migration, where every one of these columns is nullable=False.
 _REQUIRED_INSTRUCTION_FIELDS: tuple[tuple[str, str, str], ...] = (
     ('workflow_run_id', 'MISSING_WORKFLOW_RUN_ID', 'none'),
     ('producer_run_id', 'MISSING_PRODUCER_RUN_ID', 'none'),
@@ -69,7 +69,6 @@ _REQUIRED_INSTRUCTION_FIELDS: tuple[tuple[str, str, str], ...] = (
     ('posting_id', 'MISSING_POSTING_ID', 'blank'),
     ('posting_stream', 'MISSING_POSTING_STREAM', 'blank'),
     ('src_record_id', 'MISSING_SRC_RECORD_ID', 'blank'),
-    ('batch_id', 'MISSING_BATCH_ID', 'none'),
     ('src_app_cd', 'MISSING_SRC_APP_CD', 'blank'),
     ('transaction_currency', 'MISSING_TRANSACTION_CURRENCY', 'blank'),
     ('transaction_amount', 'MISSING_TRANSACTION_AMOUNT', 'none'),
@@ -336,6 +335,14 @@ class GLManager:
     def rollback_execution(self, identity: RunIdentity) -> None:
         self._repository.delete_postings(identity.run_id)
         self._repository.delete_rejections(identity.run_id)
+
+
+    def get_postings(self, producer_run_id: UUID) -> tuple[GLPosting, ...]:
+        return self._repository.get_postings(producer_run_id)
+
+
+    def get_rejections(self, producer_run_id: UUID) -> tuple[GLRejection, ...]:
+        return self._repository.get_rejections(producer_run_id)
 
 
     def _reject(

@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from uuid import UUID
 
 from pyspark.sql import DataFrame, Column
 from pyspark.sql import functions as F
@@ -66,8 +67,12 @@ class BasePipeline(ABC):
         )
 
 
-    def enrichment(self, identity: RunIdentity) -> ZoneResult:
-        df = self.pre_enrichment()
+    def enrichment(
+        self,
+        identity: RunIdentity,
+        source_producer_run_id: UUID,
+    ) -> ZoneResult:
+        df = self.pre_enrichment(source_producer_run_id)
         df = self.main_enrichment(df)
         df = self._stamp_run_identity(df, identity)
         self.post_enrichment(df)
@@ -82,8 +87,13 @@ class BasePipeline(ABC):
         )
 
 
-    def reporting(self, identity: RunIdentity) -> ZoneResult:
-        df = self.pre_reporting()
+    def reporting(
+        self,
+        identity: RunIdentity,
+        staging_producer_run_id: UUID,
+        enrichment_producer_run_id: UUID,
+    ) -> ZoneResult:
+        df = self.pre_reporting(staging_producer_run_id, enrichment_producer_run_id)
         df = self.main_reporting(df)
         df = self._stamp_run_identity(df, identity)
         self.post_reporting(df)
@@ -98,8 +108,12 @@ class BasePipeline(ABC):
         )
 
 
-    def posting(self, identity: RunIdentity) -> ZoneResult:
-        df = self.pre_posting()
+    def posting(
+        self,
+        identity: RunIdentity,
+        source_producer_run_id: UUID,
+    ) -> ZoneResult:
+        df = self.pre_posting(source_producer_run_id)
         df = self.main_posting(df)
         df = self._stamp_run_identity(df, identity)
         self.post_posting(df)
@@ -114,8 +128,12 @@ class BasePipeline(ABC):
         )
 
 
-    def interface(self, identity: RunIdentity) -> ZoneResult:
-        df = self.pre_interface()
+    def interface(
+        self,
+        identity: RunIdentity,
+        source_producer_run_id: UUID,
+    ) -> ZoneResult:
+        df = self.pre_interface(source_producer_run_id)
         df = self.main_interface(df)
         df = self._stamp_run_identity(df, identity)
         self.post_interface(df)
@@ -146,7 +164,7 @@ class BasePipeline(ABC):
 
 
     @abstractmethod
-    def pre_enrichment(self) -> DataFrame:
+    def pre_enrichment(self, source_producer_run_id: UUID) -> DataFrame:
         ...
 
 
@@ -161,7 +179,11 @@ class BasePipeline(ABC):
 
 
     @abstractmethod
-    def pre_reporting(self) -> DataFrame:
+    def pre_reporting(
+        self,
+        staging_producer_run_id: UUID,
+        enrichment_producer_run_id: UUID,
+    ) -> DataFrame:
         ...
 
 
@@ -176,7 +198,7 @@ class BasePipeline(ABC):
 
 
     @abstractmethod
-    def pre_posting(self) -> DataFrame:
+    def pre_posting(self, source_producer_run_id: UUID) -> DataFrame:
         ...
 
 
@@ -191,7 +213,7 @@ class BasePipeline(ABC):
 
 
     @abstractmethod
-    def pre_interface(self) -> DataFrame:
+    def pre_interface(self, source_producer_run_id: UUID) -> DataFrame:
         ...
 
 

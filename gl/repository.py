@@ -1,4 +1,3 @@
-from datetime import date
 from uuid import UUID
 
 from pyspark.sql import SparkSession
@@ -66,8 +65,7 @@ class GLRepository:
 
     def get_postings(
         self,
-        business_dt: date,
-        batch_id: int,
+        producer_run_id: UUID,
     ) -> tuple[GLPosting, ...]:
         df = self._store.read(
             table_name='POSTING',
@@ -76,10 +74,7 @@ class GLRepository:
 
         rows = (
             df
-            .filter(
-                (F.col('BUSINESS_DATE') == business_dt)
-                & (F.col('BATCH_ID') == batch_id)
-            )
+            .filter(F.col('PRODUCER_RUN_ID') == str(producer_run_id))
             .collect()
         )
 
@@ -97,8 +92,7 @@ class GLRepository:
 
     def get_rejections(
         self,
-        business_dt: date,
-        batch_id: int,
+        producer_run_id: UUID,
     ) -> tuple[GLRejection, ...]:
         df = self._store.read(
             table_name='REJECTION',
@@ -107,10 +101,7 @@ class GLRepository:
 
         rows = (
             df
-            .filter(
-                (F.col('BUSINESS_DATE') == business_dt)
-                & (F.col('BATCH_ID') == batch_id)
-            )
+            .filter(F.col('PRODUCER_RUN_ID') == str(producer_run_id))
             .collect()
         )
 
@@ -169,7 +160,6 @@ class GLRepository:
             posting.posting_id,
             posting.posting_stream,
             posting.src_record_id,
-            posting.batch_id,
             posting.src_app_cd,
             posting.entity_cd,
             posting.dept_cd,
@@ -204,7 +194,6 @@ class GLRepository:
             posting_id=row['POSTING_ID'],
             posting_stream=row['POSTING_STREAM'],
             src_record_id=row['SRC_RECORD_ID'],
-            batch_id=row['BATCH_ID'],
             src_app_cd=row['SRC_APP_CD'],
             entity_cd=row['ENTITY_CD'],
             dept_cd=row['DEPT_CD'],
@@ -239,7 +228,6 @@ class GLRepository:
             rejection.posting_id,
             rejection.posting_stream,
             rejection.src_record_id,
-            rejection.batch_id,
             rejection.src_app_cd,
             rejection.business_date,
             rejection.as_of_date,
@@ -261,7 +249,6 @@ class GLRepository:
             posting_id=row['POSTING_ID'],
             posting_stream=row['POSTING_STREAM'],
             src_record_id=row['SRC_RECORD_ID'],
-            batch_id=row['BATCH_ID'],
             src_app_cd=row['SRC_APP_CD'],
             business_date=row['BUSINESS_DATE'],
             as_of_date=row['AS_OF_DATE'],
@@ -281,7 +268,6 @@ class GLRepository:
             posting_id=row['POSTING_ID'],
             posting_stream=row['POSTING_STREAM'],
             src_record_id=row['SRC_RECORD_ID'],
-            batch_id=row['BATCH_ID'],
             src_app_cd=row['SRC_APP_CD'],
             entity_cd=row['ENTITY_CD'],
             dept_cd=row['DEPT_CD'],

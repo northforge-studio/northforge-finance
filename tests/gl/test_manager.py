@@ -21,15 +21,19 @@ BUSINESS_DT = date(2026, 1, 1)
 
 
 class _FakeRepository:
-    def __init__(self, results, instructions=()):
+    def __init__(self, results, instructions=(), postings_by_producer=None, rejections_by_producer=None):
         self._results = results
         self._instructions = instructions
+        self._postings_by_producer = postings_by_producer or {}
+        self._rejections_by_producer = rejections_by_producer or {}
         self.calls = []
         self.postings = []
         self.rejections = []
         self.deleted_posting_producer_run_ids = []
         self.deleted_rejection_producer_run_ids = []
         self.get_instructions_calls = []
+        self.get_postings_calls = []
+        self.get_rejections_calls = []
 
 
     def get_segment_default(self, segment_type, context_type, context_value):
@@ -56,6 +60,16 @@ class _FakeRepository:
 
     def delete_rejections(self, producer_run_id):
         self.deleted_rejection_producer_run_ids.append(producer_run_id)
+
+
+    def get_postings(self, producer_run_id):
+        self.get_postings_calls.append(producer_run_id)
+        return self._postings_by_producer.get(producer_run_id, ())
+
+
+    def get_rejections(self, producer_run_id):
+        self.get_rejections_calls.append(producer_run_id)
+        return self._rejections_by_producer.get(producer_run_id, ())
 
 
 class _FakeRegistryClient:
@@ -716,7 +730,6 @@ def _valid_instruction() -> GLInstruction:
         posting_id='POST-1',
         posting_stream='STREAM-1',
         src_record_id='REC-1',
-        batch_id=1,
         src_app_cd='NFM',
         entity_cd='USM',
         dept_cd='4000',
@@ -890,7 +903,6 @@ def test_from_resolution_stamps_the_supplied_gl_execution_lineage():
     assert posting.posting_id == instruction.posting_id
     assert posting.posting_stream == instruction.posting_stream
     assert posting.src_record_id == instruction.src_record_id
-    assert posting.batch_id == instruction.batch_id
     assert posting.src_app_cd == instruction.src_app_cd
     assert posting.cr_dr_ind == instruction.cr_dr_ind
     assert posting.transaction_currency == instruction.transaction_currency
@@ -1355,7 +1367,7 @@ def test_import_instructions_reads_only_the_named_interface_execution():
     manager.import_instructions(identity, source_producer_run_id)
 
     # Interface rows are selected by workflow/producer lineage (the
-    # Foundry Interface execution's identity), not by business_dt/batch_id
+    # Foundry Interface execution's identity), not by business_dt
     # or a "latest batch" lookup.
     assert repository.get_instructions_calls == [
         (identity.workflow_run_id, source_producer_run_id),
@@ -1374,3 +1386,29 @@ def test_rollback_execution_deletes_only_postings_and_rejections_for_the_run():
 
     assert repository.deleted_posting_producer_run_ids == [identity.run_id]
     assert repository.deleted_rejection_producer_run_ids == [identity.run_id]
+
+
+# -- get_postings / get_rejections --------------------------------------
+
+def test_get_postings_delegates_to_repository_by_producer_run_id():
+    producer_run_id = uuid4()
+    expected = (object(),)
+    repository = _FakeRepository({}, postings_by_producer={producer_run_id: expected})
+    manager = GLManager(repository, _no_registry_calls_expected())
+
+    result = manager.get_postings(producer_run_id)
+
+    assert result == expected
+    assert repository.get_postings_calls == [producer_run_id]
+
+
+def test_get_rejections_delegates_to_repository_by_producer_run_id():
+    producer_run_id = uuid4()
+    expected = (object(),)
+    repository = _FakeRepository({}, rejections_by_producer={producer_run_id: expected})
+    manager = GLManager(repository, _no_registry_calls_expected())
+
+    result = manager.get_rejections(producer_run_id)
+
+    assert result == expected
+    assert repository.get_rejections_calls == [producer_run_id]

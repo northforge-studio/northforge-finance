@@ -59,7 +59,6 @@ def upgrade() -> None:
         sa.Column('posting_stream', sa.String(), nullable=False),
 
         sa.Column('src_record_id', sa.String(), nullable=False),
-        sa.Column('batch_id', sa.Integer(), nullable=False),
         sa.Column('src_app_cd', sa.String(), nullable=False),
 
         # Final GL segments (resolved/defaulted values GL actually posted)
@@ -91,9 +90,19 @@ def upgrade() -> None:
     )
 
     op.create_index(
-        'ix_gl_posting_business_date_batch_id',
+        'ix_gl_posting_business_date',
         'posting',
-        ['business_date', 'batch_id'],
+        ['business_date'],
+        schema='gl',
+    )
+
+    # PRODUCER_RUN_ID is the primary selector for a single GL execution's
+    # output (get_postings / delete_postings), since the same business_date
+    # can be processed by multiple GL executions.
+    op.create_index(
+        'ix_gl_posting_producer_run_id',
+        'posting',
+        ['producer_run_id'],
         schema='gl',
     )
 
@@ -116,7 +125,12 @@ def downgrade() -> None:
         schema='gl',
     )
     op.drop_index(
-        'ix_gl_posting_business_date_batch_id',
+        'ix_gl_posting_producer_run_id',
+        table_name='posting',
+        schema='gl',
+    )
+    op.drop_index(
+        'ix_gl_posting_business_date',
         table_name='posting',
         schema='gl',
     )

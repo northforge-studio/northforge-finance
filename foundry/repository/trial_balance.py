@@ -33,72 +33,62 @@ class TrialBalanceRepository:
         return source_df
 
 
-    def read_staging(self, business_dt: date, batch_id: str) -> DataFrame:
+    def read_staging(self, producer_run_id: UUID) -> DataFrame:
         staging_df = self.store.read(
             table_name='TRIAL_BALANCE_STAGING',
             schema=TRIAL_BALANCE_STAGING_SCHEMA,
-        ).filter(
-            (F.col('BUSINESS_DT') == business_dt) & (F.col('BATCH_ID') == batch_id)
-        )
+        ).filter(F.col('PRODUCER_RUN_ID') == str(producer_run_id))
 
         if staging_df.isEmpty():
-            raise ValueError(f"No staging data found for business date: {business_dt} and batch ID: {batch_id}")
-        
+            raise ValueError(f"No staging data found for producer run: {producer_run_id}")
+
         return staging_df
 
 
-    def read_enrichment(self, business_dt: date, batch_id: str) -> DataFrame:
+    def read_enrichment(self, producer_run_id: UUID) -> DataFrame:
         enrichment_df = self.store.read(
             table_name='TRIAL_BALANCE_ENRICHMENT',
             schema=TRIAL_BALANCE_ENRICHMENT_SCHEMA,
-        ).filter(
-            (F.col('BUSINESS_DT') == business_dt) & (F.col('BATCH_ID') == batch_id)
-        )
+        ).filter(F.col('PRODUCER_RUN_ID') == str(producer_run_id))
 
         if enrichment_df.isEmpty():
-            raise ValueError(f"No enrichment data found for business date: {business_dt} and batch ID: {batch_id}")
+            raise ValueError(f"No enrichment data found for producer run: {producer_run_id}")
 
         return enrichment_df
 
 
-    def read_reporting(self, business_dt: date, batch_id: str) -> DataFrame:
+    def read_reporting(self, producer_run_id: UUID) -> DataFrame:
         reporting_df = self.store.read(
             table_name='TRIAL_BALANCE_REPORTING',
             schema=TRIAL_BALANCE_REPORTING_SCHEMA,
-        ).filter(
-            (F.col('BUSINESS_DT') == business_dt) & (F.col('BATCH_ID') == batch_id)
-        )
+        ).filter(F.col('PRODUCER_RUN_ID') == str(producer_run_id))
 
         if reporting_df.isEmpty():
-            raise ValueError(f"No reporting data found for business date: {business_dt} and batch ID: {batch_id}")
+            raise ValueError(f"No reporting data found for producer run: {producer_run_id}")
 
         return reporting_df
 
 
-    def read_posting(self, business_dt: date, batch_id: str) -> DataFrame:
+    def read_posting(self, producer_run_id: UUID) -> DataFrame:
         posting_df = self.store.read(
             table_name='TRIAL_BALANCE_POSTING',
             schema=TRIAL_BALANCE_POSTING_SCHEMA,
-        ).filter(
-            (F.col('BUSINESS_DT') == business_dt) & (F.col('BATCH_ID') == batch_id)
-        )
+        ).filter(F.col('PRODUCER_RUN_ID') == str(producer_run_id))
 
         if posting_df.isEmpty():
-            raise ValueError(f"No posting data found for business date: {business_dt} and batch ID: {batch_id}")
+            raise ValueError(f"No posting data found for producer run: {producer_run_id}")
 
         return posting_df
 
 
-    def read_interface(self, business_dt: date, batch_id: str) -> DataFrame:
+    def read_interface(self, producer_run_id: UUID) -> DataFrame:
         interface_df = self.store.read(
             table_name='TRIAL_BALANCE_INTERFACE',
             schema=TRIAL_BALANCE_INTERFACE_SCHEMA,
-        ).filter(
-            (F.col('BUSINESS_DATE') == business_dt) & (F.col('BATCH_ID') == batch_id)
-        )
+        ).filter(F.col('PRODUCER_RUN_ID') == str(producer_run_id))
 
         if interface_df.isEmpty():
-            raise ValueError(f"No interface data found for business date: {business_dt} and batch ID: {batch_id}")
+            raise ValueError(f"No interface data found for producer run: {producer_run_id}")
 
         return interface_df
 
@@ -176,19 +166,3 @@ class TrialBalanceRepository:
             filters={'PRODUCER_RUN_ID': str(producer_run_id)},
             schema=TRIAL_BALANCE_INTERFACE_SCHEMA,
         )
-
-
-    def get_next_batch_id(self, business_dt: date) -> int:
-        staging_df = self.store.read(
-            table_name='TRIAL_BALANCE_STAGING',
-            schema=TRIAL_BALANCE_STAGING_SCHEMA,
-        )
-
-        max_batch_id = (
-            staging_df
-            .filter(F.col('BUSINESS_DT') == business_dt)
-            .agg(F.max('BATCH_ID').alias('MAX_BATCH_ID'))
-            .collect()[0]['MAX_BATCH_ID']
-        )
-
-        return (max_batch_id or 0) + 1

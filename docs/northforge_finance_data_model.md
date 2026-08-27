@@ -179,9 +179,6 @@ input
 
 ---
 
-`BATCH_ID` is intentionally not source data; Foundry assigns it at
-runtime.
-
 Derived fields such as normal account sign are not stored in the source
 when they can be deterministically produced by Spec.
 
@@ -840,14 +837,14 @@ FOUNDRY_RULE_ID
 POSTING_ID
 POSTING_STREAM
 SRC_RECORD_ID
-BATCH_ID
 SRC_APP_CD
 AS_OF_DATE
 BUSINESS_DATE
 ```
 
-`BUSINESS_DATE + BATCH_ID` is the Foundry processing partition used when
-reading/deleting Interface data.
+`PRODUCER_RUN_ID` (the producing execution's UUID) is the selector used
+when reading/deleting Interface data — not `BUSINESS_DATE`/`BATCH_ID`.
+`BUSINESS_DATE` remains the financial/business date the data represents.
 
 `AS_OF_DATE` remains the financial effective date.
 

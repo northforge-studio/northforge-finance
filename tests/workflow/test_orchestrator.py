@@ -66,7 +66,6 @@ class _FakeRunRepository(RunRepository):
             workflow_run_id=run.workflow_run_id,
             dataclass=run.dataclass,
             business_dt=run.business_dt,
-            batch_id=run.batch_id,
             status=status,
             started_at=run.started_at,
             completed_at=completed_at,
@@ -101,15 +100,15 @@ class _FakePipeline:
     rollback_execution(operation, identity), with no Spark/DataFrame
     involvement at all."""
 
-    def __init__(self, business_dt=BUSINESS_DT, batch_id=None, raise_in=None):
+    def __init__(self, business_dt=BUSINESS_DT, raise_in=None):
         self.config = PipelineConfig(
             dataclass='TRIAL_BALANCE',
             business_dt=business_dt,
-            batch_id=batch_id,
         )
         self._raise_in = raise_in
         self.rollback_calls: list[tuple[str, RunIdentity]] = []
         self.zone_calls: dict[str, RunIdentity] = {}
+        self.producer_calls: dict[str, tuple] = {}
 
 
     def _zone(self, name, identity):
@@ -124,11 +123,26 @@ class _FakePipeline:
         )
 
 
-    def staging(self, identity): return self._zone('staging', identity)
-    def enrichment(self, identity): return self._zone('enrichment', identity)
-    def reporting(self, identity): return self._zone('reporting', identity)
-    def posting(self, identity): return self._zone('posting', identity)
-    def interface(self, identity): return self._zone('interface', identity)
+    def staging(self, identity):
+        return self._zone('staging', identity)
+
+    def enrichment(self, identity, source_producer_run_id):
+        self.producer_calls['enrichment'] = (source_producer_run_id,)
+        return self._zone('enrichment', identity)
+
+    def reporting(self, identity, staging_producer_run_id, enrichment_producer_run_id):
+        self.producer_calls['reporting'] = (
+            staging_producer_run_id, enrichment_producer_run_id,
+        )
+        return self._zone('reporting', identity)
+
+    def posting(self, identity, source_producer_run_id):
+        self.producer_calls['posting'] = (source_producer_run_id,)
+        return self._zone('posting', identity)
+
+    def interface(self, identity, source_producer_run_id):
+        self.producer_calls['interface'] = (source_producer_run_id,)
+        return self._zone('interface', identity)
 
 
     def rollback_execution(self, operation, identity):
@@ -194,7 +208,7 @@ def test_run_foundry_creates_pipeline_and_all_five_zone_executions_under_one_wor
         assert executions[operation].parent_run_id == pipeline_execution.run_id
 
 
-def test_run_foundry_creates_all_four_zone_to_zone_dependencies():
+def test_run_foundry_creates_all_five_zone_to_zone_dependencies():
     run_tracker = _make_run_tracker()
     pipeline = _FakePipeline()
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
@@ -209,12 +223,33 @@ def test_run_foundry_creates_all_four_zone_to_zone_dependencies():
         for dep in repository.dependencies
     }
 
+    # Reporting genuinely reads both Staging and Enrichment output (see
+    # TrialBalancePipeline.pre_reporting), so it depends on both.
     assert dependency_pairs == {
         (executions['ENRICHMENT'].run_id, executions['STAGING'].run_id, 'STAGING'),
+        (executions['REPORTING'].run_id, executions['STAGING'].run_id, 'STAGING'),
         (executions['REPORTING'].run_id, executions['ENRICHMENT'].run_id, 'ENRICHMENT'),
         (executions['POSTING'].run_id, executions['REPORTING'].run_id, 'REPORTING'),
         (executions['INTERFACE'].run_id, executions['POSTING'].run_id, 'POSTING'),
     }
+
+
+def test_run_foundry_passes_each_zones_own_producer_run_id_downstream():
+    run_tracker = _make_run_tracker()
+    pipeline = _FakePipeline()
+    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
+
+    result = orchestrator.run_foundry()
+
+    repository = run_tracker._repository
+    executions = _executions_by_operation(repository, result.identity.workflow_run_id)
+
+    assert pipeline.producer_calls['enrichment'] == (executions['STAGING'].run_id,)
+    assert pipeline.producer_calls['reporting'] == (
+        executions['STAGING'].run_id, executions['ENRICHMENT'].run_id,
+    )
+    assert pipeline.producer_calls['posting'] == (executions['REPORTING'].run_id,)
+    assert pipeline.producer_calls['interface'] == (executions['POSTING'].run_id,)
 
 
 def test_run_foundry_returns_pipeline_result_with_zones_in_order():

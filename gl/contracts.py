@@ -1,7 +1,6 @@
 from pyspark.sql.types import (
     DateType,
     DecimalType,
-    IntegerType,
     StringType,
     StructField,
     StructType,
@@ -37,7 +36,6 @@ POSTING_SCHEMA = StructType([
     StructField('POSTING_STREAM', StringType(), False),
 
     StructField('SRC_RECORD_ID', StringType(), False),
-    StructField('BATCH_ID', IntegerType(), False),
     StructField('SRC_APP_CD', StringType(), False),
 
     StructField('ENTITY_CD', StringType(), False),
@@ -84,7 +82,6 @@ REJECTION_SCHEMA = StructType([
     StructField('POSTING_STREAM', StringType(), False),
 
     StructField('SRC_RECORD_ID', StringType(), False),
-    StructField('BATCH_ID', IntegerType(), False),
     StructField('SRC_APP_CD', StringType(), False),
 
     StructField('BUSINESS_DATE', DateType(), False),
@@ -126,7 +123,6 @@ INTERFACE_TRIAL_BALANCE_SCHEMA = StructType([
     StructField('POSTING_STREAM', StringType(), False),
 
     StructField('SRC_RECORD_ID', StringType(), False),
-    StructField('BATCH_ID', IntegerType(), False),
     StructField('SRC_APP_CD', StringType(), False),
 
     StructField('TRANSACTION_CURRENCY', StringType(), False),

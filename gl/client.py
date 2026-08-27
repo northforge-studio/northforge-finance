@@ -17,6 +17,8 @@ from gl.models import (
     GLImportResult,
     GLInstruction,
     GLInstructionResult,
+    GLPosting,
+    GLRejection,
     GLSegmentResolution,
     GLSegments,
     InstructionValidation,
@@ -149,3 +151,11 @@ class GLClient:
 
     def rollback_execution(self, identity: RunIdentity) -> None:
         self._manager.rollback_execution(identity)
+
+
+    def get_postings(self, producer_run_id: UUID) -> tuple[GLPosting, ...]:
+        return self._manager.get_postings(producer_run_id)
+
+
+    def get_rejections(self, producer_run_id: UUID) -> tuple[GLRejection, ...]:
+        return self._manager.get_rejections(producer_run_id)

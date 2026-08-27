@@ -117,7 +117,6 @@ def _posting(**overrides) -> GLPosting:
         posting_id='POST-1',
         posting_stream='STREAM-1',
         src_record_id='REC-1',
-        batch_id=1,
         src_app_cd='NFM',
         entity_cd='USM',
         dept_cd='4000',
@@ -157,7 +156,7 @@ def test_write_posting_persists_all_lineage_and_accounting_fields(posting_reposi
 
     posting_repository.write_posting(posting)
 
-    results = posting_repository.get_postings(date(2026, 1, 1), 1)
+    results = posting_repository.get_postings(posting.producer_run_id)
 
     assert len(results) == 1
     result = results[0]
@@ -171,7 +170,6 @@ def test_write_posting_persists_all_lineage_and_accounting_fields(posting_reposi
     assert result.posting_id == posting.posting_id
     assert result.posting_stream == posting.posting_stream
     assert result.src_record_id == posting.src_record_id
-    assert result.batch_id == posting.batch_id
     assert result.src_app_cd == posting.src_app_cd
     assert result.cr_dr_ind == posting.cr_dr_ind
     assert result.transaction_currency == posting.transaction_currency
@@ -198,7 +196,7 @@ def test_write_posting_persists_resolved_gl_segments(posting_repository):
 
     posting_repository.write_posting(posting)
 
-    result = posting_repository.get_postings(date(2026, 1, 1), 1)[0]
+    result = posting_repository.get_postings(posting.producer_run_id)[0]
 
     assert result.entity_cd == 'USM'
     assert result.dept_cd == '9999'
@@ -211,34 +209,58 @@ def test_write_posting_persists_resolved_gl_segments(posting_repository):
     assert result.source_cd == 'SRC1'
 
 
-def test_get_postings_excludes_different_batch_id(posting_repository):
-    posting_repository.write_posting(_posting(batch_id=1))
-    posting_repository.write_posting(_posting(batch_id=2))
+def test_get_postings_returns_only_the_named_producers_rows(posting_repository):
+    # The same business_dt can be processed by multiple GL executions
+    # (retries, corrections). get_postings must isolate a single
+    # execution's output by producer_run_id, never by business_dt.
+    kept = _posting()
+    other = _posting(business_date=kept.business_date)
 
-    results = posting_repository.get_postings(date(2026, 1, 1), 1)
+    posting_repository.write_posting(kept)
+    posting_repository.write_posting(other)
 
-    assert len(results) == 1
-    assert results[0].batch_id == 1
-
-
-def test_get_postings_excludes_different_business_date(posting_repository):
-    posting_repository.write_posting(_posting(business_date=date(2026, 1, 1)))
-    posting_repository.write_posting(_posting(business_date=date(2026, 1, 2)))
-
-    results = posting_repository.get_postings(date(2026, 1, 1), 1)
+    results = posting_repository.get_postings(kept.producer_run_id)
 
     assert len(results) == 1
-    assert results[0].business_date == date(2026, 1, 1)
+    assert results[0].producer_run_id == kept.producer_run_id
+
+
+def test_get_postings_does_not_mix_rows_across_producer_runs_even_with_same_workflow(
+    posting_repository,
+):
+    # Even when both executions share a WORKFLOW_RUN_ID and BUSINESS_DATE,
+    # only PRODUCER_RUN_ID may distinguish which execution's rows come back.
+    shared_workflow_run_id = uuid4()
+    shared_business_date = date(2026, 1, 1)
+
+    g1 = _posting(
+        workflow_run_id=shared_workflow_run_id,
+        business_date=shared_business_date,
+    )
+    g2 = _posting(
+        workflow_run_id=shared_workflow_run_id,
+        business_date=shared_business_date,
+    )
+
+    posting_repository.write_posting(g1)
+    posting_repository.write_posting(g2)
+
+    g1_results = posting_repository.get_postings(g1.producer_run_id)
+    g2_results = posting_repository.get_postings(g2.producer_run_id)
+
+    assert {r.gl_posting_id for r in g1_results} == {g1.gl_posting_id}
+    assert {r.gl_posting_id for r in g2_results} == {g2.gl_posting_id}
 
 
 def test_get_postings_allows_more_than_one_row_for_same_posting_id(posting_repository):
-    first = _posting(gl_posting_id=uuid4(), posting_id='DUP')
-    second = _posting(gl_posting_id=uuid4(), posting_id='DUP')
+    producer_run_id = uuid4()
+    first = _posting(gl_posting_id=uuid4(), posting_id='DUP', producer_run_id=producer_run_id)
+    second = _posting(gl_posting_id=uuid4(), posting_id='DUP', producer_run_id=producer_run_id)
 
     posting_repository.write_posting(first)
     posting_repository.write_posting(second)
 
-    results = posting_repository.get_postings(date(2026, 1, 1), 1)
+    results = posting_repository.get_postings(producer_run_id)
 
     assert len(results) == 2
     assert {result.posting_id for result in results} == {'DUP'}
@@ -256,7 +278,7 @@ def test_write_posting_preserves_decimal_precision(posting_repository):
 
     posting_repository.write_posting(posting)
 
-    result = posting_repository.get_postings(date(2026, 1, 1), 1)[0]
+    result = posting_repository.get_postings(posting.producer_run_id)[0]
 
     assert result.transaction_amount == Decimal('12345.123456789012')
     assert result.fx_rate == Decimal('1.123456789012')
@@ -278,7 +300,6 @@ def _rejection(**overrides) -> GLRejection:
         posting_id='POST-1',
         posting_stream='STREAM-1',
         src_record_id='REC-1',
-        batch_id=1,
         src_app_cd='NFM',
         business_date=date(2026, 1, 1),
         as_of_date=date(2026, 1, 1),
@@ -305,7 +326,7 @@ def test_write_rejection_persists_lineage_and_diagnostics(rejection_repository):
 
     rejection_repository.write_rejection(rejection)
 
-    results = rejection_repository.get_rejections(date(2026, 1, 1), 1)
+    results = rejection_repository.get_rejections(rejection.producer_run_id)
 
     assert len(results) == 1
     result = results[0]
@@ -319,7 +340,6 @@ def test_write_rejection_persists_lineage_and_diagnostics(rejection_repository):
     assert result.posting_id == rejection.posting_id
     assert result.posting_stream == rejection.posting_stream
     assert result.src_record_id == rejection.src_record_id
-    assert result.batch_id == rejection.batch_id
     assert result.src_app_cd == rejection.src_app_cd
     assert result.business_date == rejection.business_date
     assert result.as_of_date == rejection.as_of_date
@@ -335,30 +355,51 @@ def test_write_rejection_stores_segment_resolution_rejection_type(rejection_repo
 
     rejection_repository.write_rejection(rejection)
 
-    result = rejection_repository.get_rejections(date(2026, 1, 1), 1)[0]
+    result = rejection_repository.get_rejections(rejection.producer_run_id)[0]
 
     assert result.rejection_type == 'SEGMENT_RESOLUTION'
     assert result.rejection_detail == 'DEPT_CD,BRANCH_CD'
 
 
-def test_get_rejections_excludes_different_batch_id(rejection_repository):
-    rejection_repository.write_rejection(_rejection(batch_id=1))
-    rejection_repository.write_rejection(_rejection(batch_id=2))
+def test_get_rejections_returns_only_the_named_producers_rows(rejection_repository):
+    # Same regression scenario as postings: the same business_dt can be
+    # processed by multiple GL executions, so business_dt must never be
+    # the selector for a specific execution's rejections.
+    kept = _rejection()
+    other = _rejection(business_date=kept.business_date)
 
-    results = rejection_repository.get_rejections(date(2026, 1, 1), 1)
+    rejection_repository.write_rejection(kept)
+    rejection_repository.write_rejection(other)
 
-    assert len(results) == 1
-    assert results[0].batch_id == 1
-
-
-def test_get_rejections_excludes_different_business_date(rejection_repository):
-    rejection_repository.write_rejection(_rejection(business_date=date(2026, 1, 1)))
-    rejection_repository.write_rejection(_rejection(business_date=date(2026, 1, 2)))
-
-    results = rejection_repository.get_rejections(date(2026, 1, 1), 1)
+    results = rejection_repository.get_rejections(kept.producer_run_id)
 
     assert len(results) == 1
-    assert results[0].business_date == date(2026, 1, 1)
+    assert results[0].producer_run_id == kept.producer_run_id
+
+
+def test_get_rejections_does_not_mix_rows_across_producer_runs_even_with_same_workflow(
+    rejection_repository,
+):
+    shared_workflow_run_id = uuid4()
+    shared_business_date = date(2026, 1, 1)
+
+    g1 = _rejection(
+        workflow_run_id=shared_workflow_run_id,
+        business_date=shared_business_date,
+    )
+    g2 = _rejection(
+        workflow_run_id=shared_workflow_run_id,
+        business_date=shared_business_date,
+    )
+
+    rejection_repository.write_rejection(g1)
+    rejection_repository.write_rejection(g2)
+
+    g1_results = rejection_repository.get_rejections(g1.producer_run_id)
+    g2_results = rejection_repository.get_rejections(g2.producer_run_id)
+
+    assert {r.gl_rejection_id for r in g1_results} == {g1.gl_rejection_id}
+    assert {r.gl_rejection_id for r in g2_results} == {g2.gl_rejection_id}
 
 
 # -- get_instructions -------------------------------------------------------
@@ -378,7 +419,6 @@ def _instruction(**overrides) -> GLInstruction:
         posting_id='POST-1',
         posting_stream='STREAM-1',
         src_record_id='REC-1',
-        batch_id=1,
         src_app_cd='NFM',
         entity_cd='USM',
         dept_cd='4000',
@@ -434,7 +474,6 @@ def _write_instruction_row(repository, instruction: GLInstruction) -> None:
         instruction.posting_id,
         instruction.posting_stream,
         instruction.src_record_id,
-        instruction.batch_id,
         instruction.src_app_cd,
         instruction.transaction_currency,
         instruction.transaction_amount,
@@ -504,7 +543,6 @@ def test_get_instructions_maps_all_fields(interface_repository):
     assert result.posting_id == instruction.posting_id
     assert result.posting_stream == instruction.posting_stream
     assert result.src_record_id == instruction.src_record_id
-    assert result.batch_id == instruction.batch_id
     assert result.src_app_cd == instruction.src_app_cd
     assert result.entity_cd == instruction.entity_cd
     assert result.dept_cd == instruction.dept_cd
@@ -578,9 +616,7 @@ def test_delete_postings_removes_only_rows_for_the_named_producer_run(
 
     posting_and_rejection_repository.delete_postings(deleted_producer_run_id)
 
-    remaining = posting_and_rejection_repository.get_postings(
-        business_dt=date(2026, 1, 1), batch_id=1,
-    )
+    remaining = posting_and_rejection_repository.get_postings(kept_producer_run_id)
     assert {p.producer_run_id for p in remaining} == {kept_producer_run_id}
 
 
@@ -599,7 +635,5 @@ def test_delete_rejections_removes_only_rows_for_the_named_producer_run(
 
     posting_and_rejection_repository.delete_rejections(deleted_producer_run_id)
 
-    remaining = posting_and_rejection_repository.get_rejections(
-        business_dt=date(2026, 1, 1), batch_id=1,
-    )
+    remaining = posting_and_rejection_repository.get_rejections(kept_producer_run_id)
     assert {r.producer_run_id for r in remaining} == {kept_producer_run_id}

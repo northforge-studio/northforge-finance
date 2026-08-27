@@ -31,7 +31,6 @@ def upgrade() -> None:
 
         sa.Column('dataclass', sa.String(), nullable=False),
         sa.Column('business_dt', sa.Date(), nullable=False),
-        sa.Column('batch_id', sa.String(), nullable=True),
         sa.Column('status', sa.String(), nullable=False),
 
         sa.Column(

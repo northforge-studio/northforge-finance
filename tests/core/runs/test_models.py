@@ -20,7 +20,6 @@ def _make_workflow_run(**overrides):
         workflow_run_id=uuid4(),
         dataclass='TRIAL_BALANCE',
         business_dt=date(2026, 8, 24),
-        batch_id='1',
         status=RunStatus.RUNNING,
         started_at=datetime.now(timezone.utc),
         completed_at=None,

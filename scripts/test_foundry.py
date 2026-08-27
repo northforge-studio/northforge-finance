@@ -100,10 +100,9 @@ pipeline_result = orchestrator.run_foundry()
 
 print(f"Pipeline run complete: {pipeline_result}")
 
-business_dt = pipeline.config.business_dt
-batch_id = pipeline.config.batch_id
+staging_result = pipeline_result.zones[0]
 
-posting_df = repository.read_staging(business_dt=business_dt, batch_id=batch_id)
+posting_df = repository.read_staging(staging_result.identity.run_id)
 
 posting_df.show()
 

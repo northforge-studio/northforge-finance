@@ -1,7 +1,6 @@
 from pyspark.sql.types import (
     DateType,
     DecimalType,
-    IntegerType,
     StringType,
     StructField,
     StructType,
@@ -39,7 +38,6 @@ TRIAL_BALANCE_SOURCE_SCHEMA = StructType(
 
 TRIAL_BALANCE_STAGING_SCHEMA = StructType(
     [
-        StructField('BATCH_ID', IntegerType(), False),
         StructField('AS_OF_DT', DateType(), False),
         StructField('BUSINESS_DT', DateType(), False),
 
@@ -99,7 +97,6 @@ TRIAL_BALANCE_STAGING_SCHEMA = StructType(
 
 TRIAL_BALANCE_ENRICHMENT_SCHEMA = StructType(
     [
-        StructField('BATCH_ID', IntegerType(), False),
         StructField('AS_OF_DT', DateType(), False),
         StructField('BUSINESS_DT', DateType(), False),
 
@@ -194,11 +191,11 @@ TRIAL_BALANCE_REPORTING_SCHEMA = StructType(
 
 TRIAL_BALANCE_POSTING_SCHEMA = StructType(
     [
-        *TRIAL_BALANCE_REPORTING_SCHEMA.fields[:6],
+        *TRIAL_BALANCE_REPORTING_SCHEMA.fields[:5],
 
         StructField('POSTING_ID', StringType(), False),
 
-        *TRIAL_BALANCE_REPORTING_SCHEMA.fields[6:-2],
+        *TRIAL_BALANCE_REPORTING_SCHEMA.fields[5:-2],
 
         StructField(
             'PREVIOUS_DAY_BALANCE',
@@ -295,7 +292,6 @@ TRIAL_BALANCE_INTERFACE_SCHEMA = StructType(
         StructField('POSTING_STREAM', StringType(), False),
 
         StructField('SRC_RECORD_ID', StringType(), False),
-        StructField('BATCH_ID', IntegerType(), False),
         StructField('SRC_APP_CD', StringType(), False),
 
         StructField('TRANSACTION_CURRENCY', StringType(), False),

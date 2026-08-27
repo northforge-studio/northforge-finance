@@ -1,4 +1,5 @@
 from datetime import date
+from uuid import UUID
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
@@ -56,8 +57,6 @@ class TrialBalancePipeline(BasePipeline):
             business_dt=self._config.business_dt
         )
 
-        df = self._resolve_batch_id(df)
-
         df = self._spec.apply_transformation(
             df,
             dataclass=self.DATACLASS,
@@ -104,11 +103,8 @@ class TrialBalancePipeline(BasePipeline):
         self._repository.write_staging(df)
 
 
-    def pre_enrichment(self) -> DataFrame:
-        df = self._repository.read_staging(
-            business_dt=self._config.business_dt,
-            batch_id=self._config.batch_id
-        )
+    def pre_enrichment(self, source_producer_run_id: UUID) -> DataFrame:
+        df = self._repository.read_staging(source_producer_run_id)
 
         gateway_rules = self._atlas.get_rule_config(self.DATACLASS)
 
@@ -137,15 +133,13 @@ class TrialBalancePipeline(BasePipeline):
         self._repository.write_enrichment(df)
 
 
-    def pre_reporting(self) -> DataFrame:
-        staging_df = self._repository.read_staging(
-            business_dt=self._config.business_dt,
-            batch_id=self._config.batch_id,
-        )
-        enrichment_df = self._repository.read_enrichment(
-            business_dt=self._config.business_dt,
-            batch_id=self._config.batch_id,
-        )
+    def pre_reporting(
+        self,
+        staging_producer_run_id: UUID,
+        enrichment_producer_run_id: UUID,
+    ) -> DataFrame:
+        staging_df = self._repository.read_staging(staging_producer_run_id)
+        enrichment_df = self._repository.read_enrichment(enrichment_producer_run_id)
 
         df = self._combine_staging_and_enrichment(staging_df, enrichment_df)
 
@@ -189,11 +183,8 @@ class TrialBalancePipeline(BasePipeline):
         self._repository.write_reporting(df)
 
 
-    def pre_posting(self) -> DataFrame:
-        df = self._repository.read_reporting(
-            business_dt=self._config.business_dt,
-            batch_id=self._config.batch_id,
-        )
+    def pre_posting(self, source_producer_run_id: UUID) -> DataFrame:
+        df = self._repository.read_reporting(source_producer_run_id)
 
         df = self._transpose_measures(df)
 
@@ -237,11 +228,8 @@ class TrialBalancePipeline(BasePipeline):
         self._repository.write_posting(df)
 
 
-    def pre_interface(self) -> DataFrame:
-        df = self._repository.read_posting(
-            business_dt=self._config.business_dt,
-            batch_id=self._config.batch_id,
-        )
+    def pre_interface(self, source_producer_run_id: UUID) -> DataFrame:
+        df = self._repository.read_posting(source_producer_run_id)
 
         df = self._spec.apply_transformation(
             df,
@@ -325,13 +313,6 @@ class TrialBalancePipeline(BasePipeline):
             )
 
         return enrichment_df.unionByName(unprocessed_staging_df)
-
-
-    def _resolve_batch_id(self, df: DataFrame) -> DataFrame:
-        batch_id = self._repository.get_next_batch_id(self._config.business_dt)
-        self._config.batch_id = batch_id
-
-        return df.withColumn('BATCH_ID', F.lit(batch_id))
 
 
     def _transpose_measures(self, df: DataFrame) -> DataFrame:

@@ -6,4 +6,3 @@ from dataclasses import dataclass
 class PipelineConfig:
     dataclass: str
     business_dt: date
-    batch_id: str | None = None

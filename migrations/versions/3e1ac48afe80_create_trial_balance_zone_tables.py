@@ -43,7 +43,6 @@ _RUN_IDENTITY = [
 ]
 
 _STAGING_FIELDS = [
-    ('batch_id', sa.Integer, False),
     ('as_of_dt', sa.Date, False),
     ('business_dt', sa.Date, False),
     ('src_app_cd', sa.String, False),
@@ -125,9 +124,9 @@ _BALANCE_FIELDS = [
 ]
 
 _POSTING_FIELDS = [
-    *_REPORTING_BODY[:6],
+    *_REPORTING_BODY[:5],
     ('posting_id', sa.String, False),
-    *_REPORTING_BODY[6:],
+    *_REPORTING_BODY[5:],
     *_BALANCE_FIELDS,
     *_RUN_IDENTITY,
 ]
@@ -165,9 +164,9 @@ def upgrade() -> None:
         )
 
         op.create_index(
-            f'ix_{schema}_trial_balance_business_dt_batch_id',
+            f'ix_{schema}_trial_balance_producer_run_id',
             'trial_balance',
-            ['business_dt', 'batch_id'],
+            ['producer_run_id'],
             schema=schema,
         )
 
@@ -175,7 +174,7 @@ def upgrade() -> None:
 def downgrade() -> None:
     for schema in reversed(list(_ZONE_TABLES)):
         op.drop_index(
-            f'ix_{schema}_trial_balance_business_dt_batch_id',
+            f'ix_{schema}_trial_balance_producer_run_id',
             table_name='trial_balance',
             schema=schema,
         )

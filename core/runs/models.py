@@ -17,7 +17,6 @@ class WorkflowRun:
     workflow_run_id: UUID
     dataclass: str
     business_dt: date
-    batch_id: str | None
     status: RunStatus
     started_at: datetime
     completed_at: datetime | None

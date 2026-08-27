@@ -95,7 +95,6 @@ class WorkflowOrchestrator:
         return self._run_tracker.start_workflow(
             dataclass=config.dataclass,
             business_dt=config.business_dt,
-            batch_id=config.batch_id,
         )
 
 
@@ -115,35 +114,47 @@ class WorkflowOrchestrator:
             )
             enrichment_result = self._run_foundry_zone(
                 operation='ENRICHMENT',
-                zone=self._foundry_pipeline.enrichment,
+                zone=lambda identity: self._foundry_pipeline.enrichment(
+                    identity,
+                    source_producer_run_id=staging_result.identity.run_id,
+                ),
                 workflow_run_id=workflow_run_id,
                 parent_run_id=pipeline_execution.run_id,
-                depends_on=staging_result,
-                input_role='STAGING',
+                depends_on=((staging_result, 'STAGING'),),
             )
             reporting_result = self._run_foundry_zone(
                 operation='REPORTING',
-                zone=self._foundry_pipeline.reporting,
+                zone=lambda identity: self._foundry_pipeline.reporting(
+                    identity,
+                    staging_producer_run_id=staging_result.identity.run_id,
+                    enrichment_producer_run_id=enrichment_result.identity.run_id,
+                ),
                 workflow_run_id=workflow_run_id,
                 parent_run_id=pipeline_execution.run_id,
-                depends_on=enrichment_result,
-                input_role='ENRICHMENT',
+                depends_on=(
+                    (staging_result, 'STAGING'),
+                    (enrichment_result, 'ENRICHMENT'),
+                ),
             )
             posting_result = self._run_foundry_zone(
                 operation='POSTING',
-                zone=self._foundry_pipeline.posting,
+                zone=lambda identity: self._foundry_pipeline.posting(
+                    identity,
+                    source_producer_run_id=reporting_result.identity.run_id,
+                ),
                 workflow_run_id=workflow_run_id,
                 parent_run_id=pipeline_execution.run_id,
-                depends_on=reporting_result,
-                input_role='REPORTING',
+                depends_on=((reporting_result, 'REPORTING'),),
             )
             interface_result = self._run_foundry_zone(
                 operation='INTERFACE',
-                zone=self._foundry_pipeline.interface,
+                zone=lambda identity: self._foundry_pipeline.interface(
+                    identity,
+                    source_producer_run_id=posting_result.identity.run_id,
+                ),
                 workflow_run_id=workflow_run_id,
                 parent_run_id=pipeline_execution.run_id,
-                depends_on=posting_result,
-                input_role='POSTING',
+                depends_on=((posting_result, 'POSTING'),),
             )
         except Exception:
             self._run_tracker.fail_execution(pipeline_execution.run_id)
@@ -175,8 +186,7 @@ class WorkflowOrchestrator:
         zone: Callable[[RunIdentity], ZoneResult],
         workflow_run_id: UUID,
         parent_run_id: UUID,
-        depends_on: ZoneResult | None = None,
-        input_role: str | None = None,
+        depends_on: tuple[tuple[ZoneResult, str], ...] = (),
     ) -> ZoneResult:
         execution = self._run_tracker.start_execution(
             workflow_run_id=workflow_run_id,
@@ -185,10 +195,10 @@ class WorkflowOrchestrator:
             parent_run_id=parent_run_id,
         )
 
-        if depends_on is not None:
+        for producer_result, input_role in depends_on:
             self._run_tracker.add_dependency(
                 consumer_run_id=execution.run_id,
-                producer_run_id=depends_on.identity.run_id,
+                producer_run_id=producer_result.identity.run_id,
                 input_role=input_role,
             )
 

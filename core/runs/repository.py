@@ -22,10 +22,10 @@ class RunRepository:
         self._executor.execute(
             '''
             INSERT INTO core.workflow_run (
-                workflow_run_id, dataclass, business_dt, batch_id,
+                workflow_run_id, dataclass, business_dt,
                 status, started_at, completed_at
             ) VALUES (
-                :workflow_run_id, :dataclass, :business_dt, :batch_id,
+                :workflow_run_id, :dataclass, :business_dt,
                 :status, :started_at, :completed_at
             )
             ''',
@@ -33,7 +33,6 @@ class RunRepository:
                 'workflow_run_id': run.workflow_run_id,
                 'dataclass': run.dataclass,
                 'business_dt': run.business_dt,
-                'batch_id': run.batch_id,
                 'status': run.status,
                 'started_at': run.started_at,
                 'completed_at': run.completed_at,
@@ -45,7 +44,7 @@ class RunRepository:
         row = self._executor.fetch_one(
             '''
             SELECT
-                workflow_run_id, dataclass, business_dt, batch_id,
+                workflow_run_id, dataclass, business_dt,
                 status, started_at, completed_at
             FROM core.workflow_run
             WHERE workflow_run_id = :workflow_run_id
@@ -60,7 +59,6 @@ class RunRepository:
             workflow_run_id=row['workflow_run_id'],
             dataclass=row['dataclass'],
             business_dt=row['business_dt'],
-            batch_id=row['batch_id'],
             status=RunStatus(row['status']),
             started_at=row['started_at'],
             completed_at=row['completed_at'],

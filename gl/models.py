@@ -51,7 +51,6 @@ class GLInstruction:
     posting_id: str
     posting_stream: str
     src_record_id: str
-    batch_id: int
     src_app_cd: str
 
     entity_cd: str
@@ -109,7 +108,6 @@ class GLPosting:
     posting_id: str
     posting_stream: str
     src_record_id: str
-    batch_id: int
     src_app_cd: str
 
     # actual posted segments (resolved/defaulted, never the raw Interface values)
@@ -157,7 +155,6 @@ class GLPosting:
             posting_id=instruction.posting_id,
             posting_stream=instruction.posting_stream,
             src_record_id=instruction.src_record_id,
-            batch_id=instruction.batch_id,
             src_app_cd=instruction.src_app_cd,
             entity_cd=segments.entity_cd,
             dept_cd=segments.dept_cd,
@@ -195,7 +192,6 @@ class GLRejection:
     posting_id: str
     posting_stream: str
     src_record_id: str
-    batch_id: int
     src_app_cd: str
     business_date: date
     as_of_date: date
@@ -229,7 +225,6 @@ class GLRejection:
             posting_id=instruction.posting_id,
             posting_stream=instruction.posting_stream,
             src_record_id=instruction.src_record_id,
-            batch_id=instruction.batch_id,
             src_app_cd=instruction.src_app_cd,
             business_date=instruction.business_date,
             as_of_date=instruction.as_of_date,

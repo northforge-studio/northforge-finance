@@ -23,30 +23,17 @@ def test_start_workflow_persists_running_run_and_returns_it():
     run = tracker.start_workflow(
         dataclass='TRIAL_BALANCE',
         business_dt=date(2026, 8, 24),
-        batch_id='1',
     )
 
     assert isinstance(run, WorkflowRun)
     assert isinstance(run.workflow_run_id, UUID)
     assert run.dataclass == 'TRIAL_BALANCE'
     assert run.business_dt == date(2026, 8, 24)
-    assert run.batch_id == '1'
     assert run.status == RunStatus.RUNNING
     assert run.started_at.tzinfo is not None
     assert run.completed_at is None
 
     repository.create_workflow_run.assert_called_once_with(run)
-
-
-def test_start_workflow_batch_id_defaults_to_none():
-    tracker, repository = _tracker()
-
-    run = tracker.start_workflow(
-        dataclass='TRIAL_BALANCE',
-        business_dt=date(2026, 8, 24),
-    )
-
-    assert run.batch_id is None
 
 
 def test_start_workflow_generates_unique_ids():

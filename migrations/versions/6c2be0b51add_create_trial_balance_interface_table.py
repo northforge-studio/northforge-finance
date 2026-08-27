@@ -58,7 +58,6 @@ def upgrade() -> None:
         sa.Column('posting_stream', sa.String(), nullable=False),
 
         sa.Column('src_record_id', sa.String(), nullable=False),
-        sa.Column('batch_id', sa.Integer(), nullable=False),
         sa.Column('src_app_cd', sa.String(), nullable=False),
 
         sa.Column('transaction_currency', sa.String(), nullable=False),
@@ -76,16 +75,16 @@ def upgrade() -> None:
     )
 
     op.create_index(
-        'ix_interface_trial_balance_business_date_batch_id',
+        'ix_interface_trial_balance_producer_run_id',
         'trial_balance',
-        ['business_date', 'batch_id'],
+        ['producer_run_id'],
         schema='interface',
     )
 
 
 def downgrade() -> None:
     op.drop_index(
-        'ix_interface_trial_balance_business_date_batch_id',
+        'ix_interface_trial_balance_producer_run_id',
         table_name='trial_balance',
         schema='interface',
     )

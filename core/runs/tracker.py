@@ -26,13 +26,11 @@ class RunTracker:
         *,
         dataclass: str,
         business_dt: date,
-        batch_id: str | None = None,
     ) -> WorkflowRun:
         run = WorkflowRun(
             workflow_run_id=uuid4(),
             dataclass=dataclass,
             business_dt=business_dt,
-            batch_id=batch_id,
             status=RunStatus.RUNNING,
             started_at=datetime.now(timezone.utc),
             completed_at=None,

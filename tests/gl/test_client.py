@@ -146,7 +146,6 @@ def _valid_instruction() -> GLInstruction:
         posting_id='POST-1',
         posting_stream='STREAM-1',
         src_record_id='REC-1',
-        batch_id=1,
         src_app_cd='NFM',
         entity_cd='USM',
         dept_cd='9999',
@@ -249,7 +248,6 @@ def test_import_instructions_delegates_to_manager(spark, tmp_path, gl_with_posti
         instruction.posting_id,
         instruction.posting_stream,
         instruction.src_record_id,
-        instruction.batch_id,
         instruction.src_app_cd,
         instruction.transaction_currency,
         instruction.transaction_amount,
@@ -283,3 +281,38 @@ def test_import_instructions_delegates_to_manager(spark, tmp_path, gl_with_posti
     assert result.received_count == 1
     assert result.posted_count == 1
     assert result.rejected_count == 0
+
+
+# -- get_postings / get_rejections --------------------------------------
+
+def test_get_postings_returns_only_the_named_producers_rows(gl_with_posting_support):
+    kept = _valid_instruction()
+    other = replace(_valid_instruction(), transaction_number='TXN-2', producer_run_id=uuid4())
+
+    posted = gl_with_posting_support.process_instruction(kept)
+    gl_with_posting_support.process_instruction(other)
+
+    results = gl_with_posting_support.get_postings(kept.producer_run_id)
+
+    assert len(results) == 1
+    assert results[0].gl_posting_id == posted.posting.gl_posting_id
+    assert results[0].producer_run_id == kept.producer_run_id
+
+
+def test_get_rejections_returns_only_the_named_producers_rows(gl_with_posting_support):
+    kept = replace(_valid_instruction(), cr_dr_ind='XX')
+    other = replace(
+        _valid_instruction(),
+        transaction_number='TXN-2',
+        cr_dr_ind='XX',
+        producer_run_id=uuid4(),
+    )
+
+    rejected = gl_with_posting_support.process_instruction(kept)
+    gl_with_posting_support.process_instruction(other)
+
+    results = gl_with_posting_support.get_rejections(kept.producer_run_id)
+
+    assert len(results) == 1
+    assert results[0].gl_rejection_id == rejected.rejection.gl_rejection_id
+    assert results[0].producer_run_id == kept.producer_run_id
