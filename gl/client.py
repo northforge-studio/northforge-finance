@@ -11,7 +11,7 @@ from core.store import (
 from registry import RegistryClient
 
 from gl.manager import GLManager
-from gl.models import SegmentResolution
+from gl.models import GLSegmentResolution, GLSegments, SegmentResolution
 from gl.repository import GLRepository
 
 
@@ -81,4 +81,16 @@ class GLClient:
             segment_value,
             business_dt=business_dt,
             entity_cd=entity_cd,
+        )
+
+
+    def resolve_segments(
+        self,
+        segments: GLSegments,
+        *,
+        business_dt: date,
+    ) -> GLSegmentResolution:
+        return self._manager.resolve_segments(
+            segments,
+            business_dt=business_dt,
         )

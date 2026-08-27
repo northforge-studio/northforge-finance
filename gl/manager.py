@@ -2,7 +2,7 @@ from datetime import date
 
 from registry import RegistryClient, SegmentType
 
-from gl.models import SegmentResolution
+from gl.models import GLSegmentResolution, GLSegments, SegmentResolution
 from gl.repository import GLRepository
 
 
@@ -23,6 +23,22 @@ _REGISTRY_SEGMENT_TYPES: dict[str, SegmentType] = {
     'BOOK_CD': SegmentType.BOOK,
     'SOURCE_CD': SegmentType.SOURCE,
 }
+
+
+# Maps each GLSegments field to its segment_type. ENTITY_CD is listed
+# first: it is resolved before the rest so its resolved value can be
+# used as contextual entity_cd input for the other eight.
+_SEGMENT_FIELD_TYPES: tuple[tuple[str, str], ...] = (
+    ('entity_cd', 'ENTITY_CD'),
+    ('dept_cd', 'DEPT_CD'),
+    ('branch_cd', 'BRANCH_CD'),
+    ('gl_account', 'GL_ACCOUNT'),
+    ('sub_account', 'SUB_ACCOUNT'),
+    ('affiliate_cd', 'AFFILIATE_CD'),
+    ('product_cd', 'PRODUCT_CD'),
+    ('book_cd', 'BOOK_CD'),
+    ('source_cd', 'SOURCE_CD'),
+)
 
 
 class GLManager:
@@ -88,6 +104,55 @@ class GLManager:
             supplied_value=segment_value,
             resolved_value=None,
             defaulted=False,
+        )
+
+
+    def resolve_segments(
+        self,
+        segments: GLSegments,
+        *,
+        business_dt: date,
+    ) -> GLSegmentResolution:
+        entity_resolution = self.resolve_segment(
+            'ENTITY_CD', segments.entity_cd, business_dt=business_dt,
+        )
+
+        if entity_resolution.resolved_value is None:
+            return GLSegmentResolution(
+                segments=None,
+                resolutions=(entity_resolution,),
+                resolved=False,
+            )
+
+        entity_cd = entity_resolution.resolved_value
+        resolutions = [entity_resolution]
+
+        for field, segment_type in _SEGMENT_FIELD_TYPES[1:]:
+            resolutions.append(
+                self.resolve_segment(
+                    segment_type,
+                    getattr(segments, field),
+                    business_dt=business_dt,
+                    entity_cd=entity_cd,
+                )
+            )
+
+        if any(resolution.resolved_value is None for resolution in resolutions):
+            return GLSegmentResolution(
+                segments=None,
+                resolutions=tuple(resolutions),
+                resolved=False,
+            )
+
+        final_segments = GLSegments(**{
+            field: resolution.resolved_value
+            for (field, _), resolution in zip(_SEGMENT_FIELD_TYPES, resolutions)
+        })
+
+        return GLSegmentResolution(
+            segments=final_segments,
+            resolutions=tuple(resolutions),
+            resolved=True,
         )
 
 
