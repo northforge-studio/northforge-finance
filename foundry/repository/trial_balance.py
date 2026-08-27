@@ -1,4 +1,5 @@
 from datetime import date
+from uuid import UUID
 
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
@@ -137,42 +138,42 @@ class TrialBalanceRepository:
         )
 
 
-    def delete_staging(self, business_dt: date, batch_id: str) -> None:
+    def delete_staging(self, producer_run_id: UUID) -> None:
         self.store.delete(
             table_name='TRIAL_BALANCE_STAGING',
-            filters={'BUSINESS_DT': business_dt, 'BATCH_ID': batch_id},
+            filters={'PRODUCER_RUN_ID': str(producer_run_id)},
             schema=TRIAL_BALANCE_STAGING_SCHEMA,
         )
 
 
-    def delete_enrichment(self, business_dt: date, batch_id: str) -> None:
+    def delete_enrichment(self, producer_run_id: UUID) -> None:
         self.store.delete(
             table_name='TRIAL_BALANCE_ENRICHMENT',
-            filters={'BUSINESS_DT': business_dt, 'BATCH_ID': batch_id},
+            filters={'PRODUCER_RUN_ID': str(producer_run_id)},
             schema=TRIAL_BALANCE_ENRICHMENT_SCHEMA,
         )
 
 
-    def delete_reporting(self, business_dt: date, batch_id: str) -> None:
+    def delete_reporting(self, producer_run_id: UUID) -> None:
         self.store.delete(
             table_name='TRIAL_BALANCE_REPORTING',
-            filters={'BUSINESS_DT': business_dt, 'BATCH_ID': batch_id},
+            filters={'PRODUCER_RUN_ID': str(producer_run_id)},
             schema=TRIAL_BALANCE_REPORTING_SCHEMA,
         )
 
 
-    def delete_posting(self, business_dt: date, batch_id: str) -> None:
+    def delete_posting(self, producer_run_id: UUID) -> None:
         self.store.delete(
             table_name='TRIAL_BALANCE_POSTING',
-            filters={'BUSINESS_DT': business_dt, 'BATCH_ID': batch_id},
+            filters={'PRODUCER_RUN_ID': str(producer_run_id)},
             schema=TRIAL_BALANCE_POSTING_SCHEMA,
         )
 
 
-    def delete_interface(self, business_dt: date, batch_id: str) -> None:
+    def delete_interface(self, producer_run_id: UUID) -> None:
         self.store.delete(
             table_name='TRIAL_BALANCE_INTERFACE',
-            filters={'BUSINESS_DATE': business_dt, 'BATCH_ID': batch_id},
+            filters={'PRODUCER_RUN_ID': str(producer_run_id)},
             schema=TRIAL_BALANCE_INTERFACE_SCHEMA,
         )
 

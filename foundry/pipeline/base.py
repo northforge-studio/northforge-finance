@@ -1,6 +1,4 @@
-from datetime import date
 from abc import ABC, abstractmethod
-from uuid import UUID
 
 from pyspark.sql import DataFrame, Column
 from pyspark.sql import functions as F
@@ -16,7 +14,7 @@ from foundry.models import PipelineConfig
 from atlas import AtlasClient, GatewayRule
 from reference import ReferenceClient
 from spec import SpecClient
-from core.runs import RunTracker, RunIdentity, ZoneResult, PipelineResult, RunStatus
+from core.runs import RunIdentity, ZoneResult, RunStatus
 
 
 class BasePipeline(ABC):
@@ -26,13 +24,11 @@ class BasePipeline(ABC):
         atlas: AtlasClient,
         reference: ReferenceClient,
         spec: SpecClient,
-        run_tracker: RunTracker,
     ):
         self._config = config
         self._atlas = atlas
         self._reference = reference
         self._spec = spec
-        self._run_tracker = run_tracker
 
         posting_rule_processor = PostingRuleProcessor(
             dataclass=config.dataclass,
@@ -49,282 +45,85 @@ class BasePipeline(ABC):
         )
 
 
-    def execute(self) -> PipelineResult:
-        workflow = self._run_tracker.start_workflow(
-            dataclass=self._config.dataclass,
-            business_dt=self._config.business_dt,
-            batch_id=self._config.batch_id,
-        )
-
-        try:
-            result = self.run(workflow_run_id=workflow.workflow_run_id)
-        except Exception:
-            self._run_tracker.fail_workflow(workflow.workflow_run_id)
-            raise
-
-        self._run_tracker.complete_workflow(workflow.workflow_run_id)
-
-        return result
+    @property
+    def config(self) -> PipelineConfig:
+        return self._config
 
 
-    def run(self, workflow_run_id: UUID) -> PipelineResult:
-        pipeline_execution = self._run_tracker.start_execution(
-            workflow_run_id=workflow_run_id,
-            component='FOUNDRY',
-            operation='PIPELINE',
-        )
+    def staging(self, identity: RunIdentity) -> ZoneResult:
+        df = self.pre_staging()
+        df = self.main_staging(df)
+        df = self._stamp_run_identity(df, identity)
+        self.post_staging(df)
 
-        try:
-            staging_result = self.staging(
-                workflow_run_id=workflow_run_id,
-                parent_run_id=pipeline_execution.run_id,
-            )
-            enrichment_result = self.enrichment(
-                workflow_run_id=workflow_run_id,
-                parent_run_id=pipeline_execution.run_id,
-            )
-            self._run_tracker.add_dependency(
-                consumer_run_id=enrichment_result.identity.run_id,
-                producer_run_id=staging_result.identity.run_id,
-                input_role='STAGING',
-            )
-
-            reporting_result = self.reporting(
-                workflow_run_id=workflow_run_id,
-                parent_run_id=pipeline_execution.run_id,
-            )
-            self._run_tracker.add_dependency(
-                consumer_run_id=reporting_result.identity.run_id,
-                producer_run_id=enrichment_result.identity.run_id,
-                input_role='ENRICHMENT',
-            )
-
-            posting_result = self.posting(
-                workflow_run_id=workflow_run_id,
-                parent_run_id=pipeline_execution.run_id,
-            )
-            self._run_tracker.add_dependency(
-                consumer_run_id=posting_result.identity.run_id,
-                producer_run_id=reporting_result.identity.run_id,
-                input_role='REPORTING',
-            )
-
-            interface_result = self.interface(
-                workflow_run_id=workflow_run_id,
-                parent_run_id=pipeline_execution.run_id,
-            )
-            self._run_tracker.add_dependency(
-                consumer_run_id=interface_result.identity.run_id,
-                producer_run_id=posting_result.identity.run_id,
-                input_role='POSTING',
-            )
-        except Exception:
-            self._run_tracker.fail_execution(pipeline_execution.run_id)
-            raise
-
-        self._run_tracker.complete_execution(pipeline_execution.run_id)
-
-        return PipelineResult(
-            identity=RunIdentity(
-                workflow_run_id=workflow_run_id,
-                run_id=pipeline_execution.run_id,
-                parent_run_id=pipeline_execution.parent_run_id,
-            ),
-            status=RunStatus.SUCCEEDED,
-            zones=(
-                staging_result,
-                enrichment_result,
-                reporting_result,
-                posting_result,
-                interface_result,
-            ),
-        )
-
-
-    def staging(
-        self,
-        *,
-        workflow_run_id: UUID,
-        parent_run_id: UUID | None = None,
-    ) -> ZoneResult:
-        execution_run = self._run_tracker.start_execution(
-            workflow_run_id=workflow_run_id,
-            component='FOUNDRY',
-            operation='STAGING',
-            parent_run_id=parent_run_id,
-        )
-
-        try:
-            df = self.pre_staging()
-            df = self.main_staging(df)
-            df = self._stamp_run_identity(df, workflow_run_id, execution_run.run_id)
-            self.post_staging(df)
-
-            record_count = df.count()
-        except Exception:
-            self._run_tracker.fail_execution(execution_run.run_id)
-            raise
-
-        self._run_tracker.complete_execution(execution_run.run_id)
+        record_count = df.count()
 
         return ZoneResult(
-            identity=RunIdentity(
-                workflow_run_id=workflow_run_id,
-                run_id=execution_run.run_id,
-                parent_run_id=parent_run_id,
-            ),
+            identity=identity,
             zone='STAGING',
             status=RunStatus.SUCCEEDED,
             record_count=record_count,
         )
 
 
-    def enrichment(
-        self,
-        *,
-        workflow_run_id: UUID,
-        parent_run_id: UUID | None = None,
-    ) -> ZoneResult:
-        execution_run = self._run_tracker.start_execution(
-            workflow_run_id=workflow_run_id,
-            component='FOUNDRY',
-            operation='ENRICHMENT',
-            parent_run_id=parent_run_id,
-        )
+    def enrichment(self, identity: RunIdentity) -> ZoneResult:
+        df = self.pre_enrichment()
+        df = self.main_enrichment(df)
+        df = self._stamp_run_identity(df, identity)
+        self.post_enrichment(df)
 
-        try:
-            df = self.pre_enrichment()
-            df = self.main_enrichment(df)
-            df = self._stamp_run_identity(df, workflow_run_id, execution_run.run_id)
-            self.post_enrichment(df)
-
-            record_count = df.count()
-        except Exception:
-            self._run_tracker.fail_execution(execution_run.run_id)
-            raise
-
-        self._run_tracker.complete_execution(execution_run.run_id)
+        record_count = df.count()
 
         return ZoneResult(
-            identity=RunIdentity(
-                workflow_run_id=workflow_run_id,
-                run_id=execution_run.run_id,
-                parent_run_id=parent_run_id,
-            ),
+            identity=identity,
             zone='ENRICHMENT',
             status=RunStatus.SUCCEEDED,
             record_count=record_count,
         )
 
 
-    def reporting(
-        self,
-        *,
-        workflow_run_id: UUID,
-        parent_run_id: UUID | None = None,
-    ) -> ZoneResult:
-        execution_run = self._run_tracker.start_execution(
-            workflow_run_id=workflow_run_id,
-            component='FOUNDRY',
-            operation='REPORTING',
-            parent_run_id=parent_run_id,
-        )
+    def reporting(self, identity: RunIdentity) -> ZoneResult:
+        df = self.pre_reporting()
+        df = self.main_reporting(df)
+        df = self._stamp_run_identity(df, identity)
+        self.post_reporting(df)
 
-        try:
-            df = self.pre_reporting()
-            df = self.main_reporting(df)
-            df = self._stamp_run_identity(df, workflow_run_id, execution_run.run_id)
-            self.post_reporting(df)
-
-            record_count = df.count()
-        except Exception:
-            self._run_tracker.fail_execution(execution_run.run_id)
-            raise
-
-        self._run_tracker.complete_execution(execution_run.run_id)
+        record_count = df.count()
 
         return ZoneResult(
-            identity=RunIdentity(
-                workflow_run_id=workflow_run_id,
-                run_id=execution_run.run_id,
-                parent_run_id=parent_run_id,
-            ),
+            identity=identity,
             zone='REPORTING',
             status=RunStatus.SUCCEEDED,
             record_count=record_count,
         )
 
 
-    def posting(
-        self,
-        *,
-        workflow_run_id: UUID,
-        parent_run_id: UUID | None = None,
-    ) -> ZoneResult:
-        execution_run = self._run_tracker.start_execution(
-            workflow_run_id=workflow_run_id,
-            component='FOUNDRY',
-            operation='POSTING',
-            parent_run_id=parent_run_id,
-        )
+    def posting(self, identity: RunIdentity) -> ZoneResult:
+        df = self.pre_posting()
+        df = self.main_posting(df)
+        df = self._stamp_run_identity(df, identity)
+        self.post_posting(df)
 
-        try:
-            df = self.pre_posting()
-            df = self.main_posting(df)
-            df = self._stamp_run_identity(df, workflow_run_id, execution_run.run_id)
-            self.post_posting(df)
-
-            record_count = df.count()
-        except Exception:
-            self._run_tracker.fail_execution(execution_run.run_id)
-            raise
-
-        self._run_tracker.complete_execution(execution_run.run_id)
+        record_count = df.count()
 
         return ZoneResult(
-            identity=RunIdentity(
-                workflow_run_id=workflow_run_id,
-                run_id=execution_run.run_id,
-                parent_run_id=parent_run_id,
-            ),
+            identity=identity,
             zone='POSTING',
             status=RunStatus.SUCCEEDED,
             record_count=record_count,
         )
 
 
-    def interface(
-        self,
-        *,
-        workflow_run_id: UUID,
-        parent_run_id: UUID | None = None
-    ):
-        execution_run = self._run_tracker.start_execution(
-            workflow_run_id=workflow_run_id,
-            component='FOUNDRY',
-            operation='INTERFACE',
-            parent_run_id=parent_run_id,
-        )
+    def interface(self, identity: RunIdentity) -> ZoneResult:
+        df = self.pre_interface()
+        df = self.main_interface(df)
+        df = self._stamp_run_identity(df, identity)
+        self.post_interface(df)
 
-        try:
-            df = self.pre_interface()
-            df = self.main_interface(df)
-            df = self._stamp_run_identity(df, workflow_run_id, execution_run.run_id)
-            self.post_interface(df)
-
-            record_count = df.count()
-        except Exception:
-            self._run_tracker.fail_execution(execution_run.run_id)
-            raise
-
-        self._run_tracker.complete_execution(execution_run.run_id)
+        record_count = df.count()
 
         return ZoneResult(
-            identity=RunIdentity(
-                workflow_run_id=workflow_run_id,
-                run_id=execution_run.run_id,
-                parent_run_id=parent_run_id,
-            ),
+            identity=identity,
             zone='INTERFACE',
             status=RunStatus.SUCCEEDED,
             record_count=record_count,
@@ -406,20 +205,19 @@ class BasePipeline(ABC):
         ...
 
 
-    def rollback(self) -> None:
+    def rollback_execution(self, operation: str, identity: RunIdentity) -> None:
         pass
 
 
     def _stamp_run_identity(
         self,
         df: DataFrame,
-        workflow_run_id: UUID,
-        producer_run_id: UUID,
+        identity: RunIdentity,
     ) -> DataFrame:
         return (
             df
-            .withColumn('WORKFLOW_RUN_ID', F.lit(str(workflow_run_id)))
-            .withColumn('PRODUCER_RUN_ID', F.lit(str(producer_run_id)))
+            .withColumn('WORKFLOW_RUN_ID', F.lit(str(identity.workflow_run_id)))
+            .withColumn('PRODUCER_RUN_ID', F.lit(str(identity.run_id)))
         )
 
 

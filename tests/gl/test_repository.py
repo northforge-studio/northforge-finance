@@ -363,10 +363,14 @@ def test_get_rejections_excludes_different_business_date(rejection_repository):
 
 # -- get_instructions -------------------------------------------------------
 
+WORKFLOW_RUN_ID = uuid4()
+PRODUCER_RUN_ID = uuid4()
+
+
 def _instruction(**overrides) -> GLInstruction:
     fields = dict(
-        workflow_run_id=uuid4(),
-        producer_run_id=uuid4(),
+        workflow_run_id=WORKFLOW_RUN_ID,
+        producer_run_id=PRODUCER_RUN_ID,
         dataclass='TRIAL_BALANCE',
         transaction_number='TXN-1',
         line_number='1',
@@ -448,43 +452,47 @@ def _write_instruction_row(repository, instruction: GLInstruction) -> None:
 def test_get_instructions_returns_correct_partition(interface_repository):
     _write_instruction_row(interface_repository, _instruction())
 
-    results = interface_repository.get_instructions(date(2026, 1, 1), 1)
+    results = interface_repository.get_instructions(WORKFLOW_RUN_ID, PRODUCER_RUN_ID)
 
     assert len(results) == 1
     assert results[0].transaction_number == 'TXN-1'
-    assert results[0].business_date == date(2026, 1, 1)
-    assert results[0].batch_id == 1
+    assert results[0].workflow_run_id == WORKFLOW_RUN_ID
+    assert results[0].producer_run_id == PRODUCER_RUN_ID
 
 
-def test_get_instructions_excludes_other_business_dates(interface_repository):
+def test_get_instructions_excludes_other_workflow_runs(interface_repository):
+    other_workflow_run_id = uuid4()
+    _write_instruction_row(interface_repository, _instruction())
     _write_instruction_row(
-        interface_repository, _instruction(business_date=date(2026, 1, 1))
-    )
-    _write_instruction_row(
-        interface_repository, _instruction(business_date=date(2026, 1, 2))
+        interface_repository,
+        _instruction(workflow_run_id=other_workflow_run_id),
     )
 
-    results = interface_repository.get_instructions(date(2026, 1, 1), 1)
+    results = interface_repository.get_instructions(WORKFLOW_RUN_ID, PRODUCER_RUN_ID)
 
     assert len(results) == 1
-    assert results[0].business_date == date(2026, 1, 1)
+    assert results[0].workflow_run_id == WORKFLOW_RUN_ID
 
 
-def test_get_instructions_excludes_other_batch_ids(interface_repository):
-    _write_instruction_row(interface_repository, _instruction(batch_id=1))
-    _write_instruction_row(interface_repository, _instruction(batch_id=2))
+def test_get_instructions_excludes_other_producer_runs(interface_repository):
+    other_producer_run_id = uuid4()
+    _write_instruction_row(interface_repository, _instruction())
+    _write_instruction_row(
+        interface_repository,
+        _instruction(producer_run_id=other_producer_run_id),
+    )
 
-    results = interface_repository.get_instructions(date(2026, 1, 1), 1)
+    results = interface_repository.get_instructions(WORKFLOW_RUN_ID, PRODUCER_RUN_ID)
 
     assert len(results) == 1
-    assert results[0].batch_id == 1
+    assert results[0].producer_run_id == PRODUCER_RUN_ID
 
 
 def test_get_instructions_maps_all_fields(interface_repository):
     instruction = _instruction()
     _write_instruction_row(interface_repository, instruction)
 
-    result = interface_repository.get_instructions(date(2026, 1, 1), 1)[0]
+    result = interface_repository.get_instructions(WORKFLOW_RUN_ID, PRODUCER_RUN_ID)[0]
 
     assert result.workflow_run_id == instruction.workflow_run_id
     assert result.producer_run_id == instruction.producer_run_id
@@ -532,10 +540,66 @@ def test_get_instructions_orders_deterministically(interface_repository):
         _instruction(transaction_number='TXN-1', line_number='1', posting_id='POST-C'),
     )
 
-    results = interface_repository.get_instructions(date(2026, 1, 1), 1)
+    results = interface_repository.get_instructions(WORKFLOW_RUN_ID, PRODUCER_RUN_ID)
 
     assert [(r.transaction_number, r.line_number) for r in results] == [
         ('TXN-1', '1'),
         ('TXN-1', '2'),
         ('TXN-2', '1'),
     ]
+
+
+# -- rollback (delete_postings / delete_rejections) -------------------------
+
+@pytest.fixture
+def posting_and_rejection_repository(spark, tmp_path):
+    store = CsvStore(
+        spark=spark,
+        table_locations={
+            'POSTING': tmp_path / 'POSTING',
+            'REJECTION': tmp_path / 'REJECTION',
+        },
+    )
+    return GLRepository(store, spark)
+
+
+def test_delete_postings_removes_only_rows_for_the_named_producer_run(
+    posting_and_rejection_repository,
+):
+    kept_producer_run_id = uuid4()
+    deleted_producer_run_id = uuid4()
+
+    posting_and_rejection_repository.write_posting(
+        _posting(producer_run_id=kept_producer_run_id)
+    )
+    posting_and_rejection_repository.write_posting(
+        _posting(producer_run_id=deleted_producer_run_id)
+    )
+
+    posting_and_rejection_repository.delete_postings(deleted_producer_run_id)
+
+    remaining = posting_and_rejection_repository.get_postings(
+        business_dt=date(2026, 1, 1), batch_id=1,
+    )
+    assert {p.producer_run_id for p in remaining} == {kept_producer_run_id}
+
+
+def test_delete_rejections_removes_only_rows_for_the_named_producer_run(
+    posting_and_rejection_repository,
+):
+    kept_producer_run_id = uuid4()
+    deleted_producer_run_id = uuid4()
+
+    posting_and_rejection_repository.write_rejection(
+        _rejection(producer_run_id=kept_producer_run_id)
+    )
+    posting_and_rejection_repository.write_rejection(
+        _rejection(producer_run_id=deleted_producer_run_id)
+    )
+
+    posting_and_rejection_repository.delete_rejections(deleted_producer_run_id)
+
+    remaining = posting_and_rejection_repository.get_rejections(
+        business_dt=date(2026, 1, 1), batch_id=1,
+    )
+    assert {r.producer_run_id for r in remaining} == {kept_producer_run_id}

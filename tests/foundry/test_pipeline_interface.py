@@ -7,13 +7,13 @@ from foundry.pipeline.base import BasePipeline
 from foundry.models import PipelineConfig
 
 
-class _PostingPipeline(BasePipeline):
-    """A minimal BasePipeline subclass that only implements posting."""
+class _InterfacePipeline(BasePipeline):
+    """A minimal BasePipeline subclass that only implements interface."""
 
-    def __init__(self, posting_df, **kwargs):
+    def __init__(self, interface_df, **kwargs):
         super().__init__(**kwargs)
-        self._posting_df = posting_df
-        self.post_posting_called_with = None
+        self._interface_df = interface_df
+        self.post_interface_called_with = None
 
 
     def pre_staging(self): ...
@@ -25,34 +25,32 @@ class _PostingPipeline(BasePipeline):
     def pre_reporting(self): ...
     def main_reporting(self, df): ...
     def post_reporting(self, df): ...
+    def pre_posting(self): ...
+    def main_posting(self, df): ...
+    def post_posting(self, df): ...
 
 
-    def pre_posting(self):
-        return self._posting_df
+    def pre_interface(self):
+        return self._interface_df
 
 
-    def main_posting(self, df):
+    def main_interface(self, df):
         return df
 
 
-    def post_posting(self, df):
-        self.post_posting_called_with = df
+    def post_interface(self, df):
+        self.post_interface_called_with = df
         return (self._config.business_dt, self._config.batch_id)
 
 
-    def pre_interface(self): ...
-    def main_interface(self, df): ...
-    def post_interface(self, df): ...
-
-
-def _make_pipeline(posting_df):
+def _make_pipeline(interface_df):
     config = PipelineConfig(
         dataclass='TRIAL_BALANCE',
         business_dt=date(2026, 8, 24),
         batch_id='1',
     )
-    return _PostingPipeline(
-        posting_df=posting_df,
+    return _InterfacePipeline(
+        interface_df=interface_df,
         config=config,
         atlas=MagicMock(),
         reference=MagicMock(),
@@ -60,9 +58,9 @@ def _make_pipeline(posting_df):
     )
 
 
-def test_posting_returns_zone_result_for_supplied_identity(spark):
-    df = spark.createDataFrame([(1,), (2,), (3,), (4,)], ['ID'])
-    pipeline = _make_pipeline(posting_df=df)
+def test_interface_returns_zone_result_for_supplied_identity(spark):
+    df = spark.createDataFrame([(1,), (2,)], ['ID'])
+    pipeline = _make_pipeline(interface_df=df)
 
     identity = RunIdentity(
         workflow_run_id=uuid4(),
@@ -70,21 +68,21 @@ def test_posting_returns_zone_result_for_supplied_identity(spark):
         parent_run_id=uuid4(),
     )
 
-    result = pipeline.posting(identity)
+    result = pipeline.interface(identity)
 
     assert isinstance(result, ZoneResult)
-    assert result.zone == 'POSTING'
+    assert result.zone == 'INTERFACE'
     assert result.status == RunStatus.SUCCEEDED
-    assert result.record_count == 4
+    assert result.record_count == 2
     assert result.identity == identity
 
-    assert pipeline.post_posting_called_with is not None
-    assert pipeline.post_posting_called_with.count() == 4
+    assert pipeline.post_interface_called_with is not None
+    assert pipeline.post_interface_called_with.count() == 2
 
 
-def test_posting_stamps_supplied_workflow_and_producer_run_id(spark):
+def test_interface_stamps_supplied_workflow_and_producer_run_id(spark):
     df = spark.createDataFrame([(1,)], ['ID'])
-    pipeline = _make_pipeline(posting_df=df)
+    pipeline = _make_pipeline(interface_df=df)
 
     identity = RunIdentity(
         workflow_run_id=uuid4(),
@@ -92,8 +90,8 @@ def test_posting_stamps_supplied_workflow_and_producer_run_id(spark):
         parent_run_id=uuid4(),
     )
 
-    pipeline.posting(identity)
+    pipeline.interface(identity)
 
-    row = pipeline.post_posting_called_with.collect()[0]
+    row = pipeline.post_interface_called_with.collect()[0]
     assert row['WORKFLOW_RUN_ID'] == str(identity.workflow_run_id)
     assert row['PRODUCER_RUN_ID'] == str(identity.run_id)

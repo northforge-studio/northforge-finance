@@ -20,7 +20,7 @@ from atlas import AtlasClient
 from reference import ReferenceClient, ReferenceData
 from spec import SpecClient
 
-from core.runs import RunTracker
+from core.runs import RunIdentity
 
 
 class TrialBalancePipeline(BasePipeline):
@@ -34,7 +34,6 @@ class TrialBalancePipeline(BasePipeline):
         repository: TrialBalanceRepository,
         reference: ReferenceClient,
         spec: SpecClient,
-        run_tracker: RunTracker,
     ):
         config = PipelineConfig(
             dataclass=self.DATACLASS,
@@ -45,7 +44,6 @@ class TrialBalancePipeline(BasePipeline):
             atlas = atlas,
             reference = reference,
             spec = spec,
-            run_tracker = run_tracker,
         )
         self._atlas = atlas
         self._repository = repository
@@ -288,18 +286,18 @@ class TrialBalancePipeline(BasePipeline):
         self._repository.write_interface(df)
     
 
-    def rollback(self) -> None:
-        business_dt = self._config.business_dt
-        batch_id = self._config.batch_id
+    def rollback_execution(self, operation: str, identity: RunIdentity) -> None:
+        handlers = {
+            'STAGING': self._repository.delete_staging,
+            'ENRICHMENT': self._repository.delete_enrichment,
+            'REPORTING': self._repository.delete_reporting,
+            'POSTING': self._repository.delete_posting,
+            'INTERFACE': self._repository.delete_interface,
+        }
 
-        if batch_id is None:
-            return
-
-        self._repository.delete_staging(business_dt, batch_id)
-        self._repository.delete_enrichment(business_dt, batch_id)
-        self._repository.delete_reporting(business_dt, batch_id)
-        self._repository.delete_posting(business_dt, batch_id)
-        self._repository.delete_interface(business_dt, batch_id)
+        handler = handlers.get(operation)
+        if handler is not None:
+            handler(identity.run_id)
 
 
     def _combine_staging_and_enrichment(

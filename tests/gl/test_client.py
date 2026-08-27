@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 
 from core.store import CsvStore
+from core.runs import RunIdentity
 
 from registry import SegmentType
 
@@ -219,6 +220,13 @@ def test_process_instruction_delegates_to_manager_for_invalid_instruction(
     assert result.rejection.rejection_type == 'STRUCTURAL_VALIDATION'
 
 
+def test_rollback_execution_delegates_to_manager(gl_with_posting_support):
+    identity = RunIdentity(workflow_run_id=uuid4(), run_id=uuid4(), parent_run_id=None)
+
+    # Should not raise even with nothing written for this run yet.
+    gl_with_posting_support.rollback_execution(identity)
+
+
 def test_import_instructions_delegates_to_manager(spark, tmp_path, gl_with_posting_support):
     instruction = _valid_instruction()
     row = (
@@ -260,7 +268,17 @@ def test_import_instructions_delegates_to_manager(spark, tmp_path, gl_with_posti
     df = spark.createDataFrame([row], schema=INTERFACE_TRIAL_BALANCE_SCHEMA)
     interface_store.write(df, table_name='INTERFACE_TRIAL_BALANCE')
 
-    result = gl_with_posting_support.import_instructions(BUSINESS_DT, 1)
+    # GL's execution belongs to the same workflow as the Interface data it
+    # is reading; only the run_id (GL's own producer identity) is new.
+    identity = RunIdentity(
+        workflow_run_id=instruction.workflow_run_id,
+        run_id=uuid4(),
+        parent_run_id=None,
+    )
+    result = gl_with_posting_support.import_instructions(
+        identity=identity,
+        source_producer_run_id=instruction.producer_run_id,
+    )
 
     assert result.received_count == 1
     assert result.posted_count == 1

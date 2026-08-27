@@ -142,12 +142,14 @@ class GLPosting:
         *,
         gl_posting_id: UUID,
         posted_at: datetime,
+        workflow_run_id: UUID,
+        producer_run_id: UUID,
     ) -> 'GLPosting':
         return cls(
             gl_posting_id=gl_posting_id,
             posted_at=posted_at,
-            workflow_run_id=instruction.workflow_run_id,
-            producer_run_id=instruction.producer_run_id,
+            workflow_run_id=workflow_run_id,
+            producer_run_id=producer_run_id,
             dataclass=instruction.dataclass,
             transaction_number=instruction.transaction_number,
             line_number=instruction.line_number,
@@ -212,12 +214,14 @@ class GLRejection:
         rejected_at: datetime,
         rejection_type: str,
         rejection_detail: str,
+        workflow_run_id: UUID,
+        producer_run_id: UUID,
     ) -> 'GLRejection':
         return cls(
             gl_rejection_id=gl_rejection_id,
             rejected_at=rejected_at,
-            workflow_run_id=instruction.workflow_run_id,
-            producer_run_id=instruction.producer_run_id,
+            workflow_run_id=workflow_run_id,
+            producer_run_id=producer_run_id,
             dataclass=instruction.dataclass,
             transaction_number=instruction.transaction_number,
             line_number=instruction.line_number,
@@ -245,8 +249,9 @@ class GLInstructionResult:
 
 @dataclass(frozen=True)
 class GLImportResult:
-    business_date: date
-    batch_id: int
+    workflow_run_id: UUID
+    producer_run_id: UUID
+    source_producer_run_id: UUID
     received_count: int
     posted_count: int
     rejected_count: int

@@ -10,6 +10,17 @@ class RunTracker:
         self._repository = repository
 
 
+    def get_workflow_run(self, workflow_run_id: UUID) -> WorkflowRun:
+        return self._repository.get_workflow_run(workflow_run_id)
+
+
+    def get_execution_runs(
+        self,
+        workflow_run_id: UUID,
+    ) -> tuple[ExecutionRun, ...]:
+        return self._repository.get_execution_runs(workflow_run_id)
+
+
     def start_workflow(
         self,
         *,

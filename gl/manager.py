@@ -3,6 +3,8 @@ from uuid import UUID, uuid4
 
 from registry import RegistryClient, SegmentType
 
+from core.runs import RunIdentity
+
 from gl.models import (
     GLImportResult,
     GLInstruction,
@@ -218,11 +220,24 @@ class GLManager:
         self,
         instruction: GLInstruction,
         *,
+        identity: RunIdentity | None = None,
         gl_posting_id: UUID | None = None,
         posted_at: datetime | None = None,
         gl_rejection_id: UUID | None = None,
         rejected_at: datetime | None = None,
     ) -> GLInstructionResult:
+        # GL's own execution lineage, when known, is what gets stamped onto
+        # output rows. Absent an orchestrated identity (e.g. ad hoc/direct
+        # calls), fall back to the instruction's own lineage.
+        workflow_run_id = (
+            identity.workflow_run_id if identity is not None
+            else instruction.workflow_run_id
+        )
+        producer_run_id = (
+            identity.run_id if identity is not None
+            else instruction.producer_run_id
+        )
+
         validation = self.validate_instruction(instruction)
 
         if not validation.valid:
@@ -232,6 +247,8 @@ class GLManager:
                 rejection_detail=','.join(validation.errors),
                 gl_rejection_id=gl_rejection_id,
                 rejected_at=rejected_at,
+                workflow_run_id=workflow_run_id,
+                producer_run_id=producer_run_id,
             )
             return GLInstructionResult(
                 posted=False,
@@ -258,6 +275,8 @@ class GLManager:
                 rejection_detail=unresolved,
                 gl_rejection_id=gl_rejection_id,
                 rejected_at=rejected_at,
+                workflow_run_id=workflow_run_id,
+                producer_run_id=producer_run_id,
             )
             return GLInstructionResult(
                 posted=False,
@@ -272,6 +291,8 @@ class GLManager:
             segment_resolution.segments,
             gl_posting_id=gl_posting_id or uuid4(),
             posted_at=posted_at or datetime.now(timezone.utc),
+            workflow_run_id=workflow_run_id,
+            producer_run_id=producer_run_id,
         )
         self._repository.write_posting(posting)
 
@@ -286,26 +307,35 @@ class GLManager:
 
     def import_instructions(
         self,
-        business_dt: date,
-        batch_id: int,
+        identity: RunIdentity,
+        source_producer_run_id: UUID,
     ) -> GLImportResult:
-        instructions = self._repository.get_instructions(business_dt, batch_id)
+        instructions = self._repository.get_instructions(
+            workflow_run_id=identity.workflow_run_id,
+            producer_run_id=source_producer_run_id,
+        )
 
         results = tuple(
-            self.process_instruction(instruction)
+            self.process_instruction(instruction, identity=identity)
             for instruction in instructions
         )
 
         posted_count = sum(1 for result in results if result.posted)
 
         return GLImportResult(
-            business_date=business_dt,
-            batch_id=batch_id,
+            workflow_run_id=identity.workflow_run_id,
+            producer_run_id=identity.run_id,
+            source_producer_run_id=source_producer_run_id,
             received_count=len(results),
             posted_count=posted_count,
             rejected_count=len(results) - posted_count,
             results=results,
         )
+
+
+    def rollback_execution(self, identity: RunIdentity) -> None:
+        self._repository.delete_postings(identity.run_id)
+        self._repository.delete_rejections(identity.run_id)
 
 
     def _reject(
@@ -316,6 +346,8 @@ class GLManager:
         rejection_detail: str,
         gl_rejection_id: UUID | None,
         rejected_at: datetime | None,
+        workflow_run_id: UUID,
+        producer_run_id: UUID,
     ) -> GLRejection:
         rejection = GLRejection.from_instruction(
             instruction,
@@ -323,6 +355,8 @@ class GLManager:
             rejected_at=rejected_at or datetime.now(timezone.utc),
             rejection_type=rejection_type,
             rejection_detail=rejection_detail,
+            workflow_run_id=workflow_run_id,
+            producer_run_id=producer_run_id,
         )
         self._repository.write_rejection(rejection)
 

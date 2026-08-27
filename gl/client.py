@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+from uuid import UUID
 
 from pyspark.sql import SparkSession
 
@@ -7,6 +8,7 @@ from core.store import (
     CsvStore,
     PostgresStore,
 )
+from core.runs import RunIdentity
 
 from registry import RegistryClient
 
@@ -139,7 +141,11 @@ class GLClient:
 
     def import_instructions(
         self,
-        business_dt: date,
-        batch_id: int,
+        identity: RunIdentity,
+        source_producer_run_id: UUID,
     ) -> GLImportResult:
-        return self._manager.import_instructions(business_dt, batch_id)
+        return self._manager.import_instructions(identity, source_producer_run_id)
+
+
+    def rollback_execution(self, identity: RunIdentity) -> None:
+        self._manager.rollback_execution(identity)

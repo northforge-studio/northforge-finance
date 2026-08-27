@@ -1,10 +1,8 @@
-from datetime import date, datetime, timezone
+from datetime import date
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-import pytest
-
-from core.runs import RunTracker, RunStatus, ZoneResult, ExecutionRun
+from core.runs import RunIdentity, RunStatus, ZoneResult
 from foundry.pipeline.base import BasePipeline
 from foundry.models import PipelineConfig
 
@@ -12,16 +10,13 @@ from foundry.models import PipelineConfig
 class _StagingPipeline(BasePipeline):
     """A minimal BasePipeline subclass that only implements staging."""
 
-    def __init__(self, staging_df, raise_error=False, **kwargs):
+    def __init__(self, staging_df, **kwargs):
         super().__init__(**kwargs)
         self._staging_df = staging_df
-        self._raise_error = raise_error
         self.post_staging_called_with = None
 
 
     def pre_staging(self):
-        if self._raise_error:
-            raise ValueError('boom')
         return self._staging_df
 
 
@@ -48,23 +43,7 @@ class _StagingPipeline(BasePipeline):
     def post_interface(self, df): ...
 
 
-def _make_execution_run(**overrides):
-    defaults = dict(
-        run_id=uuid4(),
-        workflow_run_id=uuid4(),
-        parent_run_id=None,
-        component='FOUNDRY',
-        operation='STAGING',
-        status=RunStatus.RUNNING,
-        started_at=datetime.now(timezone.utc),
-        completed_at=None,
-        retry_of_run_id=None,
-    )
-    defaults.update(overrides)
-    return ExecutionRun(**defaults)
-
-
-def _make_pipeline(staging_df, run_tracker, raise_error=False):
+def _make_pipeline(staging_df):
     config = PipelineConfig(
         dataclass='TRIAL_BALANCE',
         business_dt=date(2026, 8, 24),
@@ -72,88 +51,71 @@ def _make_pipeline(staging_df, run_tracker, raise_error=False):
     )
     return _StagingPipeline(
         staging_df=staging_df,
-        raise_error=raise_error,
         config=config,
         atlas=MagicMock(),
         reference=MagicMock(),
         spec=MagicMock(),
-        run_tracker=run_tracker,
     )
 
 
-def test_staging_returns_zone_result_and_completes_execution(spark):
-    run_tracker = MagicMock(spec=RunTracker)
-    execution_run = _make_execution_run()
-    run_tracker.start_execution.return_value = execution_run
-
+def test_staging_returns_zone_result_for_supplied_identity(spark):
     df = spark.createDataFrame([(1,), (2,), (3,)], ['ID'])
-    pipeline = _make_pipeline(staging_df=df, run_tracker=run_tracker)
+    pipeline = _make_pipeline(staging_df=df)
 
-    workflow_run_id = uuid4()
+    identity = RunIdentity(
+        workflow_run_id=uuid4(),
+        run_id=uuid4(),
+        parent_run_id=uuid4(),
+    )
 
-    result = pipeline.staging(workflow_run_id=workflow_run_id)
+    result = pipeline.staging(identity)
 
     assert isinstance(result, ZoneResult)
     assert result.zone == 'STAGING'
     assert result.status == RunStatus.SUCCEEDED
     assert result.record_count == 3
-    assert result.identity.workflow_run_id == workflow_run_id
-    assert result.identity.run_id == execution_run.run_id
-    assert result.identity.parent_run_id is None
-
-    run_tracker.start_execution.assert_called_once_with(
-        workflow_run_id=workflow_run_id,
-        component='FOUNDRY',
-        operation='STAGING',
-        parent_run_id=None,
-    )
-    run_tracker.complete_execution.assert_called_once_with(execution_run.run_id)
-    run_tracker.fail_execution.assert_not_called()
+    assert result.identity == identity
 
     assert pipeline.post_staging_called_with is not None
     assert pipeline.post_staging_called_with.count() == 3
 
 
-def test_staging_passes_parent_run_id_through(spark):
-    run_tracker = MagicMock(spec=RunTracker)
-    execution_run = _make_execution_run()
-    run_tracker.start_execution.return_value = execution_run
-
+def test_staging_stamps_supplied_workflow_and_producer_run_id(spark):
     df = spark.createDataFrame([(1,)], ['ID'])
-    pipeline = _make_pipeline(staging_df=df, run_tracker=run_tracker)
+    pipeline = _make_pipeline(staging_df=df)
 
-    workflow_run_id = uuid4()
-    parent_run_id = uuid4()
-
-    result = pipeline.staging(
-        workflow_run_id=workflow_run_id,
-        parent_run_id=parent_run_id,
+    identity = RunIdentity(
+        workflow_run_id=uuid4(),
+        run_id=uuid4(),
+        parent_run_id=None,
     )
 
-    run_tracker.start_execution.assert_called_once_with(
-        workflow_run_id=workflow_run_id,
-        component='FOUNDRY',
-        operation='STAGING',
-        parent_run_id=parent_run_id,
+    pipeline.staging(identity)
+
+    row = pipeline.post_staging_called_with.collect()[0]
+    assert row['WORKFLOW_RUN_ID'] == str(identity.workflow_run_id)
+    assert row['PRODUCER_RUN_ID'] == str(identity.run_id)
+
+
+def test_staging_overwrites_any_preexisting_run_identity_columns(spark):
+    upstream_workflow_run_id = str(uuid4())
+    upstream_producer_run_id = str(uuid4())
+
+    df = spark.createDataFrame(
+        [(1, upstream_workflow_run_id, upstream_producer_run_id)],
+        ['ID', 'WORKFLOW_RUN_ID', 'PRODUCER_RUN_ID'],
     )
-    assert result.identity.parent_run_id == parent_run_id
+    pipeline = _make_pipeline(staging_df=df)
 
-
-def test_staging_fails_execution_and_reraises_on_error(spark):
-    run_tracker = MagicMock(spec=RunTracker)
-    execution_run = _make_execution_run()
-    run_tracker.start_execution.return_value = execution_run
-
-    pipeline = _make_pipeline(
-        staging_df=None,
-        run_tracker=run_tracker,
-        raise_error=True,
+    identity = RunIdentity(
+        workflow_run_id=uuid4(),
+        run_id=uuid4(),
+        parent_run_id=None,
     )
 
-    workflow_run_id = uuid4()
+    pipeline.staging(identity)
 
-    with pytest.raises(ValueError, match='boom'):
-        pipeline.staging(workflow_run_id=workflow_run_id)
-
-    run_tracker.fail_execution.assert_called_once_with(execution_run.run_id)
-    run_tracker.complete_execution.assert_not_called()
+    row = pipeline.post_staging_called_with.collect()[0]
+    assert row['WORKFLOW_RUN_ID'] == str(identity.workflow_run_id)
+    assert row['PRODUCER_RUN_ID'] == str(identity.run_id)
+    assert row['PRODUCER_RUN_ID'] != upstream_producer_run_id

@@ -119,8 +119,8 @@ class GLRepository:
 
     def get_instructions(
         self,
-        business_dt: date,
-        batch_id: int,
+        workflow_run_id: UUID,
+        producer_run_id: UUID,
     ) -> tuple[GLInstruction, ...]:
         df = self._store.read(
             table_name='INTERFACE_TRIAL_BALANCE',
@@ -130,14 +130,30 @@ class GLRepository:
         rows = (
             df
             .filter(
-                (F.col('BUSINESS_DATE') == business_dt)
-                & (F.col('BATCH_ID') == batch_id)
+                (F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
+                & (F.col('PRODUCER_RUN_ID') == str(producer_run_id))
             )
             .orderBy('TRANSACTION_NUMBER', 'LINE_NUMBER', 'POSTING_ID')
             .collect()
         )
 
         return tuple(self._from_instruction_row(row) for row in rows)
+
+
+    def delete_postings(self, producer_run_id: UUID) -> None:
+        self._store.delete(
+            table_name='POSTING',
+            filters={'PRODUCER_RUN_ID': str(producer_run_id)},
+            schema=POSTING_SCHEMA,
+        )
+
+
+    def delete_rejections(self, producer_run_id: UUID) -> None:
+        self._store.delete(
+            table_name='REJECTION',
+            filters={'PRODUCER_RUN_ID': str(producer_run_id)},
+            schema=REJECTION_SCHEMA,
+        )
 
 
     def _to_row(self, posting: GLPosting) -> tuple:

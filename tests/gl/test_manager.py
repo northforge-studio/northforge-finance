@@ -5,6 +5,8 @@ from uuid import UUID, uuid4
 
 from registry import SegmentType
 
+from core.runs import RunIdentity
+
 from gl.manager import GLManager
 from gl.models import (
     GLInstruction,
@@ -25,6 +27,9 @@ class _FakeRepository:
         self.calls = []
         self.postings = []
         self.rejections = []
+        self.deleted_posting_producer_run_ids = []
+        self.deleted_rejection_producer_run_ids = []
+        self.get_instructions_calls = []
 
 
     def get_segment_default(self, segment_type, context_type, context_value):
@@ -40,8 +45,17 @@ class _FakeRepository:
         self.rejections.append(rejection)
 
 
-    def get_instructions(self, business_dt, batch_id):
+    def get_instructions(self, workflow_run_id, producer_run_id):
+        self.get_instructions_calls.append((workflow_run_id, producer_run_id))
         return self._instructions
+
+
+    def delete_postings(self, producer_run_id):
+        self.deleted_posting_producer_run_ids.append(producer_run_id)
+
+
+    def delete_rejections(self, producer_run_id):
+        self.deleted_rejection_producer_run_ids.append(producer_run_id)
 
 
 class _FakeRegistryClient:
@@ -845,22 +859,30 @@ def test_to_segments_produces_matching_gl_segments():
 
 # -- GLPosting.from_resolution --------------------------------------------
 
-def test_from_resolution_preserves_lineage_and_accounting_fields():
+def test_from_resolution_stamps_the_supplied_gl_execution_lineage():
+    # GL output lineage is the GL execution's own identity, not a copy of
+    # the Interface instruction's lineage (see test_manager below for the
+    # end-to-end version of this via process_instruction/import_instructions).
     instruction = _valid_instruction()
     gl_posting_id = uuid4()
     posted_at = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    gl_workflow_run_id = instruction.workflow_run_id
+    gl_producer_run_id = uuid4()
 
     posting = GLPosting.from_resolution(
         instruction,
         instruction.to_segments(),
         gl_posting_id=gl_posting_id,
         posted_at=posted_at,
+        workflow_run_id=gl_workflow_run_id,
+        producer_run_id=gl_producer_run_id,
     )
 
     assert posting.gl_posting_id == gl_posting_id
     assert posting.posted_at == posted_at
-    assert posting.workflow_run_id == instruction.workflow_run_id
-    assert posting.producer_run_id == instruction.producer_run_id
+    assert posting.workflow_run_id == gl_workflow_run_id
+    assert posting.producer_run_id == gl_producer_run_id
+    assert posting.producer_run_id != instruction.producer_run_id
     assert posting.dataclass == instruction.dataclass
     assert posting.transaction_number == instruction.transaction_number
     assert posting.line_number == instruction.line_number
@@ -891,6 +913,8 @@ def test_from_resolution_uses_resolved_segments_not_instruction_original():
         resolved_segments,
         gl_posting_id=uuid4(),
         posted_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        workflow_run_id=instruction.workflow_run_id,
+        producer_run_id=uuid4(),
     )
 
     # The resolved value made it through...
@@ -900,6 +924,34 @@ def test_from_resolution_uses_resolved_segments_not_instruction_original():
 
 
 # -- process_instruction ---------------------------------------------------
+
+def test_process_instruction_without_identity_falls_back_to_instruction_lineage():
+    # Direct/standalone use (no orchestrated GL execution) keeps the prior
+    # behavior of stamping the instruction's own lineage.
+    repository = _FakeRepository({})
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+    instruction = _valid_instruction()
+
+    result = manager.process_instruction(instruction)
+
+    assert result.posting.workflow_run_id == instruction.workflow_run_id
+    assert result.posting.producer_run_id == instruction.producer_run_id
+
+
+def test_process_instruction_with_identity_stamps_gl_execution_lineage():
+    repository = _FakeRepository({})
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+    instruction = _valid_instruction()
+    identity = RunIdentity(workflow_run_id=uuid4(), run_id=uuid4(), parent_run_id=None)
+
+    result = manager.process_instruction(instruction, identity=identity)
+
+    assert result.posting.workflow_run_id == identity.workflow_run_id
+    assert result.posting.producer_run_id == identity.run_id
+    assert result.posting.producer_run_id != instruction.producer_run_id
+
 
 def test_process_instruction_valid_posts_successfully():
     repository = _FakeRepository({})
@@ -1126,17 +1178,30 @@ def test_process_instruction_never_writes_both_posting_and_rejection():
 
 # -- import_instructions -----------------------------------------------
 
+def _gl_identity(**overrides) -> RunIdentity:
+    defaults = dict(
+        workflow_run_id=uuid4(),
+        run_id=uuid4(),
+        parent_run_id=None,
+    )
+    defaults.update(overrides)
+    return RunIdentity(**defaults)
+
+
 def test_import_instructions_all_valid_partition_all_posted():
     valid_1 = _valid_instruction()
     valid_2 = replace(_valid_instruction(), transaction_number='TXN-2')
     repository = _FakeRepository({}, instructions=(valid_1, valid_2))
     registry = _FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
+    identity = _gl_identity()
+    source_producer_run_id = uuid4()
 
-    result = manager.import_instructions(BUSINESS_DT, 1)
+    result = manager.import_instructions(identity, source_producer_run_id)
 
-    assert result.business_date == BUSINESS_DT
-    assert result.batch_id == 1
+    assert result.workflow_run_id == identity.workflow_run_id
+    assert result.producer_run_id == identity.run_id
+    assert result.source_producer_run_id == source_producer_run_id
     assert result.received_count == 2
     assert result.posted_count == 2
     assert result.rejected_count == 0
@@ -1151,7 +1216,7 @@ def test_import_instructions_mixed_partition_posts_valid_rejects_invalid():
     registry = _FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
 
-    result = manager.import_instructions(BUSINESS_DT, 1)
+    result = manager.import_instructions(_gl_identity(), uuid4())
 
     assert result.received_count == 2
     assert result.posted_count == 1
@@ -1162,12 +1227,29 @@ def test_import_instructions_mixed_partition_posts_valid_rejects_invalid():
     assert result.results[1].posted is True
 
 
+def test_import_instructions_business_rejections_do_not_fail_the_import():
+    # A partial/rejected batch is still a *successful* import at the
+    # GLImportResult/GLManager level; only a raised exception signals a
+    # technical failure. The orchestrator relies on this to keep
+    # GL/IMPORT SUCCEEDED even when rejected_count > 0.
+    invalid = replace(_valid_instruction(), cr_dr_ind='XX')
+    repository = _FakeRepository({}, instructions=(invalid,))
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+
+    result = manager.import_instructions(_gl_identity(), uuid4())
+
+    assert result.received_count == 1
+    assert result.posted_count == 0
+    assert result.rejected_count == 1
+
+
 def test_import_instructions_empty_partition_returns_zero_counts():
     repository = _FakeRepository({}, instructions=())
     registry = _FakeRegistryClient(set())
     manager = GLManager(repository, registry)
 
-    result = manager.import_instructions(BUSINESS_DT, 1)
+    result = manager.import_instructions(_gl_identity(), uuid4())
 
     assert result.received_count == 0
     assert result.posted_count == 0
@@ -1183,7 +1265,7 @@ def test_import_instructions_results_retained_in_deterministic_order():
     registry = _FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
 
-    result = manager.import_instructions(BUSINESS_DT, 1)
+    result = manager.import_instructions(_gl_identity(), uuid4())
 
     assert [r.posting.transaction_number for r in result.results] == [
         'TXN-1', 'TXN-2', 'TXN-3',
@@ -1207,7 +1289,7 @@ def test_import_instructions_defaulted_segment_appears_in_posting():
     )
     manager = GLManager(repository, registry)
 
-    result = manager.import_instructions(BUSINESS_DT, 1)
+    result = manager.import_instructions(_gl_identity(), uuid4())
 
     assert result.results[0].posting.dept_cd == '9999'
     assert repository.postings[0].dept_cd == '9999'
@@ -1221,10 +1303,74 @@ def test_import_instructions_does_not_prevent_duplicate_posting_id():
     registry = _FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
 
-    result = manager.import_instructions(BUSINESS_DT, 1)
+    result = manager.import_instructions(_gl_identity(), uuid4())
 
     assert result.posted_count == 2
     assert len(repository.postings) == 2
     assert {p.posting_id for p in repository.postings} == {same_posting_id.posting_id}
     # No app-level uniqueness enforcement on posting_id.
     assert repository.postings[0].gl_posting_id != repository.postings[1].gl_posting_id
+
+
+def test_import_instructions_stamps_gl_execution_lineage_not_interface_lineage():
+    # This is the key GL output-lineage fix: postings/rejections must carry
+    # the GL execution's own identity (identity.workflow_run_id / run_id),
+    # not the Interface producer_run_id the instruction arrived with.
+    interface_producer_run_id = uuid4()
+    valid = replace(
+        _valid_instruction(),
+        producer_run_id=interface_producer_run_id,
+    )
+    invalid = replace(
+        _valid_instruction(),
+        transaction_number='TXN-2',
+        cr_dr_ind='XX',
+        producer_run_id=interface_producer_run_id,
+    )
+    repository = _FakeRepository({}, instructions=(valid, invalid))
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+    identity = _gl_identity()
+
+    manager.import_instructions(identity, interface_producer_run_id)
+
+    [posting] = repository.postings
+    assert posting.workflow_run_id == identity.workflow_run_id
+    assert posting.producer_run_id == identity.run_id
+    assert posting.producer_run_id != interface_producer_run_id
+
+    [rejection] = repository.rejections
+    assert rejection.workflow_run_id == identity.workflow_run_id
+    assert rejection.producer_run_id == identity.run_id
+    assert rejection.producer_run_id != interface_producer_run_id
+
+
+def test_import_instructions_reads_only_the_named_interface_execution():
+    repository = _FakeRepository({}, instructions=(_valid_instruction(),))
+    registry = _FakeRegistryClient(_valid_registry_entries())
+    manager = GLManager(repository, registry)
+    identity = _gl_identity()
+    source_producer_run_id = uuid4()
+
+    manager.import_instructions(identity, source_producer_run_id)
+
+    # Interface rows are selected by workflow/producer lineage (the
+    # Foundry Interface execution's identity), not by business_dt/batch_id
+    # or a "latest batch" lookup.
+    assert repository.get_instructions_calls == [
+        (identity.workflow_run_id, source_producer_run_id),
+    ]
+
+
+# -- rollback_execution ------------------------------------------------
+
+def test_rollback_execution_deletes_only_postings_and_rejections_for_the_run():
+    repository = _FakeRepository({})
+    registry = _FakeRegistryClient(set())
+    manager = GLManager(repository, registry)
+    identity = _gl_identity()
+
+    manager.rollback_execution(identity)
+
+    assert repository.deleted_posting_producer_run_ids == [identity.run_id]
+    assert repository.deleted_rejection_producer_run_ids == [identity.run_id]
