@@ -9,6 +9,7 @@ from foundry.config.settings import (
     POSTGRES_TABLE_LOCATIONS,
 )
 
+from core.logging import configure_logging
 from core.store import (
     CsvStore,
     PostgresStore,
@@ -23,6 +24,8 @@ from gl import GLClient
 from registry import RegistryClient
 from workflow import WorkflowOrchestrator
 
+
+configure_logging()
 
 BUSINESS_DT = date(2026, 3, 31)
 

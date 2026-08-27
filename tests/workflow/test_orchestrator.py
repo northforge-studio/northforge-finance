@@ -459,6 +459,106 @@ def test_run_gl_continuing_an_already_succeeded_workflow_keeps_it_succeeded():
     assert repository.get_workflow_run(workflow_run_id).status == RunStatus.SUCCEEDED
 
 
+# -- logging --------------------------------------------------------------
+
+def test_run_foundry_zone_success_logs_operation_run_id_and_record_count(caplog):
+    run_tracker = _make_run_tracker()
+    pipeline = _FakePipeline()
+    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
+
+    with caplog.at_level('INFO', logger='workflow.orchestrator'):
+        result = orchestrator.run_foundry()
+
+    repository = run_tracker._repository
+    executions = _executions_by_operation(repository, result.identity.workflow_run_id)
+    staging_run_id = executions['STAGING'].run_id
+
+    zone_success_records = [
+        r for r in caplog.records
+        if r.levelname == 'INFO' and 'Foundry zone succeeded' in r.message
+    ]
+    assert any(
+        'STAGING' in r.message
+        and str(staging_run_id) in r.message
+        and 'records=1' in r.message
+        for r in zone_success_records
+    )
+
+
+def test_run_gl_success_logs_received_posted_and_rejected_counts(caplog):
+    run_tracker = _make_run_tracker()
+    pipeline = _FakePipeline()
+    gl = _FakeGL(rejected_count=2)
+    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
+
+    foundry_result = orchestrator.run_foundry()
+    workflow_run_id = foundry_result.identity.workflow_run_id
+
+    with caplog.at_level('INFO', logger='workflow.orchestrator'):
+        result = orchestrator.run_gl(workflow_run_id)
+
+    success_records = [
+        r for r in caplog.records
+        if r.levelname == 'INFO' and 'GL import succeeded' in r.message
+    ]
+    assert len(success_records) == 1
+    message = success_records[0].message
+    assert f'received={result.received_count}' in message
+    assert f'posted={result.posted_count}' in message
+    assert f'rejected={result.rejected_count}' in message
+
+
+@pytest.mark.parametrize('failing_zone', ZONES)
+def test_run_foundry_failure_logs_rollback_warning_and_one_exception(caplog, failing_zone):
+    run_tracker = _make_run_tracker()
+    pipeline = _FakePipeline(raise_in=failing_zone)
+    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
+
+    with caplog.at_level('INFO', logger='workflow.orchestrator'):
+        with pytest.raises(ValueError, match=f'{failing_zone} boom'):
+            orchestrator.run_foundry()
+
+    warning_records = [
+        r for r in caplog.records
+        if r.levelname == 'WARNING' and 'Foundry zone rollback initiated' in r.message
+    ]
+    assert len(warning_records) == 1
+    assert failing_zone.upper() in warning_records[0].message
+
+    exception_records = [
+        r for r in caplog.records
+        if r.levelname == 'ERROR' and 'Foundry zone failed' in r.message and r.exc_info
+    ]
+    assert len(exception_records) == 1
+    assert failing_zone.upper() in exception_records[0].message
+
+
+def test_run_gl_failure_logs_rollback_warning_and_one_exception(caplog):
+    run_tracker = _make_run_tracker()
+    pipeline = _FakePipeline()
+    gl = _FakeGL(raise_error=True)
+    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
+
+    foundry_result = orchestrator.run_foundry()
+    workflow_run_id = foundry_result.identity.workflow_run_id
+
+    with caplog.at_level('INFO', logger='workflow.orchestrator'):
+        with pytest.raises(ValueError, match='gl import boom'):
+            orchestrator.run_gl(workflow_run_id)
+
+    warning_records = [
+        r for r in caplog.records
+        if r.levelname == 'WARNING' and 'GL rollback initiated' in r.message
+    ]
+    assert len(warning_records) == 1
+
+    exception_records = [
+        r for r in caplog.records
+        if r.levelname == 'ERROR' and 'GL import failed' in r.message and r.exc_info
+    ]
+    assert len(exception_records) == 1
+
+
 # -- run_workflow -------------------------------------------------------
 
 def test_run_workflow_creates_exactly_one_workflow_with_foundry_and_gl():

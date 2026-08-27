@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import Callable
 from uuid import UUID
 
+from core.logging import get_logger
 from core.runs import (
     ExecutionRun,
     PipelineResult,
@@ -13,6 +14,9 @@ from core.runs import (
 )
 from foundry.pipeline import BasePipeline
 from gl import GLClient, GLImportResult
+
+
+logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -46,11 +50,11 @@ class WorkflowOrchestrator:
 
         try:
             result = self._execute_foundry(workflow.workflow_run_id)
-        except Exception:
-            self._run_tracker.fail_workflow(workflow.workflow_run_id)
+        except Exception as exc:
+            self._fail_workflow(workflow.workflow_run_id, exc)
             raise
 
-        self._run_tracker.complete_workflow(workflow.workflow_run_id)
+        self._complete_workflow(workflow.workflow_run_id)
 
         return result
 
@@ -62,14 +66,14 @@ class WorkflowOrchestrator:
 
         try:
             result = self._execute_gl(workflow)
-        except Exception:
-            self._run_tracker.fail_workflow(workflow.workflow_run_id)
+        except Exception as exc:
+            self._fail_workflow(workflow.workflow_run_id, exc)
             raise
 
         # The workflow may already be SUCCEEDED from a prior run_foundry()
         # call; re-affirming completion here (rather than adding a new
         # RunStatus) is the minimal way to let GL continue it.
-        self._run_tracker.complete_workflow(workflow.workflow_run_id)
+        self._complete_workflow(workflow.workflow_run_id)
 
         return result
 
@@ -80,22 +84,44 @@ class WorkflowOrchestrator:
         try:
             foundry_result = self._execute_foundry(workflow.workflow_run_id)
             gl_result = self._execute_gl(workflow)
-        except Exception:
-            self._run_tracker.fail_workflow(workflow.workflow_run_id)
+        except Exception as exc:
+            self._fail_workflow(workflow.workflow_run_id, exc)
             raise
 
-        self._run_tracker.complete_workflow(workflow.workflow_run_id)
+        self._complete_workflow(workflow.workflow_run_id)
 
         return WorkflowResult(foundry=foundry_result, gl=gl_result)
+
+
+    def _complete_workflow(self, workflow_run_id: UUID) -> None:
+        self._run_tracker.complete_workflow(workflow_run_id)
+        logger.info('Workflow succeeded | workflow_run_id=%s', workflow_run_id)
+
+
+    def _fail_workflow(self, workflow_run_id: UUID, exc: Exception) -> None:
+        self._run_tracker.fail_workflow(workflow_run_id)
+        # The layer that owns the failure (zone/GL) already logged the
+        # traceback via logger.exception; this is a concise status line only.
+        logger.error(
+            'Workflow failed | workflow_run_id=%s | error=%s',
+            workflow_run_id, exc,
+        )
 
 
     def _start_workflow(self) -> WorkflowRun:
         config = self._foundry_pipeline.config
 
-        return self._run_tracker.start_workflow(
+        workflow = self._run_tracker.start_workflow(
             dataclass=config.dataclass,
             business_dt=config.business_dt,
         )
+
+        logger.info(
+            'Workflow started | workflow_run_id=%s | dataclass=%s | business_dt=%s',
+            workflow.workflow_run_id, workflow.dataclass, workflow.business_dt,
+        )
+
+        return workflow
 
 
     def _execute_foundry(self, workflow_run_id: UUID) -> PipelineResult:
@@ -103,6 +129,11 @@ class WorkflowOrchestrator:
             workflow_run_id=workflow_run_id,
             component='FOUNDRY',
             operation='PIPELINE',
+        )
+
+        logger.info(
+            'Foundry pipeline started | run_id=%s | workflow_run_id=%s',
+            pipeline_execution.run_id, workflow_run_id,
         )
 
         try:
@@ -162,6 +193,18 @@ class WorkflowOrchestrator:
 
         self._run_tracker.complete_execution(pipeline_execution.run_id)
 
+        total_records = sum(
+            zone.record_count
+            for zone in (
+                staging_result, enrichment_result, reporting_result,
+                posting_result, interface_result,
+            )
+        )
+        logger.info(
+            'Foundry pipeline succeeded | run_id=%s | workflow_run_id=%s | records=%d',
+            pipeline_execution.run_id, workflow_run_id, total_records,
+        )
+
         return PipelineResult(
             identity=RunIdentity(
                 workflow_run_id=workflow_run_id,
@@ -208,14 +251,32 @@ class WorkflowOrchestrator:
             parent_run_id=parent_run_id,
         )
 
+        logger.info(
+            'Foundry zone started | operation=%s | run_id=%s | workflow_run_id=%s',
+            operation, execution.run_id, workflow_run_id,
+        )
+
         try:
             result = zone(identity)
         except Exception:
+            logger.warning(
+                'Foundry zone rollback initiated | component=FOUNDRY | operation=%s | run_id=%s',
+                operation, execution.run_id,
+            )
             self._foundry_pipeline.rollback_execution(operation, identity)
             self._run_tracker.fail_execution(execution.run_id)
+            logger.exception(
+                'Foundry zone failed | operation=%s | run_id=%s | workflow_run_id=%s',
+                operation, execution.run_id, workflow_run_id,
+            )
             raise
 
         self._run_tracker.complete_execution(execution.run_id)
+
+        logger.info(
+            'Foundry zone succeeded | operation=%s | run_id=%s | workflow_run_id=%s | records=%d',
+            operation, execution.run_id, workflow_run_id, result.record_count,
+        )
 
         return result
 
@@ -240,6 +301,11 @@ class WorkflowOrchestrator:
             parent_run_id=None,
         )
 
+        logger.info(
+            'GL import started | run_id=%s | workflow_run_id=%s | source_producer_run_id=%s',
+            gl_execution.run_id, workflow.workflow_run_id, interface_execution.run_id,
+        )
+
         try:
             # A GLImportResult with rejected_count > 0 is still a
             # successful execution: only a raised exception (a technical
@@ -249,11 +315,27 @@ class WorkflowOrchestrator:
                 source_producer_run_id=interface_execution.run_id,
             )
         except Exception:
+            logger.warning(
+                'GL rollback initiated | component=GL | operation=IMPORT | run_id=%s',
+                gl_execution.run_id,
+            )
             self._gl.rollback_execution(identity)
             self._run_tracker.fail_execution(gl_execution.run_id)
+            logger.exception(
+                'GL import failed | run_id=%s | workflow_run_id=%s',
+                gl_execution.run_id, workflow.workflow_run_id,
+            )
             raise
 
         self._run_tracker.complete_execution(gl_execution.run_id)
+
+        logger.info(
+            'GL import succeeded | run_id=%s | workflow_run_id=%s | '
+            'received=%d | posted=%d | rejected=%d | source_producer_run_id=%s',
+            gl_execution.run_id, workflow.workflow_run_id,
+            result.received_count, result.posted_count, result.rejected_count,
+            interface_execution.run_id,
+        )
 
         return result
 
