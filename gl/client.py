@@ -11,7 +11,13 @@ from core.store import (
 from registry import RegistryClient
 
 from gl.manager import GLManager
-from gl.models import GLSegmentResolution, GLSegments, SegmentResolution
+from gl.models import (
+    GLInstruction,
+    GLSegmentResolution,
+    GLSegments,
+    InstructionValidation,
+    SegmentResolution,
+)
 from gl.repository import GLRepository
 
 
@@ -94,3 +100,10 @@ class GLClient:
             segments,
             business_dt=business_dt,
         )
+
+
+    def validate_instruction(
+        self,
+        instruction: GLInstruction,
+    ) -> InstructionValidation:
+        return self._manager.validate_instruction(instruction)

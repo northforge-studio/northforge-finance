@@ -1,11 +1,13 @@
 from dataclasses import replace
 from datetime import date
+from decimal import Decimal
+from uuid import uuid4
 
 import pytest
 
 from registry import SegmentType
 
-from gl import GLClient, GLSegments, SegmentResolution
+from gl import GLClient, GLInstruction, GLSegments, SegmentResolution
 
 
 BUSINESS_DT = date(2026, 1, 1)
@@ -127,3 +129,52 @@ def test_resolve_segments_delegates_to_manager_for_invalid_defaultable_segment(g
     assert dept_resolution.supplied_value == 'BOGUS'
     assert dept_resolution.resolved_value == '9999'
     assert dept_resolution.defaulted is True
+
+
+def _valid_instruction() -> GLInstruction:
+    return GLInstruction(
+        workflow_run_id=uuid4(),
+        producer_run_id=uuid4(),
+        dataclass='TRIAL_BALANCE',
+        transaction_number='TXN-1',
+        line_number='1',
+        foundry_rule_id='RULE-1',
+        posting_id='POST-1',
+        posting_stream='STREAM-1',
+        src_record_id='REC-1',
+        batch_id=1,
+        src_app_cd='NFM',
+        entity_cd='USM',
+        dept_cd='9999',
+        branch_cd='100',
+        gl_account='123456',
+        sub_account='UNASSIGNED',
+        affiliate_cd='999999',
+        product_cd='PRD1',
+        book_cd='BK1',
+        source_cd='SRC1',
+        cr_dr_ind='DR',
+        transaction_currency='USD',
+        transaction_amount=Decimal('100.00'),
+        accounted_currency='USD',
+        accounted_amount=Decimal('100.00'),
+        fx_rate=Decimal('1.0'),
+        as_of_date=date(2026, 1, 1),
+        business_date=date(2026, 1, 1),
+    )
+
+
+def test_validate_instruction_delegates_to_manager_for_valid_instruction(gl):
+    result = gl.validate_instruction(_valid_instruction())
+
+    assert result.valid is True
+    assert result.errors == ()
+
+
+def test_validate_instruction_delegates_to_manager_for_invalid_instruction(gl):
+    instruction = replace(_valid_instruction(), cr_dr_ind='XX')
+
+    result = gl.validate_instruction(instruction)
+
+    assert result.valid is False
+    assert 'INVALID_CR_DR_IND' in result.errors

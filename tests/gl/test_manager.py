@@ -1,10 +1,12 @@
 from dataclasses import replace
 from datetime import date
+from decimal import Decimal
+from uuid import uuid4
 
 from registry import SegmentType
 
 from gl.manager import GLManager
-from gl.models import GLSegments, SegmentDefault, SegmentResolution
+from gl.models import GLInstruction, GLSegments, SegmentDefault, SegmentResolution
 
 
 BUSINESS_DT = date(2026, 1, 1)
@@ -664,3 +666,157 @@ def test_resolve_segments_empty_value_is_defaulted():
 
     assert result.resolved is True
     assert result.segments == replace(_valid_segments(), dept_cd='9999')
+
+
+# -- validate_instruction -------------------------------------------------
+
+def _valid_instruction() -> GLInstruction:
+    return GLInstruction(
+        workflow_run_id=uuid4(),
+        producer_run_id=uuid4(),
+        dataclass='TRIAL_BALANCE',
+        transaction_number='TXN-1',
+        line_number='1',
+        foundry_rule_id='RULE-1',
+        posting_id='POST-1',
+        posting_stream='STREAM-1',
+        src_record_id='REC-1',
+        batch_id=1,
+        src_app_cd='NFM',
+        entity_cd='USM',
+        dept_cd='4000',
+        branch_cd='100',
+        gl_account='123456',
+        sub_account='001',
+        affiliate_cd='AFF1',
+        product_cd='PRD1',
+        book_cd='BK1',
+        source_cd='SRC1',
+        cr_dr_ind='DR',
+        transaction_currency='USD',
+        transaction_amount=Decimal('100.00'),
+        accounted_currency='USD',
+        accounted_amount=Decimal('100.00'),
+        fx_rate=Decimal('1.0'),
+        as_of_date=date(2026, 1, 1),
+        business_date=date(2026, 1, 1),
+    )
+
+
+def _manager() -> GLManager:
+    return GLManager(_FakeRepository({}), _no_registry_calls_expected())
+
+
+def test_validate_instruction_fully_valid_has_no_errors():
+    result = _manager().validate_instruction(_valid_instruction())
+
+    assert result.valid is True
+    assert result.errors == ()
+
+
+def test_validate_instruction_rejects_invalid_cr_dr_ind():
+    instruction = replace(_valid_instruction(), cr_dr_ind='XX')
+
+    result = _manager().validate_instruction(instruction)
+
+    assert result.valid is False
+    assert 'INVALID_CR_DR_IND' in result.errors
+
+
+def test_validate_instruction_rejects_missing_lineage_field():
+    instruction = replace(_valid_instruction(), posting_id='')
+
+    result = _manager().validate_instruction(instruction)
+
+    assert result.valid is False
+    assert 'MISSING_POSTING_ID' in result.errors
+
+
+def test_validate_instruction_rejects_missing_transaction_currency():
+    instruction = replace(_valid_instruction(), transaction_currency='')
+
+    result = _manager().validate_instruction(instruction)
+
+    assert result.valid is False
+    assert 'MISSING_TRANSACTION_CURRENCY' in result.errors
+
+
+def test_validate_instruction_rejects_missing_accounted_currency():
+    instruction = replace(_valid_instruction(), accounted_currency='')
+
+    result = _manager().validate_instruction(instruction)
+
+    assert result.valid is False
+    assert 'MISSING_ACCOUNTED_CURRENCY' in result.errors
+
+
+def test_validate_instruction_rejects_missing_amount():
+    instruction = replace(_valid_instruction(), transaction_amount=None)
+
+    result = _manager().validate_instruction(instruction)
+
+    assert result.valid is False
+    assert 'MISSING_TRANSACTION_AMOUNT' in result.errors
+
+
+def test_validate_instruction_rejects_missing_fx_rate():
+    instruction = replace(_valid_instruction(), fx_rate=None)
+
+    result = _manager().validate_instruction(instruction)
+
+    assert result.valid is False
+    assert 'MISSING_FX_RATE' in result.errors
+
+
+def test_validate_instruction_collects_multiple_errors_together():
+    instruction = replace(
+        _valid_instruction(),
+        cr_dr_ind='XX',
+        transaction_currency='',
+        fx_rate=None,
+    )
+
+    result = _manager().validate_instruction(instruction)
+
+    assert result.valid is False
+    assert set(result.errors) == {
+        'INVALID_CR_DR_IND',
+        'MISSING_TRANSACTION_CURRENCY',
+        'MISSING_FX_RATE',
+    }
+
+
+def test_validate_instruction_allows_empty_defaultable_segment():
+    instruction = replace(_valid_instruction(), sub_account='')
+
+    result = _manager().validate_instruction(instruction)
+
+    assert result.valid is True
+    assert result.errors == ()
+
+
+def test_validate_instruction_allows_registry_invalid_looking_segment():
+    # Structural validation never checks segment values against
+    # Registry — that only happens later, in resolve_segment(s).
+    instruction = replace(_valid_instruction(), dept_cd='NOT_A_REAL_DEPT')
+
+    result = _manager().validate_instruction(instruction)
+
+    assert result.valid is True
+    assert result.errors == ()
+
+
+def test_to_segments_produces_matching_gl_segments():
+    instruction = _valid_instruction()
+
+    assert instruction.to_segments() == GLSegments(
+        entity_cd='USM',
+        dept_cd='4000',
+        branch_cd='100',
+        gl_account='123456',
+        sub_account='001',
+        affiliate_cd='AFF1',
+        product_cd='PRD1',
+        book_cd='BK1',
+        source_cd='SRC1',
+    )

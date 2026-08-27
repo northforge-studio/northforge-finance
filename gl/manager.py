@@ -2,7 +2,13 @@ from datetime import date
 
 from registry import RegistryClient, SegmentType
 
-from gl.models import GLSegmentResolution, GLSegments, SegmentResolution
+from gl.models import (
+    GLInstruction,
+    GLSegmentResolution,
+    GLSegments,
+    InstructionValidation,
+    SegmentResolution,
+)
 from gl.repository import GLRepository
 
 
@@ -39,6 +45,35 @@ _SEGMENT_FIELD_TYPES: tuple[tuple[str, str], ...] = (
     ('book_cd', 'BOOK_CD'),
     ('source_cd', 'SOURCE_CD'),
 )
+
+
+# Structural requiredness for GLInstruction, in Interface-contract field
+# order. "blank" flags None or an empty string; "none" flags only None,
+# so a legitimate falsy value (e.g. batch_id=0) is not misreported as
+# missing. Matches the actual interface.trial_balance migration, where
+# every one of these columns is nullable=False.
+_REQUIRED_INSTRUCTION_FIELDS: tuple[tuple[str, str, str], ...] = (
+    ('workflow_run_id', 'MISSING_WORKFLOW_RUN_ID', 'none'),
+    ('producer_run_id', 'MISSING_PRODUCER_RUN_ID', 'none'),
+    ('dataclass', 'MISSING_DATACLASS', 'blank'),
+    ('transaction_number', 'MISSING_TRANSACTION_NUMBER', 'blank'),
+    ('line_number', 'MISSING_LINE_NUMBER', 'blank'),
+    ('foundry_rule_id', 'MISSING_FOUNDRY_RULE_ID', 'blank'),
+    ('posting_id', 'MISSING_POSTING_ID', 'blank'),
+    ('posting_stream', 'MISSING_POSTING_STREAM', 'blank'),
+    ('src_record_id', 'MISSING_SRC_RECORD_ID', 'blank'),
+    ('batch_id', 'MISSING_BATCH_ID', 'none'),
+    ('src_app_cd', 'MISSING_SRC_APP_CD', 'blank'),
+    ('transaction_currency', 'MISSING_TRANSACTION_CURRENCY', 'blank'),
+    ('transaction_amount', 'MISSING_TRANSACTION_AMOUNT', 'none'),
+    ('accounted_currency', 'MISSING_ACCOUNTED_CURRENCY', 'blank'),
+    ('accounted_amount', 'MISSING_ACCOUNTED_AMOUNT', 'none'),
+    ('fx_rate', 'MISSING_FX_RATE', 'none'),
+    ('as_of_date', 'MISSING_AS_OF_DATE', 'none'),
+    ('business_date', 'MISSING_BUSINESS_DATE', 'none'),
+)
+
+_VALID_CR_DR_VALUES = frozenset({'DR', 'CR'})
 
 
 class GLManager:
@@ -154,6 +189,24 @@ class GLManager:
             resolutions=tuple(resolutions),
             resolved=True,
         )
+
+
+    def validate_instruction(
+        self,
+        instruction: GLInstruction,
+    ) -> InstructionValidation:
+        errors: list[str] = []
+
+        for field, error_code, check in _REQUIRED_INSTRUCTION_FIELDS:
+            value = getattr(instruction, field)
+            is_missing = value is None if check == 'none' else not value
+            if is_missing:
+                errors.append(error_code)
+
+        if instruction.cr_dr_ind not in _VALID_CR_DR_VALUES:
+            errors.append('INVALID_CR_DR_IND')
+
+        return InstructionValidation(valid=not errors, errors=tuple(errors))
 
 
     def _is_registry_valid(
