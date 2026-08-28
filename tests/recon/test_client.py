@@ -211,6 +211,12 @@ def test_from_csv_reconciles_and_persists_through_a_real_repository(
     assert persisted[0]['PRODUCER_RUN_ID'] == str(result.producer_run_id)
     assert persisted[0]['DIFFERENCE_AMOUNT'] == Decimal('0.00')
 
+    # The client's own get_results() (not just a fresh ReconRepository)
+    # reads back the same persisted row.
+    via_client = client.get_results(workflow.workflow_run_id).collect()
+    assert len(via_client) == 1
+    assert via_client[0]['WORKFLOW_RUN_ID'] == str(workflow.workflow_run_id)
+
 
 def test_reconcile_raises_for_an_unsupported_dataclass(spark, tmp_path, run_tracker):
     workflow = run_tracker.start_workflow(dataclass='POSITION', business_dt=BUSINESS_DT)

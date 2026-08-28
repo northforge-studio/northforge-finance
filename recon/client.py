@@ -1,7 +1,7 @@
 from pathlib import Path
 from uuid import UUID
 
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
 
 from core.store import (
     CsvStore,
@@ -76,3 +76,7 @@ class ReconClient:
 
     def reconcile(self, workflow_run_id: UUID) -> ReconRunResult:
         return self._manager.reconcile(workflow_run_id)
+
+
+    def get_results(self, workflow_run_id: UUID) -> DataFrame:
+        return self._manager.get_results(workflow_run_id)

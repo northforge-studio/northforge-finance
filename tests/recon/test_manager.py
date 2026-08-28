@@ -89,11 +89,13 @@ class _FakeGL:
 
 
 class _FakeReconRepository:
-    def __init__(self, interface_by_workflow=None, raise_on_write=False):
+    def __init__(self, interface_by_workflow=None, raise_on_write=False, results_by_workflow=None):
         self._interface_by_workflow = interface_by_workflow or {}
         self._raise_on_write = raise_on_write
+        self._results_by_workflow = results_by_workflow or {}
         self.written = []
         self.get_interface_calls = []
+        self.get_results_calls = []
 
 
     def get_interface_trial_balance(self, workflow_run_id):
@@ -105,6 +107,11 @@ class _FakeReconRepository:
         if self._raise_on_write:
             raise RuntimeError('write boom')
         self.written.extend(results)
+
+
+    def get_results(self, workflow_run_id):
+        self.get_results_calls.append(workflow_run_id)
+        return self._results_by_workflow[workflow_run_id]
 
 
 # -- row builders ---------------------------------------------------------
@@ -285,6 +292,19 @@ def test_reconcile_reads_interface_and_gl_scoped_to_the_workflow_run_id(
 
     assert repository.get_interface_calls == [workflow.workflow_run_id]
     assert gl.get_postings_calls == [workflow.workflow_run_id]
+
+
+def test_get_results_delegates_to_the_repository(spark, run_tracker, workflow):
+    sentinel_df = spark.createDataFrame([(1,)], ['X'])
+    repository = _FakeReconRepository(
+        results_by_workflow={workflow.workflow_run_id: sentinel_df},
+    )
+    manager = ReconManager(repository, run_tracker, _FakeGL())
+
+    result = manager.get_results(workflow.workflow_run_id)
+
+    assert result is sentinel_df
+    assert repository.get_results_calls == [workflow.workflow_run_id]
 
 
 # -- execution lifecycle ---------------------------------------------------

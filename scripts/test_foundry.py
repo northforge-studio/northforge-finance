@@ -21,6 +21,7 @@ from reference import ReferenceClient
 from spec import SpecClient
 
 from gl import GLClient
+from recon import ReconClient
 from registry import RegistryClient
 from workflow import WorkflowOrchestrator
 
@@ -59,10 +60,10 @@ reference = ReferenceClient.from_db(
     counterparty_table='reference.counterparty',
 )
 
-atlas = AtlasClient.from_csv(
+atlas = AtlasClient.from_db(
     spark=spark,
-    metadata_path='data/atlas/mapping_meta.csv',
-    data_path='data/atlas/mapping_data.csv',
+    metadata_table='atlas.meta',
+    data_table='atlas.data',
 )
 
 run_tracker = RunTracker(RunRepository())
@@ -91,6 +92,12 @@ gl = GLClient.from_db(
     spark=spark,
     segment_default_table='gl.segment_default',
     registry=registry,
+)
+
+recon = ReconClient.from_db(
+    spark=spark,
+    run_tracker=run_tracker,
+    gl=gl,
 )
 
 orchestrator = WorkflowOrchestrator(

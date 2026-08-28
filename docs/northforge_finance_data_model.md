@@ -78,10 +78,10 @@ Business / Source Data
     Interface
         |
         v
-        GL              [planned]
+        GL
         |
         v
-  Reconciliation        [planned]
+  Reconciliation (Recon)
         |
         v
   Break Analysis        [planned]
@@ -911,9 +911,39 @@ Foundry-owned mapping/default behavior and GL-owned default behavior
 should remain conceptually distinct so future break-analysis scenarios
 can identify which system changed a value.
 
-## 21. Planned Reconciliation and Break Analysis
+## 21. Recon (v1) and Planned Break Analysis
 
-The eventual flow is:
+Recon is implemented for v1 with the following scope:
+
+- Only the `TRIAL_BALANCE` dataclass is supported.
+- Recon is scoped by a single `WORKFLOW_RUN_ID`: `recon.reconcile(workflow_run_id)`
+  reads `interface.trial_balance` and `gl.posting` for that one workflow
+  and compares them.
+- Comparison is balance-level, not transaction-level: both sides are
+  aggregated to `SUM(ACCOUNTED_AMOUNT)` over a common recon grain before
+  being compared. `ACCOUNTED_AMOUNT` already carries the correct
+  debit/credit sign, so `CR_DR_IND` plays no part in recon.
+- The recon grain (`RECON_KEYS`) is `WORKFLOW_RUN_ID`, `AS_OF_DATE`,
+  `ENTITY_CD`, `DEPT_CD`, `BRANCH_CD`, `GL_ACCOUNT`, `SUB_ACCOUNT`,
+  `AFFILIATE_CD`, `PRODUCT_CD`, `BOOK_CD`, `SOURCE_CD`, and
+  `ACCOUNTED_CURRENCY`.
+- Results are persisted to `recon.result`, one row per recon grain, with
+  `INTERFACE_BALANCE`, `GL_BALANCE`, and
+  `DIFFERENCE_AMOUNT = INTERFACE_BALANCE - GL_BALANCE`. A grain present
+  on only one side gets a zero balance on the other.
+- Every recon execution runs under its own `ExecutionRun`
+  (`component='recon'`, `operation='reconcile'`), created under the same
+  `WORKFLOW_RUN_ID` being reconciled. `PRODUCER_RUN_ID` on each
+  `recon.result` row identifies that recon execution, distinct from the
+  Foundry/GL `PRODUCER_RUN_ID`s that produced the Interface/GL data being
+  compared.
+
+Recon deliberately does not yet own multi-dataclass or multi-workflow
+scope: once further dataclasses exist and need to net together, recon
+may need to leave the accounting `WORKFLOW_RUN_ID` grain for its own
+grouping/scope concept. That evolution is intentionally deferred.
+
+Break Analysis remains planned. The eventual flow is:
 
 ```text
 Foundry Posting / Interface
@@ -923,13 +953,10 @@ Foundry Posting / Interface
          GL Posting
              |
              v
-       Reconciliation
+       Reconciliation [aka Recon Report]
              |
              v
-        Break Report
-             |
-             v
-      Break Analysis Agent
+      Break Analysis Agent  [planned]
 ```
 
 The synthetic universe should evolve by adding deliberate

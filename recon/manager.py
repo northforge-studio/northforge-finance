@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
-from pyspark.sql import Row
+from pyspark.sql import DataFrame, Row
 
 from core.runs import RunTracker
 
@@ -73,6 +73,10 @@ class ReconManager:
             break_count=break_count,
             results=results,
         )
+
+
+    def get_results(self, workflow_run_id: UUID) -> DataFrame:
+        return self._repository.get_results(workflow_run_id)
 
 
     def _to_result(
