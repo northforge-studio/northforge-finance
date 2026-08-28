@@ -8,6 +8,26 @@ from pyspark.sql.types import (
 )
 
 
+# The grain recon is calculated and aggregated at. Shared by Phase 2's
+# calculation logic (groupBy/join keys) and the recon.result persistence
+# contract below (every key here, except WORKFLOW_RUN_ID, also appears
+# as a RESULT_SCHEMA column).
+RECON_KEYS = (
+    'WORKFLOW_RUN_ID',
+    'AS_OF_DATE',
+    'ENTITY_CD',
+    'DEPT_CD',
+    'BRANCH_CD',
+    'GL_ACCOUNT',
+    'SUB_ACCOUNT',
+    'AFFILIATE_CD',
+    'PRODUCT_CD',
+    'BOOK_CD',
+    'SOURCE_CD',
+    'ACCOUNTED_CURRENCY',
+)
+
+
 # The physical schema of recon.result. Column names/types mirror the
 # migration in
 # migrations/versions/c6d521ab213f_create_recon_result_table.py exactly,
