@@ -6,6 +6,12 @@ from pyspark.sql import functions as F
 
 from core.store import Store
 
+# The source Interface table is dataclass-specific; for v1 it is
+# interface.trial_balance, the only Interface table GL currently reads.
+# Reusing gl.contracts' schema keeps that physical contract defined in
+# exactly one place.
+from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
+
 from recon.contracts import RESULT_SCHEMA
 from recon.models import ReconResult
 
@@ -14,6 +20,18 @@ class ReconRepository:
     def __init__(self, store: Store, spark: SparkSession):
         self._store = store
         self._spark = spark
+
+
+    def get_interface_trial_balance(
+        self,
+        workflow_run_id: UUID,
+    ) -> DataFrame:
+        df = self._store.read(
+            table_name='INTERFACE_TRIAL_BALANCE',
+            schema=INTERFACE_TRIAL_BALANCE_SCHEMA,
+        )
+
+        return df.filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
 
 
     def write_results(self, results: Sequence[ReconResult]) -> None:

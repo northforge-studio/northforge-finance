@@ -32,3 +32,12 @@ class ReconResult:
     interface_balance: Decimal
     gl_balance: Decimal
     difference_amount: Decimal
+
+
+@dataclass(frozen=True)
+class ReconRunResult:
+    workflow_run_id: UUID
+    producer_run_id: UUID
+    result_count: int
+    break_count: int
+    results: tuple[ReconResult, ...]
