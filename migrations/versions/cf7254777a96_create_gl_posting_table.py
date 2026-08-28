@@ -96,9 +96,10 @@ def upgrade() -> None:
         schema='gl',
     )
 
-    # PRODUCER_RUN_ID is the primary selector for a single GL execution's
-    # output (get_postings / delete_postings), since the same business_date
-    # can be processed by multiple GL executions.
+    # WORKFLOW_RUN_ID is the operational selector for get_postings /
+    # delete_postings (V1: one producer execution per workflow), since the
+    # same business_date can be processed by multiple GL workflows.
+    # PRODUCER_RUN_ID remains indexed as exact producer lineage.
     op.create_index(
         'ix_gl_posting_producer_run_id',
         'posting',

@@ -311,9 +311,12 @@ class GLManager:
         identity: RunIdentity,
         source_producer_run_id: UUID,
     ) -> GLImportResult:
+        # V1 invariant: one Interface producer execution per workflow, so
+        # workflow_run_id alone is sufficient to select GL's source rows.
+        # source_producer_run_id is retained purely as the exact Interface
+        # execution's lineage, stamped onto the result below.
         instructions = self._repository.get_instructions(
             workflow_run_id=identity.workflow_run_id,
-            producer_run_id=source_producer_run_id,
         )
 
         results = tuple(
@@ -335,16 +338,16 @@ class GLManager:
 
 
     def rollback_execution(self, identity: RunIdentity) -> None:
-        self._repository.delete_postings(identity.run_id)
-        self._repository.delete_rejections(identity.run_id)
+        self._repository.delete_postings(identity.workflow_run_id)
+        self._repository.delete_rejections(identity.workflow_run_id)
 
 
-    def get_postings(self, producer_run_id: UUID) -> DataFrame:
-        return self._repository.get_postings(producer_run_id)
+    def get_postings(self, workflow_run_id: UUID) -> DataFrame:
+        return self._repository.get_postings(workflow_run_id)
 
 
-    def get_rejections(self, producer_run_id: UUID) -> DataFrame:
-        return self._repository.get_rejections(producer_run_id)
+    def get_rejections(self, workflow_run_id: UUID) -> DataFrame:
+        return self._repository.get_rejections(workflow_run_id)
 
 
     def _reject(

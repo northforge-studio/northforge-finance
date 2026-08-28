@@ -19,19 +19,19 @@ class _InterfacePipeline(BasePipeline):
     def pre_staging(self): ...
     def main_staging(self, df): ...
     def post_staging(self, df): ...
-    def pre_enrichment(self, source_producer_run_id): ...
+    def pre_enrichment(self, workflow_run_id): ...
     def main_enrichment(self, df): ...
     def post_enrichment(self, df): ...
-    def pre_reporting(self, staging_producer_run_id, enrichment_producer_run_id): ...
+    def pre_reporting(self, workflow_run_id): ...
     def main_reporting(self, df): ...
     def post_reporting(self, df): ...
-    def pre_posting(self, source_producer_run_id): ...
+    def pre_posting(self, workflow_run_id): ...
     def main_posting(self, df): ...
     def post_posting(self, df): ...
 
 
-    def pre_interface(self, source_producer_run_id):
-        self.pre_interface_called_with = source_producer_run_id
+    def pre_interface(self, workflow_run_id):
+        self.pre_interface_called_with = workflow_run_id
         return self._interface_df
 
 
@@ -68,8 +68,7 @@ def test_interface_returns_zone_result_for_supplied_identity(spark):
         parent_run_id=uuid4(),
     )
 
-    source_producer_run_id = uuid4()
-    result = pipeline.interface(identity, source_producer_run_id=source_producer_run_id)
+    result = pipeline.interface(identity)
 
     assert isinstance(result, ZoneResult)
     assert result.zone == 'INTERFACE'
@@ -81,7 +80,7 @@ def test_interface_returns_zone_result_for_supplied_identity(spark):
     assert pipeline.post_interface_called_with.count() == 2
 
 
-def test_interface_passes_source_producer_run_id_to_pre_interface(spark):
+def test_interface_passes_workflow_run_id_to_pre_interface(spark):
     df = spark.createDataFrame([(1,)], ['ID'])
     pipeline = _make_pipeline(interface_df=df)
 
@@ -90,11 +89,10 @@ def test_interface_passes_source_producer_run_id_to_pre_interface(spark):
         run_id=uuid4(),
         parent_run_id=uuid4(),
     )
-    source_producer_run_id = uuid4()
 
-    pipeline.interface(identity, source_producer_run_id=source_producer_run_id)
+    pipeline.interface(identity)
 
-    assert pipeline.pre_interface_called_with == source_producer_run_id
+    assert pipeline.pre_interface_called_with == identity.workflow_run_id
 
 
 def test_interface_stamps_supplied_workflow_and_producer_run_id(spark):
@@ -107,7 +105,7 @@ def test_interface_stamps_supplied_workflow_and_producer_run_id(spark):
         parent_run_id=uuid4(),
     )
 
-    pipeline.interface(identity, source_producer_run_id=uuid4())
+    pipeline.interface(identity)
 
     row = pipeline.post_interface_called_with.collect()[0]
     assert row['WORKFLOW_RUN_ID'] == str(identity.workflow_run_id)

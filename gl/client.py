@@ -153,9 +153,9 @@ class GLClient:
         self._manager.rollback_execution(identity)
 
 
-    def get_postings(self, producer_run_id: UUID) -> DataFrame:
-        return self._manager.get_postings(producer_run_id)
+    def get_postings(self, workflow_run_id: UUID) -> DataFrame:
+        return self._manager.get_postings(workflow_run_id)
 
 
-    def get_rejections(self, producer_run_id: UUID) -> DataFrame:
-        return self._manager.get_rejections(producer_run_id)
+    def get_rejections(self, workflow_run_id: UUID) -> DataFrame:
+        return self._manager.get_rejections(workflow_run_id)

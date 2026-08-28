@@ -55,54 +55,72 @@ def _write_enrichment_row(repository, spark, **overrides):
     repository.write_enrichment(df)
 
 
-def test_read_staging_returns_only_the_named_producers_rows(repository, spark):
+def test_read_staging_returns_only_the_named_workflows_rows(repository, spark):
     kept = str(uuid4())
     other = str(uuid4())
 
-    _write_staging_row(repository, spark, PRODUCER_RUN_ID=kept, SRC_RECORD_ID='rec-1')
-    _write_staging_row(repository, spark, PRODUCER_RUN_ID=other, SRC_RECORD_ID='rec-2')
+    _write_staging_row(repository, spark, WORKFLOW_RUN_ID=kept, SRC_RECORD_ID='rec-1')
+    _write_staging_row(repository, spark, WORKFLOW_RUN_ID=other, SRC_RECORD_ID='rec-2')
 
     df = repository.read_staging(kept)
 
     rows = df.collect()
     assert len(rows) == 1
-    assert rows[0]['PRODUCER_RUN_ID'] == kept
+    assert rows[0]['WORKFLOW_RUN_ID'] == kept
     assert rows[0]['SRC_RECORD_ID'] == 'rec-1'
 
 
-def test_read_staging_same_business_dt_two_executions_do_not_mix(repository, spark):
-    # Two Foundry executions (e.g. a retry) processed the same business_dt;
-    # selecting one producer must not pull in the other's rows.
-    s1 = str(uuid4())
-    s2 = str(uuid4())
+def test_read_staging_preserves_producer_run_id_on_returned_rows(repository, spark):
+    # PRODUCER_RUN_ID is retained as exact producer lineage even though
+    # WORKFLOW_RUN_ID is now the operational read key.
+    workflow_run_id = str(uuid4())
+    producer_run_id = str(uuid4())
 
-    _write_staging_row(repository, spark, PRODUCER_RUN_ID=s1, SRC_RECORD_ID='s1-rec')
-    _write_staging_row(repository, spark, PRODUCER_RUN_ID=s2, SRC_RECORD_ID='s2-rec')
+    _write_staging_row(
+        repository, spark,
+        WORKFLOW_RUN_ID=workflow_run_id,
+        PRODUCER_RUN_ID=producer_run_id,
+        SRC_RECORD_ID='rec-1',
+    )
 
-    only_s2 = repository.read_staging(s2).collect()
+    row = repository.read_staging(workflow_run_id).collect()[0]
 
-    assert len(only_s2) == 1
-    assert only_s2[0]['PRODUCER_RUN_ID'] == s2
-    assert only_s2[0]['SRC_RECORD_ID'] == 's2-rec'
+    assert row['PRODUCER_RUN_ID'] == producer_run_id
 
 
-def test_read_staging_raises_when_no_rows_for_producer(repository):
+def test_read_staging_same_business_dt_two_workflows_do_not_mix(repository, spark):
+    # Two Foundry workflows processed the same business_dt; selecting one
+    # workflow must not pull in the other's rows.
+    w1 = str(uuid4())
+    w2 = str(uuid4())
+
+    _write_staging_row(repository, spark, WORKFLOW_RUN_ID=w1, SRC_RECORD_ID='w1-rec')
+    _write_staging_row(repository, spark, WORKFLOW_RUN_ID=w2, SRC_RECORD_ID='w2-rec')
+
+    only_w2 = repository.read_staging(w2).collect()
+
+    assert len(only_w2) == 1
+    assert only_w2[0]['WORKFLOW_RUN_ID'] == w2
+    assert only_w2[0]['SRC_RECORD_ID'] == 'w2-rec'
+
+
+def test_read_staging_raises_when_no_rows_for_workflow(repository):
     with pytest.raises(ValueError):
         repository.read_staging(uuid4())
 
 
-def test_read_enrichment_returns_only_the_named_producers_rows(repository, spark):
+def test_read_enrichment_returns_only_the_named_workflows_rows(repository, spark):
     kept = str(uuid4())
     other = str(uuid4())
 
-    _write_enrichment_row(repository, spark, PRODUCER_RUN_ID=kept, SRC_RECORD_ID='rec-1')
-    _write_enrichment_row(repository, spark, PRODUCER_RUN_ID=other, SRC_RECORD_ID='rec-2')
+    _write_enrichment_row(repository, spark, WORKFLOW_RUN_ID=kept, SRC_RECORD_ID='rec-1')
+    _write_enrichment_row(repository, spark, WORKFLOW_RUN_ID=other, SRC_RECORD_ID='rec-2')
 
     df = repository.read_enrichment(kept)
 
     rows = df.collect()
     assert len(rows) == 1
-    assert rows[0]['PRODUCER_RUN_ID'] == kept
+    assert rows[0]['WORKFLOW_RUN_ID'] == kept
     assert rows[0]['SRC_RECORD_ID'] == 'rec-1'
 
 

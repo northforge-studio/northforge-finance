@@ -19,15 +19,13 @@ class _ReportingPipeline(BasePipeline):
     def pre_staging(self): ...
     def main_staging(self, df): ...
     def post_staging(self, df): ...
-    def pre_enrichment(self, source_producer_run_id): ...
+    def pre_enrichment(self, workflow_run_id): ...
     def main_enrichment(self, df): ...
     def post_enrichment(self, df): ...
 
 
-    def pre_reporting(self, staging_producer_run_id, enrichment_producer_run_id):
-        self.pre_reporting_called_with = (
-            staging_producer_run_id, enrichment_producer_run_id,
-        )
+    def pre_reporting(self, workflow_run_id):
+        self.pre_reporting_called_with = workflow_run_id
         return self._reporting_df
 
 
@@ -40,10 +38,10 @@ class _ReportingPipeline(BasePipeline):
         return self._config.business_dt
 
 
-    def pre_posting(self, source_producer_run_id): ...
+    def pre_posting(self, workflow_run_id): ...
     def main_posting(self, df): ...
     def post_posting(self, df): ...
-    def pre_interface(self, source_producer_run_id): ...
+    def pre_interface(self, workflow_run_id): ...
     def main_interface(self, df): ...
     def post_interface(self, df): ...
 
@@ -72,13 +70,7 @@ def test_reporting_returns_zone_result_for_supplied_identity(spark):
         parent_run_id=uuid4(),
     )
 
-    staging_producer_run_id = uuid4()
-    enrichment_producer_run_id = uuid4()
-    result = pipeline.reporting(
-        identity,
-        staging_producer_run_id=staging_producer_run_id,
-        enrichment_producer_run_id=enrichment_producer_run_id,
-    )
+    result = pipeline.reporting(identity)
 
     assert isinstance(result, ZoneResult)
     assert result.zone == 'REPORTING'
@@ -90,7 +82,7 @@ def test_reporting_returns_zone_result_for_supplied_identity(spark):
     assert pipeline.post_reporting_called_with.count() == 3
 
 
-def test_reporting_passes_both_upstream_producer_run_ids_to_pre_reporting(spark):
+def test_reporting_passes_workflow_run_id_to_pre_reporting(spark):
     df = spark.createDataFrame([(1,)], ['ID'])
     pipeline = _make_pipeline(reporting_df=df)
 
@@ -99,18 +91,10 @@ def test_reporting_passes_both_upstream_producer_run_ids_to_pre_reporting(spark)
         run_id=uuid4(),
         parent_run_id=uuid4(),
     )
-    staging_producer_run_id = uuid4()
-    enrichment_producer_run_id = uuid4()
 
-    pipeline.reporting(
-        identity,
-        staging_producer_run_id=staging_producer_run_id,
-        enrichment_producer_run_id=enrichment_producer_run_id,
-    )
+    pipeline.reporting(identity)
 
-    assert pipeline.pre_reporting_called_with == (
-        staging_producer_run_id, enrichment_producer_run_id,
-    )
+    assert pipeline.pre_reporting_called_with == identity.workflow_run_id
 
 
 def test_reporting_stamps_supplied_workflow_and_producer_run_id(spark):
@@ -123,11 +107,7 @@ def test_reporting_stamps_supplied_workflow_and_producer_run_id(spark):
         parent_run_id=uuid4(),
     )
 
-    pipeline.reporting(
-        identity,
-        staging_producer_run_id=uuid4(),
-        enrichment_producer_run_id=uuid4(),
-    )
+    pipeline.reporting(identity)
 
     row = pipeline.post_reporting_called_with.collect()[0]
     assert row['WORKFLOW_RUN_ID'] == str(identity.workflow_run_id)

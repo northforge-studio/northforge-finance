@@ -21,16 +21,16 @@ BUSINESS_DT = date(2026, 1, 1)
 
 
 class _FakeRepository:
-    def __init__(self, results, instructions=(), postings_by_producer=None, rejections_by_producer=None):
+    def __init__(self, results, instructions=(), postings_by_workflow=None, rejections_by_workflow=None):
         self._results = results
         self._instructions = instructions
-        self._postings_by_producer = postings_by_producer or {}
-        self._rejections_by_producer = rejections_by_producer or {}
+        self._postings_by_workflow = postings_by_workflow or {}
+        self._rejections_by_workflow = rejections_by_workflow or {}
         self.calls = []
         self.postings = []
         self.rejections = []
-        self.deleted_posting_producer_run_ids = []
-        self.deleted_rejection_producer_run_ids = []
+        self.deleted_posting_workflow_run_ids = []
+        self.deleted_rejection_workflow_run_ids = []
         self.get_instructions_calls = []
         self.get_postings_calls = []
         self.get_rejections_calls = []
@@ -49,27 +49,27 @@ class _FakeRepository:
         self.rejections.append(rejection)
 
 
-    def get_instructions(self, workflow_run_id, producer_run_id):
-        self.get_instructions_calls.append((workflow_run_id, producer_run_id))
+    def get_instructions(self, workflow_run_id):
+        self.get_instructions_calls.append(workflow_run_id)
         return self._instructions
 
 
-    def delete_postings(self, producer_run_id):
-        self.deleted_posting_producer_run_ids.append(producer_run_id)
+    def delete_postings(self, workflow_run_id):
+        self.deleted_posting_workflow_run_ids.append(workflow_run_id)
 
 
-    def delete_rejections(self, producer_run_id):
-        self.deleted_rejection_producer_run_ids.append(producer_run_id)
+    def delete_rejections(self, workflow_run_id):
+        self.deleted_rejection_workflow_run_ids.append(workflow_run_id)
 
 
-    def get_postings(self, producer_run_id):
-        self.get_postings_calls.append(producer_run_id)
-        return self._postings_by_producer.get(producer_run_id, ())
+    def get_postings(self, workflow_run_id):
+        self.get_postings_calls.append(workflow_run_id)
+        return self._postings_by_workflow.get(workflow_run_id, ())
 
 
-    def get_rejections(self, producer_run_id):
-        self.get_rejections_calls.append(producer_run_id)
-        return self._rejections_by_producer.get(producer_run_id, ())
+    def get_rejections(self, workflow_run_id):
+        self.get_rejections_calls.append(workflow_run_id)
+        return self._rejections_by_workflow.get(workflow_run_id, ())
 
 
 class _FakeRegistryClient:
@@ -1357,7 +1357,7 @@ def test_import_instructions_stamps_gl_execution_lineage_not_interface_lineage()
     assert rejection.producer_run_id != interface_producer_run_id
 
 
-def test_import_instructions_reads_only_the_named_interface_execution():
+def test_import_instructions_reads_by_workflow_run_id_not_source_producer_run_id():
     repository = _FakeRepository({}, instructions=(_valid_instruction(),))
     registry = _FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
@@ -1366,17 +1366,16 @@ def test_import_instructions_reads_only_the_named_interface_execution():
 
     manager.import_instructions(identity, source_producer_run_id)
 
-    # Interface rows are selected by workflow/producer lineage (the
-    # Foundry Interface execution's identity), not by business_dt
-    # or a "latest batch" lookup.
-    assert repository.get_instructions_calls == [
-        (identity.workflow_run_id, source_producer_run_id),
-    ]
+    # V1 invariant: one Interface producer execution per workflow, so
+    # Interface rows are selected by WORKFLOW_RUN_ID alone, not by
+    # business_dt, a "latest batch" lookup, or source_producer_run_id
+    # (which is retained only as lineage on the returned GLImportResult).
+    assert repository.get_instructions_calls == [identity.workflow_run_id]
 
 
 # -- rollback_execution ------------------------------------------------
 
-def test_rollback_execution_deletes_only_postings_and_rejections_for_the_run():
+def test_rollback_execution_deletes_only_postings_and_rejections_for_the_workflow():
     repository = _FakeRepository({})
     registry = _FakeRegistryClient(set())
     manager = GLManager(repository, registry)
@@ -1384,31 +1383,31 @@ def test_rollback_execution_deletes_only_postings_and_rejections_for_the_run():
 
     manager.rollback_execution(identity)
 
-    assert repository.deleted_posting_producer_run_ids == [identity.run_id]
-    assert repository.deleted_rejection_producer_run_ids == [identity.run_id]
+    assert repository.deleted_posting_workflow_run_ids == [identity.workflow_run_id]
+    assert repository.deleted_rejection_workflow_run_ids == [identity.workflow_run_id]
 
 
 # -- get_postings / get_rejections --------------------------------------
 
-def test_get_postings_delegates_to_repository_by_producer_run_id():
-    producer_run_id = uuid4()
+def test_get_postings_delegates_to_repository_by_workflow_run_id():
+    workflow_run_id = uuid4()
     expected = (object(),)
-    repository = _FakeRepository({}, postings_by_producer={producer_run_id: expected})
+    repository = _FakeRepository({}, postings_by_workflow={workflow_run_id: expected})
     manager = GLManager(repository, _no_registry_calls_expected())
 
-    result = manager.get_postings(producer_run_id)
+    result = manager.get_postings(workflow_run_id)
 
     assert result == expected
-    assert repository.get_postings_calls == [producer_run_id]
+    assert repository.get_postings_calls == [workflow_run_id]
 
 
-def test_get_rejections_delegates_to_repository_by_producer_run_id():
-    producer_run_id = uuid4()
+def test_get_rejections_delegates_to_repository_by_workflow_run_id():
+    workflow_run_id = uuid4()
     expected = (object(),)
-    repository = _FakeRepository({}, rejections_by_producer={producer_run_id: expected})
+    repository = _FakeRepository({}, rejections_by_workflow={workflow_run_id: expected})
     manager = GLManager(repository, _no_registry_calls_expected())
 
-    result = manager.get_rejections(producer_run_id)
+    result = manager.get_rejections(workflow_run_id)
 
     assert result == expected
-    assert repository.get_rejections_calls == [producer_run_id]
+    assert repository.get_rejections_calls == [workflow_run_id]

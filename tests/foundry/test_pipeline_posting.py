@@ -19,16 +19,16 @@ class _PostingPipeline(BasePipeline):
     def pre_staging(self): ...
     def main_staging(self, df): ...
     def post_staging(self, df): ...
-    def pre_enrichment(self, source_producer_run_id): ...
+    def pre_enrichment(self, workflow_run_id): ...
     def main_enrichment(self, df): ...
     def post_enrichment(self, df): ...
-    def pre_reporting(self, staging_producer_run_id, enrichment_producer_run_id): ...
+    def pre_reporting(self, workflow_run_id): ...
     def main_reporting(self, df): ...
     def post_reporting(self, df): ...
 
 
-    def pre_posting(self, source_producer_run_id):
-        self.pre_posting_called_with = source_producer_run_id
+    def pre_posting(self, workflow_run_id):
+        self.pre_posting_called_with = workflow_run_id
         return self._posting_df
 
 
@@ -41,7 +41,7 @@ class _PostingPipeline(BasePipeline):
         return self._config.business_dt
 
 
-    def pre_interface(self, source_producer_run_id): ...
+    def pre_interface(self, workflow_run_id): ...
     def main_interface(self, df): ...
     def post_interface(self, df): ...
 
@@ -70,8 +70,7 @@ def test_posting_returns_zone_result_for_supplied_identity(spark):
         parent_run_id=uuid4(),
     )
 
-    source_producer_run_id = uuid4()
-    result = pipeline.posting(identity, source_producer_run_id=source_producer_run_id)
+    result = pipeline.posting(identity)
 
     assert isinstance(result, ZoneResult)
     assert result.zone == 'POSTING'
@@ -83,7 +82,7 @@ def test_posting_returns_zone_result_for_supplied_identity(spark):
     assert pipeline.post_posting_called_with.count() == 4
 
 
-def test_posting_passes_source_producer_run_id_to_pre_posting(spark):
+def test_posting_passes_workflow_run_id_to_pre_posting(spark):
     df = spark.createDataFrame([(1,)], ['ID'])
     pipeline = _make_pipeline(posting_df=df)
 
@@ -92,11 +91,10 @@ def test_posting_passes_source_producer_run_id_to_pre_posting(spark):
         run_id=uuid4(),
         parent_run_id=uuid4(),
     )
-    source_producer_run_id = uuid4()
 
-    pipeline.posting(identity, source_producer_run_id=source_producer_run_id)
+    pipeline.posting(identity)
 
-    assert pipeline.pre_posting_called_with == source_producer_run_id
+    assert pipeline.pre_posting_called_with == identity.workflow_run_id
 
 
 def test_posting_stamps_supplied_workflow_and_producer_run_id(spark):
@@ -109,7 +107,7 @@ def test_posting_stamps_supplied_workflow_and_producer_run_id(spark):
         parent_run_id=uuid4(),
     )
 
-    pipeline.posting(identity, source_producer_run_id=uuid4())
+    pipeline.posting(identity)
 
     row = pipeline.post_posting_called_with.collect()[0]
     assert row['WORKFLOW_RUN_ID'] == str(identity.workflow_run_id)

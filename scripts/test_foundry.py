@@ -103,9 +103,7 @@ pipeline_result = orchestrator.run_foundry()
 
 print(f"Pipeline run complete: {pipeline_result}")
 
-staging_result = pipeline_result.zones[0]
-
-posting_df = repository.read_staging(staging_result.identity.run_id)
+posting_df = repository.read_staging(pipeline_result.identity.workflow_run_id)
 
 posting_df.show()
 

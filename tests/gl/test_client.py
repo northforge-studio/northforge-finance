@@ -287,25 +287,32 @@ def test_import_instructions_delegates_to_manager(spark, tmp_path, gl_with_posti
 
 # -- get_postings / get_rejections --------------------------------------
 
-def test_get_postings_returns_a_dataframe_of_only_the_named_producers_rows(
+def test_get_postings_returns_a_dataframe_of_only_the_named_workflows_rows(
     gl_with_posting_support,
 ):
     kept = _valid_instruction()
-    other = replace(_valid_instruction(), transaction_number='TXN-2', producer_run_id=uuid4())
+    other = replace(
+        _valid_instruction(),
+        transaction_number='TXN-2',
+        workflow_run_id=uuid4(),
+        producer_run_id=uuid4(),
+    )
 
     posted = gl_with_posting_support.process_instruction(kept)
     gl_with_posting_support.process_instruction(other)
 
-    result = gl_with_posting_support.get_postings(kept.producer_run_id)
+    result = gl_with_posting_support.get_postings(kept.workflow_run_id)
 
     assert isinstance(result, DataFrame)
     rows = result.collect()
     assert len(rows) == 1
     assert UUID(rows[0]['GL_POSTING_ID']) == posted.posting.gl_posting_id
+    assert UUID(rows[0]['WORKFLOW_RUN_ID']) == kept.workflow_run_id
+    # PRODUCER_RUN_ID remains present and unchanged as exact lineage.
     assert UUID(rows[0]['PRODUCER_RUN_ID']) == kept.producer_run_id
 
 
-def test_get_rejections_returns_a_dataframe_of_only_the_named_producers_rows(
+def test_get_rejections_returns_a_dataframe_of_only_the_named_workflows_rows(
     gl_with_posting_support,
 ):
     kept = replace(_valid_instruction(), cr_dr_ind='XX')
@@ -313,16 +320,18 @@ def test_get_rejections_returns_a_dataframe_of_only_the_named_producers_rows(
         _valid_instruction(),
         transaction_number='TXN-2',
         cr_dr_ind='XX',
+        workflow_run_id=uuid4(),
         producer_run_id=uuid4(),
     )
 
     rejected = gl_with_posting_support.process_instruction(kept)
     gl_with_posting_support.process_instruction(other)
 
-    result = gl_with_posting_support.get_rejections(kept.producer_run_id)
+    result = gl_with_posting_support.get_rejections(kept.workflow_run_id)
 
     assert isinstance(result, DataFrame)
     rows = result.collect()
     assert len(rows) == 1
     assert UUID(rows[0]['GL_REJECTION_ID']) == rejected.rejection.gl_rejection_id
+    assert UUID(rows[0]['WORKFLOW_RUN_ID']) == kept.workflow_run_id
     assert UUID(rows[0]['PRODUCER_RUN_ID']) == kept.producer_run_id

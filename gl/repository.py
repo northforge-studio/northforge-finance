@@ -65,14 +65,14 @@ class GLRepository:
 
     def get_postings(
         self,
-        producer_run_id: UUID,
+        workflow_run_id: UUID,
     ) -> DataFrame:
         df = self._store.read(
             table_name='POSTING',
             schema=POSTING_SCHEMA,
         )
 
-        return df.filter(F.col('PRODUCER_RUN_ID') == str(producer_run_id))
+        return df.filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
 
 
     def write_rejection(self, rejection: GLRejection) -> None:
@@ -86,20 +86,19 @@ class GLRepository:
 
     def get_rejections(
         self,
-        producer_run_id: UUID,
+        workflow_run_id: UUID,
     ) -> DataFrame:
         df = self._store.read(
             table_name='REJECTION',
             schema=REJECTION_SCHEMA,
         )
 
-        return df.filter(F.col('PRODUCER_RUN_ID') == str(producer_run_id))
+        return df.filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
 
 
     def get_instructions(
         self,
         workflow_run_id: UUID,
-        producer_run_id: UUID,
     ) -> tuple[GLInstruction, ...]:
         df = self._store.read(
             table_name='INTERFACE_TRIAL_BALANCE',
@@ -108,10 +107,7 @@ class GLRepository:
 
         rows = (
             df
-            .filter(
-                (F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
-                & (F.col('PRODUCER_RUN_ID') == str(producer_run_id))
-            )
+            .filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
             .orderBy('TRANSACTION_NUMBER', 'LINE_NUMBER', 'POSTING_ID')
             .collect()
         )
@@ -119,18 +115,18 @@ class GLRepository:
         return tuple(self._from_instruction_row(row) for row in rows)
 
 
-    def delete_postings(self, producer_run_id: UUID) -> None:
+    def delete_postings(self, workflow_run_id: UUID) -> None:
         self._store.delete(
             table_name='POSTING',
-            filters={'PRODUCER_RUN_ID': str(producer_run_id)},
+            filters={'WORKFLOW_RUN_ID': str(workflow_run_id)},
             schema=POSTING_SCHEMA,
         )
 
 
-    def delete_rejections(self, producer_run_id: UUID) -> None:
+    def delete_rejections(self, workflow_run_id: UUID) -> None:
         self._store.delete(
             table_name='REJECTION',
-            filters={'PRODUCER_RUN_ID': str(producer_run_id)},
+            filters={'WORKFLOW_RUN_ID': str(workflow_run_id)},
             schema=REJECTION_SCHEMA,
         )
 

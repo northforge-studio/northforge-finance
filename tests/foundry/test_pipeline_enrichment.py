@@ -21,8 +21,8 @@ class _EnrichmentPipeline(BasePipeline):
     def post_staging(self, df): ...
 
 
-    def pre_enrichment(self, source_producer_run_id):
-        self.pre_enrichment_called_with = source_producer_run_id
+    def pre_enrichment(self, workflow_run_id):
+        self.pre_enrichment_called_with = workflow_run_id
         return self._enrichment_df
 
 
@@ -35,13 +35,13 @@ class _EnrichmentPipeline(BasePipeline):
         return self._config.business_dt
 
 
-    def pre_reporting(self, staging_producer_run_id, enrichment_producer_run_id): ...
+    def pre_reporting(self, workflow_run_id): ...
     def main_reporting(self, df): ...
     def post_reporting(self, df): ...
-    def pre_posting(self, source_producer_run_id): ...
+    def pre_posting(self, workflow_run_id): ...
     def main_posting(self, df): ...
     def post_posting(self, df): ...
-    def pre_interface(self, source_producer_run_id): ...
+    def pre_interface(self, workflow_run_id): ...
     def main_interface(self, df): ...
     def post_interface(self, df): ...
 
@@ -70,8 +70,7 @@ def test_enrichment_returns_zone_result_for_supplied_identity(spark):
         parent_run_id=uuid4(),
     )
 
-    source_producer_run_id = uuid4()
-    result = pipeline.enrichment(identity, source_producer_run_id=source_producer_run_id)
+    result = pipeline.enrichment(identity)
 
     assert isinstance(result, ZoneResult)
     assert result.zone == 'ENRICHMENT'
@@ -83,7 +82,7 @@ def test_enrichment_returns_zone_result_for_supplied_identity(spark):
     assert pipeline.post_enrichment_called_with.count() == 3
 
 
-def test_enrichment_passes_source_producer_run_id_to_pre_enrichment(spark):
+def test_enrichment_passes_workflow_run_id_to_pre_enrichment(spark):
     df = spark.createDataFrame([(1,)], ['ID'])
     pipeline = _make_pipeline(enrichment_df=df)
 
@@ -92,11 +91,10 @@ def test_enrichment_passes_source_producer_run_id_to_pre_enrichment(spark):
         run_id=uuid4(),
         parent_run_id=uuid4(),
     )
-    source_producer_run_id = uuid4()
 
-    pipeline.enrichment(identity, source_producer_run_id=source_producer_run_id)
+    pipeline.enrichment(identity)
 
-    assert pipeline.pre_enrichment_called_with == source_producer_run_id
+    assert pipeline.pre_enrichment_called_with == identity.workflow_run_id
 
 
 def test_enrichment_stamps_supplied_workflow_and_producer_run_id(spark):
@@ -109,7 +107,7 @@ def test_enrichment_stamps_supplied_workflow_and_producer_run_id(spark):
         parent_run_id=uuid4(),
     )
 
-    pipeline.enrichment(identity, source_producer_run_id=uuid4())
+    pipeline.enrichment(identity)
 
     row = pipeline.post_enrichment_called_with.collect()[0]
     assert row['WORKFLOW_RUN_ID'] == str(identity.workflow_run_id)
@@ -132,7 +130,7 @@ def test_enrichment_overwrites_upstream_producer_run_id(spark):
         parent_run_id=uuid4(),
     )
 
-    pipeline.enrichment(identity, source_producer_run_id=uuid4())
+    pipeline.enrichment(identity)
 
     row = pipeline.post_enrichment_called_with.collect()[0]
     assert row['WORKFLOW_RUN_ID'] == str(identity.workflow_run_id)

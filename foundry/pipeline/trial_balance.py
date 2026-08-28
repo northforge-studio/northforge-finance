@@ -103,8 +103,8 @@ class TrialBalancePipeline(BasePipeline):
         self._repository.write_staging(df)
 
 
-    def pre_enrichment(self, source_producer_run_id: UUID) -> DataFrame:
-        df = self._repository.read_staging(source_producer_run_id)
+    def pre_enrichment(self, workflow_run_id: UUID) -> DataFrame:
+        df = self._repository.read_staging(workflow_run_id)
 
         gateway_rules = self._atlas.get_rule_config(self.DATACLASS)
 
@@ -133,13 +133,9 @@ class TrialBalancePipeline(BasePipeline):
         self._repository.write_enrichment(df)
 
 
-    def pre_reporting(
-        self,
-        staging_producer_run_id: UUID,
-        enrichment_producer_run_id: UUID,
-    ) -> DataFrame:
-        staging_df = self._repository.read_staging(staging_producer_run_id)
-        enrichment_df = self._repository.read_enrichment(enrichment_producer_run_id)
+    def pre_reporting(self, workflow_run_id: UUID) -> DataFrame:
+        staging_df = self._repository.read_staging(workflow_run_id)
+        enrichment_df = self._repository.read_enrichment(workflow_run_id)
 
         df = self._combine_staging_and_enrichment(staging_df, enrichment_df)
 
@@ -183,8 +179,8 @@ class TrialBalancePipeline(BasePipeline):
         self._repository.write_reporting(df)
 
 
-    def pre_posting(self, source_producer_run_id: UUID) -> DataFrame:
-        df = self._repository.read_reporting(source_producer_run_id)
+    def pre_posting(self, workflow_run_id: UUID) -> DataFrame:
+        df = self._repository.read_reporting(workflow_run_id)
 
         df = self._transpose_measures(df)
 
@@ -228,8 +224,8 @@ class TrialBalancePipeline(BasePipeline):
         self._repository.write_posting(df)
 
 
-    def pre_interface(self, source_producer_run_id: UUID) -> DataFrame:
-        df = self._repository.read_posting(source_producer_run_id)
+    def pre_interface(self, workflow_run_id: UUID) -> DataFrame:
+        df = self._repository.read_posting(workflow_run_id)
 
         df = self._spec.apply_transformation(
             df,
@@ -285,7 +281,7 @@ class TrialBalancePipeline(BasePipeline):
 
         handler = handlers.get(operation)
         if handler is not None:
-            handler(identity.run_id)
+            handler(identity.workflow_run_id)
 
 
     def _combine_staging_and_enrichment(

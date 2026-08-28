@@ -842,9 +842,13 @@ AS_OF_DATE
 BUSINESS_DATE
 ```
 
-`PRODUCER_RUN_ID` (the producing execution's UUID) is the selector used
-when reading/deleting Interface data — not `BUSINESS_DATE`/`BATCH_ID`.
-`BUSINESS_DATE` remains the financial/business date the data represents.
+`WORKFLOW_RUN_ID` is the selector used when reading/deleting Interface
+data — not `BUSINESS_DATE`/`BATCH_ID`. V1 has exactly one producer
+execution per output table per workflow, so `WORKFLOW_RUN_ID` alone is
+sufficient. `PRODUCER_RUN_ID` (the producing execution's UUID) remains on
+every row as exact producer lineage, ready for retries/re-executions to
+use later without a schema remodel. `BUSINESS_DATE` remains the
+financial/business date the data represents.
 
 `AS_OF_DATE` remains the financial effective date.
 

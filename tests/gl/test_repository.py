@@ -166,7 +166,7 @@ def test_write_posting_persists_all_lineage_and_accounting_fields(posting_reposi
 
     posting_repository.write_posting(posting)
 
-    rows = posting_repository.get_postings(posting.producer_run_id).collect()
+    rows = posting_repository.get_postings(posting.workflow_run_id).collect()
 
     assert len(rows) == 1
     row = rows[0]
@@ -206,7 +206,7 @@ def test_write_posting_persists_resolved_gl_segments(posting_repository):
 
     posting_repository.write_posting(posting)
 
-    row = posting_repository.get_postings(posting.producer_run_id).collect()[0]
+    row = posting_repository.get_postings(posting.workflow_run_id).collect()[0]
 
     assert row['ENTITY_CD'] == 'USM'
     assert row['DEPT_CD'] == '9999'
@@ -219,58 +219,68 @@ def test_write_posting_persists_resolved_gl_segments(posting_repository):
     assert row['SOURCE_CD'] == 'SRC1'
 
 
-def test_get_postings_returns_only_the_named_producers_rows(posting_repository):
-    # The same business_dt can be processed by multiple GL executions
-    # (retries, corrections). get_postings must isolate a single
-    # execution's output by producer_run_id, never by business_dt.
+def test_get_postings_returns_only_the_named_workflows_rows(posting_repository):
+    # The same business_dt can be processed by multiple GL workflows.
+    # get_postings must isolate a single workflow's output by
+    # workflow_run_id, never by business_dt.
     kept = _posting()
     other = _posting(business_date=kept.business_date)
 
     posting_repository.write_posting(kept)
     posting_repository.write_posting(other)
 
-    rows = posting_repository.get_postings(kept.producer_run_id).collect()
+    rows = posting_repository.get_postings(kept.workflow_run_id).collect()
 
     assert len(rows) == 1
-    assert UUID(rows[0]['PRODUCER_RUN_ID']) == kept.producer_run_id
+    assert UUID(rows[0]['WORKFLOW_RUN_ID']) == kept.workflow_run_id
 
 
-def test_get_postings_does_not_mix_rows_across_producer_runs_even_with_same_workflow(
+def test_get_postings_returns_rows_from_multiple_producer_runs_under_the_same_workflow(
     posting_repository,
 ):
-    # Even when both executions share a WORKFLOW_RUN_ID and BUSINESS_DATE,
-    # only PRODUCER_RUN_ID may distinguish which execution's rows come back.
+    # V1 has exactly one producer execution per workflow for a given
+    # output table, but WORKFLOW_RUN_ID (not PRODUCER_RUN_ID) is the
+    # operational read key. This makes that lookup semantic explicit:
+    # rows sharing a WORKFLOW_RUN_ID but carrying different
+    # PRODUCER_RUN_IDs are still both selected together.
     shared_workflow_run_id = uuid4()
-    shared_business_date = date(2026, 1, 1)
 
-    g1 = _posting(
-        workflow_run_id=shared_workflow_run_id,
-        business_date=shared_business_date,
-    )
-    g2 = _posting(
-        workflow_run_id=shared_workflow_run_id,
-        business_date=shared_business_date,
-    )
+    g1 = _posting(workflow_run_id=shared_workflow_run_id)
+    g2 = _posting(workflow_run_id=shared_workflow_run_id)
 
     posting_repository.write_posting(g1)
     posting_repository.write_posting(g2)
 
-    g1_rows = posting_repository.get_postings(g1.producer_run_id).collect()
-    g2_rows = posting_repository.get_postings(g2.producer_run_id).collect()
+    rows = posting_repository.get_postings(shared_workflow_run_id).collect()
 
-    assert {UUID(r['GL_POSTING_ID']) for r in g1_rows} == {g1.gl_posting_id}
-    assert {UUID(r['GL_POSTING_ID']) for r in g2_rows} == {g2.gl_posting_id}
+    assert {UUID(r['GL_POSTING_ID']) for r in rows} == {g1.gl_posting_id, g2.gl_posting_id}
+    assert {UUID(r['PRODUCER_RUN_ID']) for r in rows} == {
+        g1.producer_run_id, g2.producer_run_id,
+    }
+
+
+def test_get_postings_excludes_rows_from_other_workflows(posting_repository):
+    kept_workflow_run_id = uuid4()
+    other_workflow_run_id = uuid4()
+
+    posting_repository.write_posting(_posting(workflow_run_id=kept_workflow_run_id))
+    posting_repository.write_posting(_posting(workflow_run_id=other_workflow_run_id))
+
+    rows = posting_repository.get_postings(kept_workflow_run_id).collect()
+
+    assert len(rows) == 1
+    assert UUID(rows[0]['WORKFLOW_RUN_ID']) == kept_workflow_run_id
 
 
 def test_get_postings_allows_more_than_one_row_for_same_posting_id(posting_repository):
-    producer_run_id = uuid4()
-    first = _posting(gl_posting_id=uuid4(), posting_id='DUP', producer_run_id=producer_run_id)
-    second = _posting(gl_posting_id=uuid4(), posting_id='DUP', producer_run_id=producer_run_id)
+    workflow_run_id = uuid4()
+    first = _posting(gl_posting_id=uuid4(), posting_id='DUP', workflow_run_id=workflow_run_id)
+    second = _posting(gl_posting_id=uuid4(), posting_id='DUP', workflow_run_id=workflow_run_id)
 
     posting_repository.write_posting(first)
     posting_repository.write_posting(second)
 
-    rows = posting_repository.get_postings(producer_run_id).collect()
+    rows = posting_repository.get_postings(workflow_run_id).collect()
 
     assert len(rows) == 2
     assert {row['POSTING_ID'] for row in rows} == {'DUP'}
@@ -288,7 +298,7 @@ def test_write_posting_preserves_decimal_precision(posting_repository):
 
     posting_repository.write_posting(posting)
 
-    row = posting_repository.get_postings(posting.producer_run_id).collect()[0]
+    row = posting_repository.get_postings(posting.workflow_run_id).collect()[0]
 
     assert row['TRANSACTION_AMOUNT'] == Decimal('12345.123456789012')
     assert row['FX_RATE'] == Decimal('1.123456789012')
@@ -344,7 +354,7 @@ def test_write_rejection_persists_lineage_and_diagnostics(rejection_repository):
 
     rejection_repository.write_rejection(rejection)
 
-    rows = rejection_repository.get_rejections(rejection.producer_run_id).collect()
+    rows = rejection_repository.get_rejections(rejection.workflow_run_id).collect()
 
     assert len(rows) == 1
     row = rows[0]
@@ -373,51 +383,61 @@ def test_write_rejection_stores_segment_resolution_rejection_type(rejection_repo
 
     rejection_repository.write_rejection(rejection)
 
-    row = rejection_repository.get_rejections(rejection.producer_run_id).collect()[0]
+    row = rejection_repository.get_rejections(rejection.workflow_run_id).collect()[0]
 
     assert row['REJECTION_TYPE'] == 'SEGMENT_RESOLUTION'
     assert row['REJECTION_DETAIL'] == 'DEPT_CD,BRANCH_CD'
 
 
-def test_get_rejections_returns_only_the_named_producers_rows(rejection_repository):
+def test_get_rejections_returns_only_the_named_workflows_rows(rejection_repository):
     # Same regression scenario as postings: the same business_dt can be
-    # processed by multiple GL executions, so business_dt must never be
-    # the selector for a specific execution's rejections.
+    # processed by multiple GL workflows, so business_dt must never be
+    # the selector for a specific workflow's rejections.
     kept = _rejection()
     other = _rejection(business_date=kept.business_date)
 
     rejection_repository.write_rejection(kept)
     rejection_repository.write_rejection(other)
 
-    rows = rejection_repository.get_rejections(kept.producer_run_id).collect()
+    rows = rejection_repository.get_rejections(kept.workflow_run_id).collect()
 
     assert len(rows) == 1
-    assert UUID(rows[0]['PRODUCER_RUN_ID']) == kept.producer_run_id
+    assert UUID(rows[0]['WORKFLOW_RUN_ID']) == kept.workflow_run_id
 
 
-def test_get_rejections_does_not_mix_rows_across_producer_runs_even_with_same_workflow(
+def test_get_rejections_returns_rows_from_multiple_producer_runs_under_the_same_workflow(
     rejection_repository,
 ):
+    # Same lookup semantics as postings: WORKFLOW_RUN_ID is the
+    # operational key, so rows sharing a WORKFLOW_RUN_ID but carrying
+    # different PRODUCER_RUN_IDs are still both selected together.
     shared_workflow_run_id = uuid4()
-    shared_business_date = date(2026, 1, 1)
 
-    g1 = _rejection(
-        workflow_run_id=shared_workflow_run_id,
-        business_date=shared_business_date,
-    )
-    g2 = _rejection(
-        workflow_run_id=shared_workflow_run_id,
-        business_date=shared_business_date,
-    )
+    g1 = _rejection(workflow_run_id=shared_workflow_run_id)
+    g2 = _rejection(workflow_run_id=shared_workflow_run_id)
 
     rejection_repository.write_rejection(g1)
     rejection_repository.write_rejection(g2)
 
-    g1_rows = rejection_repository.get_rejections(g1.producer_run_id).collect()
-    g2_rows = rejection_repository.get_rejections(g2.producer_run_id).collect()
+    rows = rejection_repository.get_rejections(shared_workflow_run_id).collect()
 
-    assert {UUID(r['GL_REJECTION_ID']) for r in g1_rows} == {g1.gl_rejection_id}
-    assert {UUID(r['GL_REJECTION_ID']) for r in g2_rows} == {g2.gl_rejection_id}
+    assert {UUID(r['GL_REJECTION_ID']) for r in rows} == {g1.gl_rejection_id, g2.gl_rejection_id}
+    assert {UUID(r['PRODUCER_RUN_ID']) for r in rows} == {
+        g1.producer_run_id, g2.producer_run_id,
+    }
+
+
+def test_get_rejections_excludes_rows_from_other_workflows(rejection_repository):
+    kept_workflow_run_id = uuid4()
+    other_workflow_run_id = uuid4()
+
+    rejection_repository.write_rejection(_rejection(workflow_run_id=kept_workflow_run_id))
+    rejection_repository.write_rejection(_rejection(workflow_run_id=other_workflow_run_id))
+
+    rows = rejection_repository.get_rejections(kept_workflow_run_id).collect()
+
+    assert len(rows) == 1
+    assert UUID(rows[0]['WORKFLOW_RUN_ID']) == kept_workflow_run_id
 
 
 # -- get_instructions -------------------------------------------------------
@@ -509,7 +529,7 @@ def _write_instruction_row(repository, instruction: GLInstruction) -> None:
 def test_get_instructions_returns_correct_partition(interface_repository):
     _write_instruction_row(interface_repository, _instruction())
 
-    results = interface_repository.get_instructions(WORKFLOW_RUN_ID, PRODUCER_RUN_ID)
+    results = interface_repository.get_instructions(WORKFLOW_RUN_ID)
 
     assert len(results) == 1
     assert results[0].transaction_number == 'TXN-1'
@@ -525,13 +545,18 @@ def test_get_instructions_excludes_other_workflow_runs(interface_repository):
         _instruction(workflow_run_id=other_workflow_run_id),
     )
 
-    results = interface_repository.get_instructions(WORKFLOW_RUN_ID, PRODUCER_RUN_ID)
+    results = interface_repository.get_instructions(WORKFLOW_RUN_ID)
 
     assert len(results) == 1
     assert results[0].workflow_run_id == WORKFLOW_RUN_ID
 
 
-def test_get_instructions_excludes_other_producer_runs(interface_repository):
+def test_get_instructions_returns_rows_from_multiple_producer_runs_under_the_same_workflow(
+    interface_repository,
+):
+    # WORKFLOW_RUN_ID is the operational key: rows sharing a
+    # WORKFLOW_RUN_ID but carrying different PRODUCER_RUN_IDs are still
+    # both selected together.
     other_producer_run_id = uuid4()
     _write_instruction_row(interface_repository, _instruction())
     _write_instruction_row(
@@ -539,17 +564,17 @@ def test_get_instructions_excludes_other_producer_runs(interface_repository):
         _instruction(producer_run_id=other_producer_run_id),
     )
 
-    results = interface_repository.get_instructions(WORKFLOW_RUN_ID, PRODUCER_RUN_ID)
+    results = interface_repository.get_instructions(WORKFLOW_RUN_ID)
 
-    assert len(results) == 1
-    assert results[0].producer_run_id == PRODUCER_RUN_ID
+    assert len(results) == 2
+    assert {r.producer_run_id for r in results} == {PRODUCER_RUN_ID, other_producer_run_id}
 
 
 def test_get_instructions_maps_all_fields(interface_repository):
     instruction = _instruction()
     _write_instruction_row(interface_repository, instruction)
 
-    result = interface_repository.get_instructions(WORKFLOW_RUN_ID, PRODUCER_RUN_ID)[0]
+    result = interface_repository.get_instructions(WORKFLOW_RUN_ID)[0]
 
     assert result.workflow_run_id == instruction.workflow_run_id
     assert result.producer_run_id == instruction.producer_run_id
@@ -596,7 +621,7 @@ def test_get_instructions_orders_deterministically(interface_repository):
         _instruction(transaction_number='TXN-1', line_number='1', posting_id='POST-C'),
     )
 
-    results = interface_repository.get_instructions(WORKFLOW_RUN_ID, PRODUCER_RUN_ID)
+    results = interface_repository.get_instructions(WORKFLOW_RUN_ID)
 
     assert [(r.transaction_number, r.line_number) for r in results] == [
         ('TXN-1', '1'),
@@ -619,39 +644,45 @@ def posting_and_rejection_repository(spark, tmp_path):
     return GLRepository(store, spark)
 
 
-def test_delete_postings_removes_only_rows_for_the_named_producer_run(
+def test_delete_postings_removes_only_rows_for_the_named_workflow_run(
     posting_and_rejection_repository,
 ):
-    kept_producer_run_id = uuid4()
-    deleted_producer_run_id = uuid4()
+    kept_workflow_run_id = uuid4()
+    deleted_workflow_run_id = uuid4()
 
     posting_and_rejection_repository.write_posting(
-        _posting(producer_run_id=kept_producer_run_id)
+        _posting(workflow_run_id=kept_workflow_run_id)
     )
     posting_and_rejection_repository.write_posting(
-        _posting(producer_run_id=deleted_producer_run_id)
+        _posting(workflow_run_id=deleted_workflow_run_id)
     )
 
-    posting_and_rejection_repository.delete_postings(deleted_producer_run_id)
+    posting_and_rejection_repository.delete_postings(deleted_workflow_run_id)
 
-    remaining = posting_and_rejection_repository.get_postings(kept_producer_run_id).collect()
-    assert {UUID(row['PRODUCER_RUN_ID']) for row in remaining} == {kept_producer_run_id}
+    # The targeted workflow's rows are actually gone...
+    assert posting_and_rejection_repository.get_postings(deleted_workflow_run_id).collect() == []
+
+    # ...and the other workflow's rows are untouched.
+    remaining = posting_and_rejection_repository.get_postings(kept_workflow_run_id).collect()
+    assert {UUID(row['WORKFLOW_RUN_ID']) for row in remaining} == {kept_workflow_run_id}
 
 
-def test_delete_rejections_removes_only_rows_for_the_named_producer_run(
+def test_delete_rejections_removes_only_rows_for_the_named_workflow_run(
     posting_and_rejection_repository,
 ):
-    kept_producer_run_id = uuid4()
-    deleted_producer_run_id = uuid4()
+    kept_workflow_run_id = uuid4()
+    deleted_workflow_run_id = uuid4()
 
     posting_and_rejection_repository.write_rejection(
-        _rejection(producer_run_id=kept_producer_run_id)
+        _rejection(workflow_run_id=kept_workflow_run_id)
     )
     posting_and_rejection_repository.write_rejection(
-        _rejection(producer_run_id=deleted_producer_run_id)
+        _rejection(workflow_run_id=deleted_workflow_run_id)
     )
 
-    posting_and_rejection_repository.delete_rejections(deleted_producer_run_id)
+    posting_and_rejection_repository.delete_rejections(deleted_workflow_run_id)
 
-    remaining = posting_and_rejection_repository.get_rejections(kept_producer_run_id).collect()
-    assert {UUID(row['PRODUCER_RUN_ID']) for row in remaining} == {kept_producer_run_id}
+    assert posting_and_rejection_repository.get_rejections(deleted_workflow_run_id).collect() == []
+
+    remaining = posting_and_rejection_repository.get_rejections(kept_workflow_run_id).collect()
+    assert {UUID(row['WORKFLOW_RUN_ID']) for row in remaining} == {kept_workflow_run_id}

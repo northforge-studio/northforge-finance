@@ -145,21 +145,14 @@ class WorkflowOrchestrator:
             )
             enrichment_result = self._run_foundry_zone(
                 operation='ENRICHMENT',
-                zone=lambda identity: self._foundry_pipeline.enrichment(
-                    identity,
-                    source_producer_run_id=staging_result.identity.run_id,
-                ),
+                zone=self._foundry_pipeline.enrichment,
                 workflow_run_id=workflow_run_id,
                 parent_run_id=pipeline_execution.run_id,
                 depends_on=((staging_result, 'STAGING'),),
             )
             reporting_result = self._run_foundry_zone(
                 operation='REPORTING',
-                zone=lambda identity: self._foundry_pipeline.reporting(
-                    identity,
-                    staging_producer_run_id=staging_result.identity.run_id,
-                    enrichment_producer_run_id=enrichment_result.identity.run_id,
-                ),
+                zone=self._foundry_pipeline.reporting,
                 workflow_run_id=workflow_run_id,
                 parent_run_id=pipeline_execution.run_id,
                 depends_on=(
@@ -169,20 +162,14 @@ class WorkflowOrchestrator:
             )
             posting_result = self._run_foundry_zone(
                 operation='POSTING',
-                zone=lambda identity: self._foundry_pipeline.posting(
-                    identity,
-                    source_producer_run_id=reporting_result.identity.run_id,
-                ),
+                zone=self._foundry_pipeline.posting,
                 workflow_run_id=workflow_run_id,
                 parent_run_id=pipeline_execution.run_id,
                 depends_on=((reporting_result, 'REPORTING'),),
             )
             interface_result = self._run_foundry_zone(
                 operation='INTERFACE',
-                zone=lambda identity: self._foundry_pipeline.interface(
-                    identity,
-                    source_producer_run_id=posting_result.identity.run_id,
-                ),
+                zone=self._foundry_pipeline.interface,
                 workflow_run_id=workflow_run_id,
                 parent_run_id=pipeline_execution.run_id,
                 depends_on=((posting_result, 'POSTING'),),
