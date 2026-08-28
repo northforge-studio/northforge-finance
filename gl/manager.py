@@ -1,6 +1,8 @@
 from datetime import date, datetime, timezone
 from uuid import UUID, uuid4
 
+from pyspark.sql import DataFrame
+
 from registry import RegistryClient, SegmentType
 
 from core.runs import RunIdentity
@@ -337,11 +339,11 @@ class GLManager:
         self._repository.delete_rejections(identity.run_id)
 
 
-    def get_postings(self, producer_run_id: UUID) -> tuple[GLPosting, ...]:
+    def get_postings(self, producer_run_id: UUID) -> DataFrame:
         return self._repository.get_postings(producer_run_id)
 
 
-    def get_rejections(self, producer_run_id: UUID) -> tuple[GLRejection, ...]:
+    def get_rejections(self, producer_run_id: UUID) -> DataFrame:
         return self._repository.get_rejections(producer_run_id)
 
 

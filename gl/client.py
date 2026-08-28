@@ -2,7 +2,7 @@ from datetime import date
 from pathlib import Path
 from uuid import UUID
 
-from pyspark.sql import SparkSession
+from pyspark.sql import DataFrame, SparkSession
 
 from core.store import (
     CsvStore,
@@ -153,9 +153,9 @@ class GLClient:
         self._manager.rollback_execution(identity)
 
 
-    def get_postings(self, producer_run_id: UUID) -> tuple[GLPosting, ...]:
+    def get_postings(self, producer_run_id: UUID) -> DataFrame:
         return self._manager.get_postings(producer_run_id)
 
 
-    def get_rejections(self, producer_run_id: UUID) -> tuple[GLRejection, ...]:
+    def get_rejections(self, producer_run_id: UUID) -> DataFrame:
         return self._manager.get_rejections(producer_run_id)

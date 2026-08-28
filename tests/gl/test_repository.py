@@ -1,8 +1,10 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
+
+from pyspark.sql import DataFrame
 
 from core.store import CsvStore
 
@@ -151,34 +153,42 @@ def posting_repository(spark, tmp_path):
     return GLRepository(store, spark)
 
 
+def test_get_postings_returns_a_spark_dataframe(posting_repository):
+    posting_repository.write_posting(_posting())
+
+    result = posting_repository.get_postings(uuid4())
+
+    assert isinstance(result, DataFrame)
+
+
 def test_write_posting_persists_all_lineage_and_accounting_fields(posting_repository):
     posting = _posting()
 
     posting_repository.write_posting(posting)
 
-    results = posting_repository.get_postings(posting.producer_run_id)
+    rows = posting_repository.get_postings(posting.producer_run_id).collect()
 
-    assert len(results) == 1
-    result = results[0]
-    assert result.gl_posting_id == posting.gl_posting_id
-    assert result.workflow_run_id == posting.workflow_run_id
-    assert result.producer_run_id == posting.producer_run_id
-    assert result.dataclass == posting.dataclass
-    assert result.transaction_number == posting.transaction_number
-    assert result.line_number == posting.line_number
-    assert result.foundry_rule_id == posting.foundry_rule_id
-    assert result.posting_id == posting.posting_id
-    assert result.posting_stream == posting.posting_stream
-    assert result.src_record_id == posting.src_record_id
-    assert result.src_app_cd == posting.src_app_cd
-    assert result.cr_dr_ind == posting.cr_dr_ind
-    assert result.transaction_currency == posting.transaction_currency
-    assert result.transaction_amount == posting.transaction_amount
-    assert result.accounted_currency == posting.accounted_currency
-    assert result.accounted_amount == posting.accounted_amount
-    assert result.fx_rate == posting.fx_rate
-    assert result.as_of_date == posting.as_of_date
-    assert result.business_date == posting.business_date
+    assert len(rows) == 1
+    row = rows[0]
+    assert UUID(row['GL_POSTING_ID']) == posting.gl_posting_id
+    assert UUID(row['WORKFLOW_RUN_ID']) == posting.workflow_run_id
+    assert UUID(row['PRODUCER_RUN_ID']) == posting.producer_run_id
+    assert row['DATACLASS'] == posting.dataclass
+    assert row['TRANSACTION_NUMBER'] == posting.transaction_number
+    assert row['LINE_NUMBER'] == posting.line_number
+    assert row['FOUNDRY_RULE_ID'] == posting.foundry_rule_id
+    assert row['POSTING_ID'] == posting.posting_id
+    assert row['POSTING_STREAM'] == posting.posting_stream
+    assert row['SRC_RECORD_ID'] == posting.src_record_id
+    assert row['SRC_APP_CD'] == posting.src_app_cd
+    assert row['CR_DR_IND'] == posting.cr_dr_ind
+    assert row['TRANSACTION_CURRENCY'] == posting.transaction_currency
+    assert row['TRANSACTION_AMOUNT'] == posting.transaction_amount
+    assert row['ACCOUNTED_CURRENCY'] == posting.accounted_currency
+    assert row['ACCOUNTED_AMOUNT'] == posting.accounted_amount
+    assert row['FX_RATE'] == posting.fx_rate
+    assert row['AS_OF_DATE'] == posting.as_of_date
+    assert row['BUSINESS_DATE'] == posting.business_date
 
 
 def test_write_posting_persists_resolved_gl_segments(posting_repository):
@@ -196,17 +206,17 @@ def test_write_posting_persists_resolved_gl_segments(posting_repository):
 
     posting_repository.write_posting(posting)
 
-    result = posting_repository.get_postings(posting.producer_run_id)[0]
+    row = posting_repository.get_postings(posting.producer_run_id).collect()[0]
 
-    assert result.entity_cd == 'USM'
-    assert result.dept_cd == '9999'
-    assert result.branch_cd == '9999'
-    assert result.gl_account == '999999'
-    assert result.sub_account == 'UNASSIGNED'
-    assert result.affiliate_cd == '999999'
-    assert result.product_cd == '999999'
-    assert result.book_cd == 'US_DEFAULT'
-    assert result.source_cd == 'SRC1'
+    assert row['ENTITY_CD'] == 'USM'
+    assert row['DEPT_CD'] == '9999'
+    assert row['BRANCH_CD'] == '9999'
+    assert row['GL_ACCOUNT'] == '999999'
+    assert row['SUB_ACCOUNT'] == 'UNASSIGNED'
+    assert row['AFFILIATE_CD'] == '999999'
+    assert row['PRODUCT_CD'] == '999999'
+    assert row['BOOK_CD'] == 'US_DEFAULT'
+    assert row['SOURCE_CD'] == 'SRC1'
 
 
 def test_get_postings_returns_only_the_named_producers_rows(posting_repository):
@@ -219,10 +229,10 @@ def test_get_postings_returns_only_the_named_producers_rows(posting_repository):
     posting_repository.write_posting(kept)
     posting_repository.write_posting(other)
 
-    results = posting_repository.get_postings(kept.producer_run_id)
+    rows = posting_repository.get_postings(kept.producer_run_id).collect()
 
-    assert len(results) == 1
-    assert results[0].producer_run_id == kept.producer_run_id
+    assert len(rows) == 1
+    assert UUID(rows[0]['PRODUCER_RUN_ID']) == kept.producer_run_id
 
 
 def test_get_postings_does_not_mix_rows_across_producer_runs_even_with_same_workflow(
@@ -245,11 +255,11 @@ def test_get_postings_does_not_mix_rows_across_producer_runs_even_with_same_work
     posting_repository.write_posting(g1)
     posting_repository.write_posting(g2)
 
-    g1_results = posting_repository.get_postings(g1.producer_run_id)
-    g2_results = posting_repository.get_postings(g2.producer_run_id)
+    g1_rows = posting_repository.get_postings(g1.producer_run_id).collect()
+    g2_rows = posting_repository.get_postings(g2.producer_run_id).collect()
 
-    assert {r.gl_posting_id for r in g1_results} == {g1.gl_posting_id}
-    assert {r.gl_posting_id for r in g2_results} == {g2.gl_posting_id}
+    assert {UUID(r['GL_POSTING_ID']) for r in g1_rows} == {g1.gl_posting_id}
+    assert {UUID(r['GL_POSTING_ID']) for r in g2_rows} == {g2.gl_posting_id}
 
 
 def test_get_postings_allows_more_than_one_row_for_same_posting_id(posting_repository):
@@ -260,11 +270,11 @@ def test_get_postings_allows_more_than_one_row_for_same_posting_id(posting_repos
     posting_repository.write_posting(first)
     posting_repository.write_posting(second)
 
-    results = posting_repository.get_postings(producer_run_id)
+    rows = posting_repository.get_postings(producer_run_id).collect()
 
-    assert len(results) == 2
-    assert {result.posting_id for result in results} == {'DUP'}
-    assert {result.gl_posting_id for result in results} == {
+    assert len(rows) == 2
+    assert {row['POSTING_ID'] for row in rows} == {'DUP'}
+    assert {UUID(row['GL_POSTING_ID']) for row in rows} == {
         first.gl_posting_id,
         second.gl_posting_id,
     }
@@ -278,11 +288,11 @@ def test_write_posting_preserves_decimal_precision(posting_repository):
 
     posting_repository.write_posting(posting)
 
-    result = posting_repository.get_postings(posting.producer_run_id)[0]
+    row = posting_repository.get_postings(posting.producer_run_id).collect()[0]
 
-    assert result.transaction_amount == Decimal('12345.123456789012')
-    assert result.fx_rate == Decimal('1.123456789012')
-    assert isinstance(result.fx_rate, Decimal)
+    assert row['TRANSACTION_AMOUNT'] == Decimal('12345.123456789012')
+    assert row['FX_RATE'] == Decimal('1.123456789012')
+    assert isinstance(row['FX_RATE'], Decimal)
 
 
 # -- write_rejection / get_rejections -------------------------------------
@@ -321,30 +331,38 @@ def rejection_repository(spark, tmp_path):
     return GLRepository(store, spark)
 
 
+def test_get_rejections_returns_a_spark_dataframe(rejection_repository):
+    rejection_repository.write_rejection(_rejection())
+
+    result = rejection_repository.get_rejections(uuid4())
+
+    assert isinstance(result, DataFrame)
+
+
 def test_write_rejection_persists_lineage_and_diagnostics(rejection_repository):
     rejection = _rejection()
 
     rejection_repository.write_rejection(rejection)
 
-    results = rejection_repository.get_rejections(rejection.producer_run_id)
+    rows = rejection_repository.get_rejections(rejection.producer_run_id).collect()
 
-    assert len(results) == 1
-    result = results[0]
-    assert result.gl_rejection_id == rejection.gl_rejection_id
-    assert result.workflow_run_id == rejection.workflow_run_id
-    assert result.producer_run_id == rejection.producer_run_id
-    assert result.dataclass == rejection.dataclass
-    assert result.transaction_number == rejection.transaction_number
-    assert result.line_number == rejection.line_number
-    assert result.foundry_rule_id == rejection.foundry_rule_id
-    assert result.posting_id == rejection.posting_id
-    assert result.posting_stream == rejection.posting_stream
-    assert result.src_record_id == rejection.src_record_id
-    assert result.src_app_cd == rejection.src_app_cd
-    assert result.business_date == rejection.business_date
-    assert result.as_of_date == rejection.as_of_date
-    assert result.rejection_type == rejection.rejection_type
-    assert result.rejection_detail == rejection.rejection_detail
+    assert len(rows) == 1
+    row = rows[0]
+    assert UUID(row['GL_REJECTION_ID']) == rejection.gl_rejection_id
+    assert UUID(row['WORKFLOW_RUN_ID']) == rejection.workflow_run_id
+    assert UUID(row['PRODUCER_RUN_ID']) == rejection.producer_run_id
+    assert row['DATACLASS'] == rejection.dataclass
+    assert row['TRANSACTION_NUMBER'] == rejection.transaction_number
+    assert row['LINE_NUMBER'] == rejection.line_number
+    assert row['FOUNDRY_RULE_ID'] == rejection.foundry_rule_id
+    assert row['POSTING_ID'] == rejection.posting_id
+    assert row['POSTING_STREAM'] == rejection.posting_stream
+    assert row['SRC_RECORD_ID'] == rejection.src_record_id
+    assert row['SRC_APP_CD'] == rejection.src_app_cd
+    assert row['BUSINESS_DATE'] == rejection.business_date
+    assert row['AS_OF_DATE'] == rejection.as_of_date
+    assert row['REJECTION_TYPE'] == rejection.rejection_type
+    assert row['REJECTION_DETAIL'] == rejection.rejection_detail
 
 
 def test_write_rejection_stores_segment_resolution_rejection_type(rejection_repository):
@@ -355,10 +373,10 @@ def test_write_rejection_stores_segment_resolution_rejection_type(rejection_repo
 
     rejection_repository.write_rejection(rejection)
 
-    result = rejection_repository.get_rejections(rejection.producer_run_id)[0]
+    row = rejection_repository.get_rejections(rejection.producer_run_id).collect()[0]
 
-    assert result.rejection_type == 'SEGMENT_RESOLUTION'
-    assert result.rejection_detail == 'DEPT_CD,BRANCH_CD'
+    assert row['REJECTION_TYPE'] == 'SEGMENT_RESOLUTION'
+    assert row['REJECTION_DETAIL'] == 'DEPT_CD,BRANCH_CD'
 
 
 def test_get_rejections_returns_only_the_named_producers_rows(rejection_repository):
@@ -371,10 +389,10 @@ def test_get_rejections_returns_only_the_named_producers_rows(rejection_reposito
     rejection_repository.write_rejection(kept)
     rejection_repository.write_rejection(other)
 
-    results = rejection_repository.get_rejections(kept.producer_run_id)
+    rows = rejection_repository.get_rejections(kept.producer_run_id).collect()
 
-    assert len(results) == 1
-    assert results[0].producer_run_id == kept.producer_run_id
+    assert len(rows) == 1
+    assert UUID(rows[0]['PRODUCER_RUN_ID']) == kept.producer_run_id
 
 
 def test_get_rejections_does_not_mix_rows_across_producer_runs_even_with_same_workflow(
@@ -395,11 +413,11 @@ def test_get_rejections_does_not_mix_rows_across_producer_runs_even_with_same_wo
     rejection_repository.write_rejection(g1)
     rejection_repository.write_rejection(g2)
 
-    g1_results = rejection_repository.get_rejections(g1.producer_run_id)
-    g2_results = rejection_repository.get_rejections(g2.producer_run_id)
+    g1_rows = rejection_repository.get_rejections(g1.producer_run_id).collect()
+    g2_rows = rejection_repository.get_rejections(g2.producer_run_id).collect()
 
-    assert {r.gl_rejection_id for r in g1_results} == {g1.gl_rejection_id}
-    assert {r.gl_rejection_id for r in g2_results} == {g2.gl_rejection_id}
+    assert {UUID(r['GL_REJECTION_ID']) for r in g1_rows} == {g1.gl_rejection_id}
+    assert {UUID(r['GL_REJECTION_ID']) for r in g2_rows} == {g2.gl_rejection_id}
 
 
 # -- get_instructions -------------------------------------------------------
@@ -616,8 +634,8 @@ def test_delete_postings_removes_only_rows_for_the_named_producer_run(
 
     posting_and_rejection_repository.delete_postings(deleted_producer_run_id)
 
-    remaining = posting_and_rejection_repository.get_postings(kept_producer_run_id)
-    assert {p.producer_run_id for p in remaining} == {kept_producer_run_id}
+    remaining = posting_and_rejection_repository.get_postings(kept_producer_run_id).collect()
+    assert {UUID(row['PRODUCER_RUN_ID']) for row in remaining} == {kept_producer_run_id}
 
 
 def test_delete_rejections_removes_only_rows_for_the_named_producer_run(
@@ -635,5 +653,5 @@ def test_delete_rejections_removes_only_rows_for_the_named_producer_run(
 
     posting_and_rejection_repository.delete_rejections(deleted_producer_run_id)
 
-    remaining = posting_and_rejection_repository.get_rejections(kept_producer_run_id)
-    assert {r.producer_run_id for r in remaining} == {kept_producer_run_id}
+    remaining = posting_and_rejection_repository.get_rejections(kept_producer_run_id).collect()
+    assert {UUID(row['PRODUCER_RUN_ID']) for row in remaining} == {kept_producer_run_id}

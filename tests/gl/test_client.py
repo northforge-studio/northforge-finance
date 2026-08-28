@@ -1,9 +1,11 @@
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
+
+from pyspark.sql import DataFrame
 
 from core.store import CsvStore
 from core.runs import RunIdentity
@@ -285,21 +287,27 @@ def test_import_instructions_delegates_to_manager(spark, tmp_path, gl_with_posti
 
 # -- get_postings / get_rejections --------------------------------------
 
-def test_get_postings_returns_only_the_named_producers_rows(gl_with_posting_support):
+def test_get_postings_returns_a_dataframe_of_only_the_named_producers_rows(
+    gl_with_posting_support,
+):
     kept = _valid_instruction()
     other = replace(_valid_instruction(), transaction_number='TXN-2', producer_run_id=uuid4())
 
     posted = gl_with_posting_support.process_instruction(kept)
     gl_with_posting_support.process_instruction(other)
 
-    results = gl_with_posting_support.get_postings(kept.producer_run_id)
+    result = gl_with_posting_support.get_postings(kept.producer_run_id)
 
-    assert len(results) == 1
-    assert results[0].gl_posting_id == posted.posting.gl_posting_id
-    assert results[0].producer_run_id == kept.producer_run_id
+    assert isinstance(result, DataFrame)
+    rows = result.collect()
+    assert len(rows) == 1
+    assert UUID(rows[0]['GL_POSTING_ID']) == posted.posting.gl_posting_id
+    assert UUID(rows[0]['PRODUCER_RUN_ID']) == kept.producer_run_id
 
 
-def test_get_rejections_returns_only_the_named_producers_rows(gl_with_posting_support):
+def test_get_rejections_returns_a_dataframe_of_only_the_named_producers_rows(
+    gl_with_posting_support,
+):
     kept = replace(_valid_instruction(), cr_dr_ind='XX')
     other = replace(
         _valid_instruction(),
@@ -311,8 +319,10 @@ def test_get_rejections_returns_only_the_named_producers_rows(gl_with_posting_su
     rejected = gl_with_posting_support.process_instruction(kept)
     gl_with_posting_support.process_instruction(other)
 
-    results = gl_with_posting_support.get_rejections(kept.producer_run_id)
+    result = gl_with_posting_support.get_rejections(kept.producer_run_id)
 
-    assert len(results) == 1
-    assert results[0].gl_rejection_id == rejected.rejection.gl_rejection_id
-    assert results[0].producer_run_id == kept.producer_run_id
+    assert isinstance(result, DataFrame)
+    rows = result.collect()
+    assert len(rows) == 1
+    assert UUID(rows[0]['GL_REJECTION_ID']) == rejected.rejection.gl_rejection_id
+    assert UUID(rows[0]['PRODUCER_RUN_ID']) == kept.producer_run_id
