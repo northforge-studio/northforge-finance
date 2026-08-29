@@ -4,6 +4,10 @@ from datetime import date
 from decimal import Decimal
 from dataclasses import dataclass
 
+from pydantic import BaseModel
+
+from gl import GLSegments
+
 
 class BreakAnalysisStatus(StrEnum):
     EXPLAINED = 'EXPLAINED'
@@ -21,15 +25,7 @@ class BreakRecord:
 
     as_of_date: date
 
-    entity_cd: str
-    dept_cd: str
-    branch_cd: str
-    gl_account: str
-    sub_account: str
-    affiliate_cd: str
-    product_cd: str
-    book_cd: str
-    source_cd: str
+    segments: GLSegments
 
     accounted_currency: str
 
@@ -38,10 +34,15 @@ class BreakRecord:
     difference_amount: Decimal
 
 
-@dataclass(frozen=True)
-class BreakAnalysisResult:
+class BreakAnalysisConclusion(BaseModel):
+    status: BreakAnalysisStatus
+    root_cause: RootCause | None
+    explanation: str
+
+
+class BreakAnalysisResult(BaseModel):
     recon_result_id: UUID
 
-    status: str
-    root_cause: str | None
+    status: BreakAnalysisStatus
+    root_cause: RootCause | None
     explanation: str

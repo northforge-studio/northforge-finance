@@ -8,3 +8,4 @@ dotenv
 alembic
 sqlalchemy
 psycopg[binary]
+langchain-ollama

@@ -17,8 +17,6 @@ from gl.models import (
     GLImportResult,
     GLInstruction,
     GLInstructionResult,
-    GLPosting,
-    GLRejection,
     GLSegmentResolution,
     GLSegments,
     InstructionValidation,

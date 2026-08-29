@@ -1,19 +1,15 @@
+from datetime import date
 from dataclasses import dataclass
+
+from pydantic import BaseModel
 
 from registry import RegistryClient, SegmentType
 
 
-BREAK_SEGMENTS = {
-    SegmentType.ENTITY: 'entity_cd',
-    SegmentType.DEPT: 'dept_cd',
-    SegmentType.BRANCH: 'branch_cd',
-    SegmentType.ACCOUNT: 'gl_account',
-    SegmentType.SUB_ACCOUNT: 'sub_account',
-    SegmentType.AFFILIATE: 'affiliate_cd',
-    SegmentType.PRODUCT: 'product_cd',
-    SegmentType.BOOK: 'book_cd',
-    SegmentType.SOURCE: 'source_cd',
-}
+class ValidateSegmentInput(BaseModel):
+    segment_type: SegmentType
+    segment_value: str
+    business_dt: date
 
 
 @dataclass(frozen=True)
@@ -35,9 +31,11 @@ class RegistryTools:
         self,
         segment_type: SegmentType,
         segment_value: str,
+        business_dt: date,
     ) -> SegmentValidationResult:
         is_valid = self._registry.validate_segment(
             segment_type,
+            business_dt,
             segment_value,
         )
 
