@@ -41,4 +41,5 @@ MAPPING_DATA_SCHEMA = StructType([
     ],
 
     StructField('WEIGHTAGE', StringType(), True),
+    StructField('STATUS', StringType(), False),
 ])

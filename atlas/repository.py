@@ -106,7 +106,8 @@ class AtlasRepository:
         df = (
             self._store.read('MAPPING_DATA', schema=MAPPING_DATA_SCHEMA)
             .filter(
-                F.upper(F.col('MAPPING_NAME')) == definition.mapping_name.upper()
+                (F.upper(F.col('MAPPING_NAME')) == definition.mapping_name.upper())
+                & (F.upper(F.col('STATUS')) == 'A')
             )
         )
 

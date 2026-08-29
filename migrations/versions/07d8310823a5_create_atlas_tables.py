@@ -55,6 +55,9 @@ def upgrade() -> None:
     columns.append(
         sa.Column('weightage', sa.String(), nullable=True)
     )
+    columns.append(
+        sa.Column('status', sa.String(), nullable=False)
+    )
 
     op.create_table(
         'data',

@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, text
 from core.db import PostgresConfig
 
 
-SEGMENT_DEFAULT_PATH = Path('data/gl/segment_defaults.csv')
+SEGMENT_DEFAULT_PATH = Path('data/gl/segment_default.csv')
 
 
 def main() -> None:
