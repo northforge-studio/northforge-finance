@@ -28,7 +28,7 @@ MAPPING_DATA_SCHEMA = StructType([
             StringType(),
             True,
         )
-        for i in range(1, 21)
+        for i in range(1, 11)
     ],
 
     *[
@@ -37,7 +37,7 @@ MAPPING_DATA_SCHEMA = StructType([
             StringType(),
             True,
         )
-        for i in range(1, 21)
+        for i in range(1, 11)
     ],
 
     StructField('WEIGHTAGE', StringType(), True),

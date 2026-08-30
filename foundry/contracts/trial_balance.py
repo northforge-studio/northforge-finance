@@ -163,8 +163,8 @@ TRIAL_BALANCE_ENRICHMENT_SCHEMA = StructType(
         StructField('COA_RULE_ID', StringType(), False),
 
         StructField('GL_ENTITY_CD', StringType(), False),
-        StructField('GL_DEPT_CD', StringType(), False),
         StructField('GL_BRANCH_CD', StringType(), False),
+        StructField('GL_DEPT_CD', StringType(), False),
 
         StructField('GL_ACCOUNT_DR', StringType(), False),
         StructField('GL_ACCOUNT_CR', StringType(), False),
@@ -276,8 +276,8 @@ TRIAL_BALANCE_INTERFACE_SCHEMA = StructType(
         StructField('LINE_NUMBER', StringType(), False),
 
         StructField('ENTITY_CD', StringType(), False),
-        StructField('DEPT_CD', StringType(), False),
         StructField('BRANCH_CD', StringType(), False),
+        StructField('DEPT_CD', StringType(), False),
         StructField('GL_ACCOUNT', StringType(), False),
         StructField('SUB_ACCOUNT', StringType(), False),
         StructField('AFFILIATE_CD', StringType(), False),

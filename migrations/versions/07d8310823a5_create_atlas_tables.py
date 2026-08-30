@@ -44,12 +44,12 @@ def upgrade() -> None:
 
     columns.extend(
         sa.Column(f'input_col{i}', sa.String(), nullable=True)
-        for i in range(1, 21)
+        for i in range(1, 11)
     )
 
     columns.extend(
         sa.Column(f'output_col{i}', sa.String(), nullable=True)
-        for i in range(1, 21)
+        for i in range(1, 11)
     )
 
     columns.append(

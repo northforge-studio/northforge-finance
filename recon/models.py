@@ -18,8 +18,8 @@ class ReconResult:
     # Recon grain (RECON_KEYS, minus WORKFLOW_RUN_ID which is above)
     as_of_date: date
     entity_cd: str
-    dept_cd: str
     branch_cd: str
+    dept_cd: str
     gl_account: str
     sub_account: str
     affiliate_cd: str

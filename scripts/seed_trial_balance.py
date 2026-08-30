@@ -11,8 +11,8 @@ from core.db import PostgresConfig
 SOURCE_PATH = Path('data/source/trial_balance.csv')
 
 DATE_COLUMNS = [
-    'AS_OF_DT',
-    'BUSINESS_DT',
+    'as_of_dt',
+    'business_dt',
 ]
 
 
@@ -24,26 +24,26 @@ def main() -> None:
         SOURCE_PATH,
         keep_default_na=False,
         dtype={
-            'SRC_APP_CD': str,
-            'SRC_RECORD_ID': str,
-            'SRC_ENTITY_CD': str,
-            'SRC_BOOKING_DEPT_CD': str,
-            'SRC_ACCOUNT_ID': str,
-            'SRC_ACCT_TYPE': str,
-            'SRC_CLIENT_ID': str,
-            'CPTY_REF_ID': str,
-            'SRC_MEASURE_NM': str,
-            'SRC_MEASURE_CCY_CD': str,
-            'SRC_MEASURE_TRANS_AMT': str,
-            'POSTING_MEASURE_CCY_CD': str,
+            'src_app_cd': str,
+            'src_record_id': str,
+            'src_entity_cd': str,
+            'src_booking_dept_cd': str,
+            'src_account_id': str,
+            'src_acct_type': str,
+            'src_client_id': str,
+            'cpty_ref_id': str,
+            'src_measure_nm': str,
+            'src_measure_ccy_cd': str,
+            'src_measure_trans_amt': str,
+            'posting_measure_ccy_cd': str,
         },
     )
 
     for column in DATE_COLUMNS:
         df[column] = df[column].map(date.fromisoformat)
 
-    df['SRC_MEASURE_TRANS_AMT'] = (
-        df['SRC_MEASURE_TRANS_AMT']
+    df['src_measure_trans_amt'] = (
+        df['src_measure_trans_amt']
         .map(Decimal)
     )
 

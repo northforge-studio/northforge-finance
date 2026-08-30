@@ -63,8 +63,8 @@ def upgrade() -> None:
 
         # Final GL segments (resolved/defaulted values GL actually posted)
         sa.Column('entity_cd', sa.String(), nullable=False),
-        sa.Column('dept_cd', sa.String(), nullable=False),
         sa.Column('branch_cd', sa.String(), nullable=False),
+        sa.Column('dept_cd', sa.String(), nullable=False),
         sa.Column('gl_account', sa.String(), nullable=False),
         sa.Column('sub_account', sa.String(), nullable=False),
         sa.Column('affiliate_cd', sa.String(), nullable=False),

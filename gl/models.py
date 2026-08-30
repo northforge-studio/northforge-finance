@@ -23,8 +23,8 @@ class SegmentResolution:
 @dataclass(frozen=True)
 class GLSegments:
     entity_cd: str | None
-    dept_cd: str | None
     branch_cd: str | None
+    dept_cd: str | None
     gl_account: str | None
     sub_account: str | None
     affiliate_cd: str | None
@@ -54,8 +54,8 @@ class GLInstruction:
     src_app_cd: str
 
     entity_cd: str
-    dept_cd: str
     branch_cd: str
+    dept_cd: str
     gl_account: str
     sub_account: str
     affiliate_cd: str
@@ -76,8 +76,8 @@ class GLInstruction:
     def to_segments(self) -> GLSegments:
         return GLSegments(
             entity_cd=self.entity_cd,
-            dept_cd=self.dept_cd,
             branch_cd=self.branch_cd,
+            dept_cd=self.dept_cd,
             gl_account=self.gl_account,
             sub_account=self.sub_account,
             affiliate_cd=self.affiliate_cd,
@@ -112,8 +112,8 @@ class GLPosting:
 
     # actual posted segments (resolved/defaulted, never the raw Interface values)
     entity_cd: str
-    dept_cd: str
     branch_cd: str
+    dept_cd: str
     gl_account: str
     sub_account: str
     affiliate_cd: str
@@ -157,8 +157,8 @@ class GLPosting:
             src_record_id=instruction.src_record_id,
             src_app_cd=instruction.src_app_cd,
             entity_cd=segments.entity_cd,
-            dept_cd=segments.dept_cd,
             branch_cd=segments.branch_cd,
+            dept_cd=segments.dept_cd,
             gl_account=segments.gl_account,
             sub_account=segments.sub_account,
             affiliate_cd=segments.affiliate_cd,

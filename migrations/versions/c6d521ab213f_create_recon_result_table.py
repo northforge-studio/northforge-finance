@@ -59,8 +59,8 @@ def upgrade() -> None:
         # Recon grain (RECON_KEYS, minus WORKFLOW_RUN_ID which is above)
         sa.Column('as_of_date', sa.Date(), nullable=False),
         sa.Column('entity_cd', sa.String(), nullable=False),
-        sa.Column('dept_cd', sa.String(), nullable=False),
         sa.Column('branch_cd', sa.String(), nullable=False),
+        sa.Column('dept_cd', sa.String(), nullable=False),
         sa.Column('gl_account', sa.String(), nullable=False),
         sa.Column('sub_account', sa.String(), nullable=False),
         sa.Column('affiliate_cd', sa.String(), nullable=False),

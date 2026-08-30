@@ -29,8 +29,8 @@ from gl.repository import GLRepository
 # value because gl.segment_default has no rows configured for them.
 _REGISTRY_SEGMENT_TYPES: dict[str, SegmentType] = {
     'ENTITY_CD': SegmentType.ENTITY,
-    'DEPT_CD': SegmentType.DEPARTMENT,
     'BRANCH_CD': SegmentType.BRANCH,
+    'DEPT_CD': SegmentType.DEPARTMENT,
     'GL_ACCOUNT': SegmentType.ACCOUNT,
     'SUB_ACCOUNT': SegmentType.SUB_ACCOUNT,
     'AFFILIATE_CD': SegmentType.AFFILIATE,
@@ -45,8 +45,8 @@ _REGISTRY_SEGMENT_TYPES: dict[str, SegmentType] = {
 # used as contextual entity_cd input for the other eight.
 _SEGMENT_FIELD_TYPES: tuple[tuple[str, str], ...] = (
     ('entity_cd', 'ENTITY_CD'),
-    ('dept_cd', 'DEPT_CD'),
     ('branch_cd', 'BRANCH_CD'),
+    ('dept_cd', 'DEPT_CD'),
     ('gl_account', 'GL_ACCOUNT'),
     ('sub_account', 'SUB_ACCOUNT'),
     ('affiliate_cd', 'AFFILIATE_CD'),

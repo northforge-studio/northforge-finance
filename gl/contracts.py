@@ -39,8 +39,8 @@ POSTING_SCHEMA = StructType([
     StructField('SRC_APP_CD', StringType(), False),
 
     StructField('ENTITY_CD', StringType(), False),
-    StructField('DEPT_CD', StringType(), False),
     StructField('BRANCH_CD', StringType(), False),
+    StructField('DEPT_CD', StringType(), False),
     StructField('GL_ACCOUNT', StringType(), False),
     StructField('SUB_ACCOUNT', StringType(), False),
     StructField('AFFILIATE_CD', StringType(), False),
@@ -107,8 +107,8 @@ INTERFACE_TRIAL_BALANCE_SCHEMA = StructType([
     StructField('LINE_NUMBER', StringType(), False),
 
     StructField('ENTITY_CD', StringType(), False),
-    StructField('DEPT_CD', StringType(), False),
     StructField('BRANCH_CD', StringType(), False),
+    StructField('DEPT_CD', StringType(), False),
     StructField('GL_ACCOUNT', StringType(), False),
     StructField('SUB_ACCOUNT', StringType(), False),
     StructField('AFFILIATE_CD', StringType(), False),

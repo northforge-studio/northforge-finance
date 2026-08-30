@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, text
 from core.db import PostgresConfig
 
 
-TRANSFORMATIONS_PATH = Path('data/spec/transformations.csv')
+TRANSFORMATIONS_PATH = Path('data/spec/transformation.csv')
 
 
 def main() -> None:

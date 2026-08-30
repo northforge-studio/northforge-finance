@@ -3,8 +3,8 @@ from enum import Enum
 
 class SegmentType(str, Enum):
     ENTITY = ('GL_ENTITY', 'entity_cd')
-    DEPARTMENT = ('GL_DEPT', 'dept_cd')
     BRANCH = ('GL_BRANCH', 'branch_cd')
+    DEPARTMENT = ('GL_DEPT', 'dept_cd')
     ACCOUNT = ('GL_ACCOUNT', 'gl_account')
     SUB_ACCOUNT = ('GL_SUB_ACCOUNT', 'sub_account')
     AFFILIATE = ('GL_AFFILIATE', 'affiliate_cd')

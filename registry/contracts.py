@@ -18,6 +18,16 @@ ENTITY_SCHEMA = StructType(
 )
 
 
+BRANCH_SCHEMA = StructType(
+    [
+        StructField('BUSINESS_DT', DateType(), False),
+        StructField('BCH_CD', StringType(), False),
+        StructField('BCH_DS', StringType(), False),
+        StructField('STATUS', StringType(), False),
+    ]
+)
+
+
 DEPARTMENT_SCHEMA = StructType(
     [
         StructField('BUSINESS_DT', DateType(), False),
@@ -25,16 +35,6 @@ DEPARTMENT_SCHEMA = StructType(
         StructField('DEPT_DS', StringType(), False),
         StructField('ENT_CD', StringType(), False),
         StructField('BCH_CD', StringType(), False),
-        StructField('STATUS', StringType(), False),
-    ]
-)
-
-
-BRANCH_SCHEMA = StructType(
-    [
-        StructField('BUSINESS_DT', DateType(), False),
-        StructField('BCH_CD', StringType(), False),
-        StructField('BCH_DS', StringType(), False),
         StructField('STATUS', StringType(), False),
     ]
 )
@@ -103,8 +103,8 @@ SOURCE_SCHEMA = StructType(
 
 SEGMENT_SCHEMAS: dict[SegmentType, StructType] = {
     SegmentType.ENTITY: ENTITY_SCHEMA,
-    SegmentType.DEPARTMENT: DEPARTMENT_SCHEMA,
     SegmentType.BRANCH: BRANCH_SCHEMA,
+    SegmentType.DEPARTMENT: DEPARTMENT_SCHEMA,
     SegmentType.ACCOUNT: ACCOUNT_SCHEMA,
     SegmentType.SUB_ACCOUNT: SUB_ACCOUNT_SCHEMA,
     SegmentType.AFFILIATE: AFFILIATE_SCHEMA,
@@ -116,8 +116,8 @@ SEGMENT_SCHEMAS: dict[SegmentType, StructType] = {
 
 SEGMENT_CODE_COLUMNS: dict[SegmentType, str] = {
     SegmentType.ENTITY: 'ENT_CD',
-    SegmentType.DEPARTMENT: 'DEPT_CD',
     SegmentType.BRANCH: 'BCH_CD',
+    SegmentType.DEPARTMENT: 'DEPT_CD',
     SegmentType.ACCOUNT: 'ACCT_CD',
     SegmentType.SUB_ACCOUNT: 'SUB_ACCT_CD',
     SegmentType.AFFILIATE: 'AFFIL_CD',
