@@ -1,7 +1,8 @@
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from atlas import AtlasClient, PostingRule
+from atlas import AtlasClient
+from atlas.models import PostingRule
 from spec import SpecClient
 
 

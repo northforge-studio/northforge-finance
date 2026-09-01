@@ -8,9 +8,10 @@ from core.store import (
     CsvStore,
     PostgresStore,
 )
-from core.runs import RunIdentity
+from core.runs.models import RunIdentity
 
-from registry import RegistryClient, SegmentType
+from registry import RegistryClient
+from registry.models import SegmentType
 
 from gl.manager import GLManager
 from gl.models import (

@@ -5,7 +5,8 @@ from pyspark.sql import functions as F
 
 from foundry.rules.posting import PostingRuleProcessor
 
-from atlas import AtlasClient, GatewayRule
+from atlas import AtlasClient
+from atlas.models import GatewayRule
 from spec import SpecClient
 
 

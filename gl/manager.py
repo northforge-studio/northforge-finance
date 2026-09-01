@@ -3,9 +3,10 @@ from uuid import UUID, uuid4
 
 from pyspark.sql import DataFrame
 
-from registry import RegistryClient, SegmentType
+from registry import RegistryClient
+from registry.models import SegmentType
 
-from core.runs import RunIdentity
+from core.runs.models import RunIdentity
 
 from gl.models import (
     GLImportResult,

@@ -3,7 +3,7 @@ from functools import reduce
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from atlas import GatewayRule
+from atlas.models import GatewayRule
 
 from foundry.rules.gateway import GatewayRuleProcessor
 

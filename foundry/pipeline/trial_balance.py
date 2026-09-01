@@ -18,10 +18,11 @@ from foundry.repository import TrialBalanceRepository
 
 from atlas import AtlasClient
 
-from reference import ReferenceClient, ReferenceData
+from reference import ReferenceClient
+from reference.models import ReferenceData
 from spec import SpecClient
 
-from core.runs import RunIdentity
+from core.runs.models import RunIdentity
 
 
 class TrialBalancePipeline(BasePipeline):

@@ -4,7 +4,7 @@ import pytest
 
 from core.store import CsvStore
 
-from registry import SegmentType
+from registry.models import SegmentType
 from registry.repository import RegistryRepository
 
 

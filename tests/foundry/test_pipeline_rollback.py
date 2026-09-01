@@ -2,7 +2,7 @@ from datetime import date
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from core.runs import RunIdentity
+from core.runs.models import RunIdentity
 from foundry.pipeline.trial_balance import TrialBalancePipeline
 from foundry.repository import TrialBalanceRepository
 

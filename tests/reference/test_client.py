@@ -1,6 +1,7 @@
 import pytest
 
-from reference import ReferenceClient, ReferenceData
+from reference import ReferenceClient
+from reference.models import ReferenceData
 
 
 @pytest.fixture(scope='module')

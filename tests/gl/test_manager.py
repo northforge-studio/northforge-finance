@@ -3,9 +3,9 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from registry import SegmentType
+from registry.models import SegmentType
 
-from core.runs import RunIdentity
+from core.runs.models import RunIdentity
 
 from gl.manager import GLManager
 from gl.models import (

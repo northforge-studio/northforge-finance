@@ -12,10 +12,11 @@ from foundry.rules import (
 )
 from foundry.models import PipelineConfig
 
-from atlas import AtlasClient, GatewayRule
+from atlas import AtlasClient
+from atlas.models import GatewayRule
 from reference import ReferenceClient
 from spec import SpecClient
-from core.runs import RunIdentity, ZoneResult, RunStatus
+from core.runs.models import RunIdentity, ZoneResult, RunStatus
 
 
 class BasePipeline(ABC):

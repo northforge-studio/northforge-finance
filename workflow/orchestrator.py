@@ -1,28 +1,23 @@
-from dataclasses import dataclass
 from typing import Callable
 from uuid import UUID
 
 from core.logging import get_logger
-from core.runs import (
+from core.runs import RunTracker
+from core.runs.models import (
     ExecutionRun,
     PipelineResult,
     RunIdentity,
     RunStatus,
-    RunTracker,
     WorkflowRun,
     ZoneResult,
 )
 from foundry.pipeline import BasePipeline
-from gl import GLClient, GLImportResult
+from gl import GLClient
+from gl.models import GLImportResult
+from workflow.models import WorkflowResult
 
 
 logger = get_logger(__name__)
-
-
-@dataclass(frozen=True)
-class WorkflowResult:
-    foundry: PipelineResult
-    gl: GLImportResult
 
 
 class WorkflowOrchestrator:

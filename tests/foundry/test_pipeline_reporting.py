@@ -2,7 +2,7 @@ from datetime import date
 from unittest.mock import MagicMock
 from uuid import uuid4
 
-from core.runs import RunIdentity, RunStatus, ZoneResult
+from core.runs.models import RunIdentity, RunStatus, ZoneResult
 from foundry.pipeline.base import BasePipeline
 from foundry.models import PipelineConfig
 

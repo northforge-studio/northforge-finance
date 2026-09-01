@@ -8,11 +8,12 @@ import pytest
 from pyspark.sql import DataFrame
 
 from core.store import CsvStore
-from core.runs import RunIdentity
+from core.runs.models import RunIdentity
 
-from registry import SegmentType
+from registry.models import SegmentType
 
-from gl import GLClient, GLInstruction, GLSegments, SegmentResolution
+from gl import GLClient
+from gl.models import GLInstruction, GLSegments, SegmentResolution
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
 
 

@@ -4,8 +4,8 @@ from uuid import uuid4
 import pytest
 
 from core.db import PostgresConfig, PostgresExecutor
-from core.runs import (
-    RunRepository,
+from core.runs import RunRepository
+from core.runs.models import (
     RunStatus,
     WorkflowRun,
     ExecutionRun,

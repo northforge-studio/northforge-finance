@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel
 
-from gl import GLSegments
+from gl.models import GLSegments
 
 
 class BreakAnalysisStatus(StrEnum):

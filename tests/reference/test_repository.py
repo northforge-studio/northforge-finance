@@ -2,7 +2,7 @@ import pytest
 
 from core.store import CsvStore
 
-from reference import ReferenceData
+from reference.models import ReferenceData
 from reference.repository import ReferenceRepository
 
 

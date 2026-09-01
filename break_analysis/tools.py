@@ -3,7 +3,8 @@ from dataclasses import dataclass
 
 from pydantic import BaseModel
 
-from registry import RegistryClient, SegmentType
+from registry import RegistryClient
+from registry.models import SegmentType
 
 
 class ValidateSegmentInput(BaseModel):
@@ -14,7 +15,7 @@ class ValidateSegmentInput(BaseModel):
 
 @dataclass(frozen=True)
 class SegmentValidationResult:
-    segment_type: str
+    segment_type: SegmentType
     segment_value: str
     is_valid: bool
 

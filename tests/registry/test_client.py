@@ -2,7 +2,8 @@ from datetime import date
 
 import pytest
 
-from registry import RegistryClient, SegmentType
+from registry import RegistryClient
+from registry.models import SegmentType
 
 
 @pytest.fixture(scope='module')

@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from core.runs import (
+from core.runs.models import (
     RunStatus,
     WorkflowRun,
     ExecutionRun,

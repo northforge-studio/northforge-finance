@@ -8,7 +8,7 @@ from pyspark.sql import DataFrame
 
 from core.store import CsvStore
 
-from registry import SegmentType
+from registry.models import SegmentType
 
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
 from gl.models import GLInstruction, GLPosting, GLRejection, SegmentDefault

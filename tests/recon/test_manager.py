@@ -5,7 +5,8 @@ from uuid import UUID, uuid4
 
 import pytest
 
-from core.runs import RunRepository, RunStatus, RunTracker
+from core.runs import RunRepository, RunTracker
+from core.runs.models import RunStatus
 
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA, POSTING_SCHEMA
 

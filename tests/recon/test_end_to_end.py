@@ -21,9 +21,10 @@ from core.runs import RunRepository, RunTracker
 from gl import GLClient
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
 from gl.models import GLInstruction
-from registry import SegmentType
+from registry.models import SegmentType
 
-from recon import ReconClient, ReconRunResult
+from recon import ReconClient
+from recon.models import ReconRunResult
 from recon.repository import ReconRepository
 
 

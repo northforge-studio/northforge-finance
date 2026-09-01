@@ -5,7 +5,7 @@ from pyspark.sql import functions as F
 
 from core.store import Store
 
-from registry import SegmentType
+from registry.models import SegmentType
 
 from gl.contracts import (
     INTERFACE_TRIAL_BALANCE_SCHEMA,

@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from registry import SegmentType
+from registry.models import SegmentType
 
 
 @dataclass(frozen=True)
