@@ -5,6 +5,8 @@ from pyspark.sql import functions as F
 
 from core.store import Store
 
+from registry import SegmentType
+
 from gl.contracts import (
     INTERFACE_TRIAL_BALANCE_SCHEMA,
     POSTING_SCHEMA,
@@ -22,7 +24,7 @@ class GLRepository:
 
     def get_segment_default(
         self,
-        segment_type: str,
+        segment_type: SegmentType,
         context_type: str,
         context_value: str,
     ) -> SegmentDefault | None:
@@ -34,7 +36,7 @@ class GLRepository:
         rows = (
             df
             .filter(
-                (F.col('SEGMENT_TYPE') == segment_type)
+                (F.col('SEGMENT_TYPE') == segment_type.field_name.upper())
                 & (F.col('CONTEXT_TYPE') == context_type)
                 & (F.col('CONTEXT_VALUE') == context_value)
             )
@@ -47,7 +49,7 @@ class GLRepository:
         row = rows[0]
 
         return SegmentDefault(
-            segment_type=row['SEGMENT_TYPE'],
+            segment_type=segment_type,
             context_type=row['CONTEXT_TYPE'],
             context_value=row['CONTEXT_VALUE'],
             default_value=row['DEFAULT_VALUE'],

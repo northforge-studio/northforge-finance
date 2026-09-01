@@ -90,8 +90,8 @@ def _no_registry_calls_expected():
 
 def test_contextual_default_is_returned_when_configured():
     repository = _FakeRepository({
-        ('DEPT_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
-            segment_type='DEPT_CD',
+        (SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type=SegmentType.DEPARTMENT,
             context_type='ENTITY_CD',
             context_value='USM',
             default_value='9999',
@@ -99,16 +99,16 @@ def test_contextual_default_is_returned_when_configured():
     })
     manager = GLManager(repository, _no_registry_calls_expected())
 
-    result = manager.get_segment_default('DEPT_CD', entity_cd='USM')
+    result = manager.get_segment_default(SegmentType.DEPARTMENT, entity_cd='USM')
 
     assert result == '9999'
-    assert repository.calls == [('DEPT_CD', 'ENTITY_CD', 'USM')]
+    assert repository.calls == [(SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM')]
 
 
 def test_falls_back_to_global_when_contextual_missing():
     repository = _FakeRepository({
-        ('SUB_ACCOUNT', '*', '*'): SegmentDefault(
-            segment_type='SUB_ACCOUNT',
+        (SegmentType.SUB_ACCOUNT, '*', '*'): SegmentDefault(
+            segment_type=SegmentType.SUB_ACCOUNT,
             context_type='*',
             context_value='*',
             default_value='UNASSIGNED',
@@ -116,19 +116,19 @@ def test_falls_back_to_global_when_contextual_missing():
     })
     manager = GLManager(repository, _no_registry_calls_expected())
 
-    result = manager.get_segment_default('SUB_ACCOUNT', entity_cd='USM')
+    result = manager.get_segment_default(SegmentType.SUB_ACCOUNT, entity_cd='USM')
 
     assert result == 'UNASSIGNED'
     assert repository.calls == [
-        ('SUB_ACCOUNT', 'ENTITY_CD', 'USM'),
-        ('SUB_ACCOUNT', '*', '*'),
+        (SegmentType.SUB_ACCOUNT, 'ENTITY_CD', 'USM'),
+        (SegmentType.SUB_ACCOUNT, '*', '*'),
     ]
 
 
 def test_no_entity_cd_only_tries_global_lookup():
     repository = _FakeRepository({
-        ('PRODUCT_CD', '*', '*'): SegmentDefault(
-            segment_type='PRODUCT_CD',
+        (SegmentType.PRODUCT, '*', '*'): SegmentDefault(
+            segment_type=SegmentType.PRODUCT,
             context_type='*',
             context_value='*',
             default_value='999999',
@@ -136,35 +136,35 @@ def test_no_entity_cd_only_tries_global_lookup():
     })
     manager = GLManager(repository, _no_registry_calls_expected())
 
-    result = manager.get_segment_default('PRODUCT_CD')
+    result = manager.get_segment_default(SegmentType.PRODUCT)
 
     assert result == '999999'
-    assert repository.calls == [('PRODUCT_CD', '*', '*')]
+    assert repository.calls == [(SegmentType.PRODUCT, '*', '*')]
 
 
 def test_returns_none_when_neither_contextual_nor_global_configured():
     repository = _FakeRepository({})
     manager = GLManager(repository, _no_registry_calls_expected())
 
-    result = manager.get_segment_default('DEPT_CD', entity_cd='ZZZ')
+    result = manager.get_segment_default(SegmentType.DEPARTMENT, entity_cd='ZZZ')
 
     assert result is None
     assert repository.calls == [
-        ('DEPT_CD', 'ENTITY_CD', 'ZZZ'),
-        ('DEPT_CD', '*', '*'),
+        (SegmentType.DEPARTMENT, 'ENTITY_CD', 'ZZZ'),
+        (SegmentType.DEPARTMENT, '*', '*'),
     ]
 
 
 def test_contextual_default_takes_precedence_over_global():
     repository = _FakeRepository({
-        ('BOOK_CD', 'ENTITY_CD', 'CAM'): SegmentDefault(
-            segment_type='BOOK_CD',
+        (SegmentType.BOOK, 'ENTITY_CD', 'CAM'): SegmentDefault(
+            segment_type=SegmentType.BOOK,
             context_type='ENTITY_CD',
             context_value='CAM',
             default_value='CA_DEFAULT',
         ),
-        ('BOOK_CD', '*', '*'): SegmentDefault(
-            segment_type='BOOK_CD',
+        (SegmentType.BOOK, '*', '*'): SegmentDefault(
+            segment_type=SegmentType.BOOK,
             context_type='*',
             context_value='*',
             default_value='SHOULD_NOT_BE_USED',
@@ -172,22 +172,22 @@ def test_contextual_default_takes_precedence_over_global():
     })
     manager = GLManager(repository, _no_registry_calls_expected())
 
-    result = manager.get_segment_default('BOOK_CD', entity_cd='CAM')
+    result = manager.get_segment_default(SegmentType.BOOK, entity_cd='CAM')
 
     assert result == 'CA_DEFAULT'
-    assert repository.calls == [('BOOK_CD', 'ENTITY_CD', 'CAM')]
+    assert repository.calls == [(SegmentType.BOOK, 'ENTITY_CD', 'CAM')]
 
 
 def test_segment_with_no_configured_defaults_returns_none():
     repository = _FakeRepository({})
     manager = GLManager(repository, _no_registry_calls_expected())
 
-    result = manager.get_segment_default('ENTITY_CD', entity_cd='USM')
+    result = manager.get_segment_default(SegmentType.ENTITY, entity_cd='USM')
 
     assert result is None
     assert repository.calls == [
-        ('ENTITY_CD', 'ENTITY_CD', 'USM'),
-        ('ENTITY_CD', '*', '*'),
+        (SegmentType.ENTITY, 'ENTITY_CD', 'USM'),
+        (SegmentType.ENTITY, '*', '*'),
     ]
 
 
@@ -201,13 +201,13 @@ def test_resolve_segment_returns_supplied_value_unchanged_when_registry_valid():
     manager = GLManager(repository, registry)
 
     result = manager.resolve_segment(
-        'DEPT_CD', '1234',
+        SegmentType.DEPARTMENT, '1234',
         business_dt=BUSINESS_DT,
         entity_cd='USM',
     )
 
     assert result == SegmentResolution(
-        segment_type='DEPT_CD',
+        segment_type=SegmentType.DEPARTMENT,
         supplied_value='1234',
         resolved_value='1234',
         defaulted=False,
@@ -219,8 +219,8 @@ def test_resolve_segment_returns_supplied_value_unchanged_when_registry_valid():
 
 def test_resolve_segment_uses_contextual_default_when_supplied_invalid():
     repository = _FakeRepository({
-        ('DEPT_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
-            segment_type='DEPT_CD',
+        (SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type=SegmentType.DEPARTMENT,
             context_type='ENTITY_CD',
             context_value='USM',
             default_value='9999',
@@ -232,13 +232,13 @@ def test_resolve_segment_uses_contextual_default_when_supplied_invalid():
     manager = GLManager(repository, registry)
 
     result = manager.resolve_segment(
-        'DEPT_CD', 'BOGUS',
+        SegmentType.DEPARTMENT, 'BOGUS',
         business_dt=BUSINESS_DT,
         entity_cd='USM',
     )
 
     assert result == SegmentResolution(
-        segment_type='DEPT_CD',
+        segment_type=SegmentType.DEPARTMENT,
         supplied_value='BOGUS',
         resolved_value='9999',
         defaulted=True,
@@ -248,13 +248,13 @@ def test_resolve_segment_uses_contextual_default_when_supplied_invalid():
         (SegmentType.DEPARTMENT, BUSINESS_DT, 'BOGUS'),
         (SegmentType.DEPARTMENT, BUSINESS_DT, '9999'),
     ]
-    assert repository.calls == [('DEPT_CD', 'ENTITY_CD', 'USM')]
+    assert repository.calls == [(SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM')]
 
 
 def test_resolve_segment_falls_back_to_global_default_when_contextual_absent():
     repository = _FakeRepository({
-        ('SUB_ACCOUNT', '*', '*'): SegmentDefault(
-            segment_type='SUB_ACCOUNT',
+        (SegmentType.SUB_ACCOUNT, '*', '*'): SegmentDefault(
+            segment_type=SegmentType.SUB_ACCOUNT,
             context_type='*',
             context_value='*',
             default_value='UNASSIGNED',
@@ -266,20 +266,20 @@ def test_resolve_segment_falls_back_to_global_default_when_contextual_absent():
     manager = GLManager(repository, registry)
 
     result = manager.resolve_segment(
-        'SUB_ACCOUNT', 'BOGUS',
+        SegmentType.SUB_ACCOUNT, 'BOGUS',
         business_dt=BUSINESS_DT,
         entity_cd='USM',
     )
 
     assert result == SegmentResolution(
-        segment_type='SUB_ACCOUNT',
+        segment_type=SegmentType.SUB_ACCOUNT,
         supplied_value='BOGUS',
         resolved_value='UNASSIGNED',
         defaulted=True,
     )
     assert repository.calls == [
-        ('SUB_ACCOUNT', 'ENTITY_CD', 'USM'),
-        ('SUB_ACCOUNT', '*', '*'),
+        (SegmentType.SUB_ACCOUNT, 'ENTITY_CD', 'USM'),
+        (SegmentType.SUB_ACCOUNT, '*', '*'),
     ]
 
 
@@ -289,13 +289,13 @@ def test_resolve_segment_unresolved_when_no_default_configured():
     manager = GLManager(repository, registry)
 
     result = manager.resolve_segment(
-        'DEPT_CD', 'BOGUS',
+        SegmentType.DEPARTMENT, 'BOGUS',
         business_dt=BUSINESS_DT,
         entity_cd='USM',
     )
 
     assert result == SegmentResolution(
-        segment_type='DEPT_CD',
+        segment_type=SegmentType.DEPARTMENT,
         supplied_value='BOGUS',
         resolved_value=None,
         defaulted=False,
@@ -304,8 +304,8 @@ def test_resolve_segment_unresolved_when_no_default_configured():
 
 def test_resolve_segment_unresolved_when_configured_default_is_registry_invalid():
     repository = _FakeRepository({
-        ('DEPT_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
-            segment_type='DEPT_CD',
+        (SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type=SegmentType.DEPARTMENT,
             context_type='ENTITY_CD',
             context_value='USM',
             default_value='9999',
@@ -316,25 +316,25 @@ def test_resolve_segment_unresolved_when_configured_default_is_registry_invalid(
     manager = GLManager(repository, registry)
 
     result = manager.resolve_segment(
-        'DEPT_CD', 'BOGUS',
+        SegmentType.DEPARTMENT, 'BOGUS',
         business_dt=BUSINESS_DT,
         entity_cd='USM',
     )
 
     assert result == SegmentResolution(
-        segment_type='DEPT_CD',
+        segment_type=SegmentType.DEPARTMENT,
         supplied_value='BOGUS',
         resolved_value=None,
         defaulted=False,
     )
     # No recursive attempt at another default after a failed default.
-    assert repository.calls == [('DEPT_CD', 'ENTITY_CD', 'USM')]
+    assert repository.calls == [(SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM')]
 
 
 def test_resolve_segment_empty_supplied_value_skips_registry_and_uses_default():
     repository = _FakeRepository({
-        ('SUB_ACCOUNT', '*', '*'): SegmentDefault(
-            segment_type='SUB_ACCOUNT',
+        (SegmentType.SUB_ACCOUNT, '*', '*'): SegmentDefault(
+            segment_type=SegmentType.SUB_ACCOUNT,
             context_type='*',
             context_value='*',
             default_value='UNASSIGNED',
@@ -346,12 +346,12 @@ def test_resolve_segment_empty_supplied_value_skips_registry_and_uses_default():
     manager = GLManager(repository, registry)
 
     result = manager.resolve_segment(
-        'SUB_ACCOUNT', '',
+        SegmentType.SUB_ACCOUNT, '',
         business_dt=BUSINESS_DT,
     )
 
     assert result == SegmentResolution(
-        segment_type='SUB_ACCOUNT',
+        segment_type=SegmentType.SUB_ACCOUNT,
         supplied_value='',
         resolved_value='UNASSIGNED',
         defaulted=True,
@@ -363,8 +363,8 @@ def test_resolve_segment_empty_supplied_value_skips_registry_and_uses_default():
 
 def test_resolve_segment_none_supplied_value_skips_registry_and_uses_default():
     repository = _FakeRepository({
-        ('SUB_ACCOUNT', '*', '*'): SegmentDefault(
-            segment_type='SUB_ACCOUNT',
+        (SegmentType.SUB_ACCOUNT, '*', '*'): SegmentDefault(
+            segment_type=SegmentType.SUB_ACCOUNT,
             context_type='*',
             context_value='*',
             default_value='UNASSIGNED',
@@ -376,7 +376,7 @@ def test_resolve_segment_none_supplied_value_skips_registry_and_uses_default():
     manager = GLManager(repository, registry)
 
     result = manager.resolve_segment(
-        'SUB_ACCOUNT', None,
+        SegmentType.SUB_ACCOUNT, None,
         business_dt=BUSINESS_DT,
     )
 
@@ -386,26 +386,26 @@ def test_resolve_segment_none_supplied_value_skips_registry_and_uses_default():
 
 
 def test_resolve_segment_invalid_entity_cd_is_naturally_unresolved():
-    # ENTITY_CD is Registry-mapped like any other segment, but
+    # ENTITY is Registry-mapped like any other segment, but
     # gl.segment_default has no configured rows for it.
     repository = _FakeRepository({})
     registry = _FakeRegistryClient(set())
     manager = GLManager(repository, registry)
 
     result = manager.resolve_segment(
-        'ENTITY_CD', 'BOGUS',
+        SegmentType.ENTITY, 'BOGUS',
         business_dt=BUSINESS_DT,
     )
 
     assert result == SegmentResolution(
-        segment_type='ENTITY_CD',
+        segment_type=SegmentType.ENTITY,
         supplied_value='BOGUS',
         resolved_value=None,
         defaulted=False,
     )
     assert registry.calls == [(SegmentType.ENTITY, BUSINESS_DT, 'BOGUS')]
     assert repository.calls == [
-        ('ENTITY_CD', '*', '*'),
+        (SegmentType.ENTITY, '*', '*'),
     ]
 
 
@@ -415,12 +415,12 @@ def test_resolve_segment_invalid_source_cd_is_naturally_unresolved():
     manager = GLManager(repository, registry)
 
     result = manager.resolve_segment(
-        'SOURCE_CD', 'BOGUS',
+        SegmentType.SOURCE, 'BOGUS',
         business_dt=BUSINESS_DT,
     )
 
     assert result == SegmentResolution(
-        segment_type='SOURCE_CD',
+        segment_type=SegmentType.SOURCE,
         supplied_value='BOGUS',
         resolved_value=None,
         defaulted=False,
@@ -430,8 +430,8 @@ def test_resolve_segment_invalid_source_cd_is_naturally_unresolved():
 
 def test_resolve_segment_keeps_valid_supplied_value_even_if_it_looks_like_a_default():
     repository = _FakeRepository({
-        ('BOOK_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
-            segment_type='BOOK_CD',
+        (SegmentType.BOOK, 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type=SegmentType.BOOK,
             context_type='ENTITY_CD',
             context_value='USM',
             default_value='US_DEFAULT',
@@ -445,13 +445,13 @@ def test_resolve_segment_keeps_valid_supplied_value_even_if_it_looks_like_a_defa
     # Atlas happens to have supplied exactly the configured GL default,
     # but GL must treat it as an ordinary supplied value, not defaulting.
     result = manager.resolve_segment(
-        'BOOK_CD', 'US_DEFAULT',
+        SegmentType.BOOK, 'US_DEFAULT',
         business_dt=BUSINESS_DT,
         entity_cd='USM',
     )
 
     assert result == SegmentResolution(
-        segment_type='BOOK_CD',
+        segment_type=SegmentType.BOOK,
         supplied_value='US_DEFAULT',
         resolved_value='US_DEFAULT',
         defaulted=False,
@@ -462,8 +462,8 @@ def test_resolve_segment_keeps_valid_supplied_value_even_if_it_looks_like_a_defa
 
 def test_resolve_segment_preserves_numeric_looking_values_as_strings():
     repository = _FakeRepository({
-        ('GL_ACCOUNT', 'ENTITY_CD', 'USM'): SegmentDefault(
-            segment_type='GL_ACCOUNT',
+        (SegmentType.ACCOUNT, 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type=SegmentType.ACCOUNT,
             context_type='ENTITY_CD',
             context_value='USM',
             default_value='999999',
@@ -475,7 +475,7 @@ def test_resolve_segment_preserves_numeric_looking_values_as_strings():
     manager = GLManager(repository, registry)
 
     result = manager.resolve_segment(
-        'GL_ACCOUNT', '000000',
+        SegmentType.ACCOUNT, '000000',
         business_dt=BUSINESS_DT,
         entity_cd='USM',
     )
@@ -533,8 +533,8 @@ def test_resolve_segments_all_valid_returns_final_set_unchanged():
 
 def test_resolve_segments_applies_contextual_default_for_invalid_segment():
     repository = _FakeRepository({
-        ('DEPT_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
-            segment_type='DEPT_CD',
+        (SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type=SegmentType.DEPARTMENT,
             context_type='ENTITY_CD',
             context_value='USM',
             default_value='9999',
@@ -552,19 +552,21 @@ def test_resolve_segments_applies_contextual_default_for_invalid_segment():
     assert result.resolved is True
     assert result.segments == replace(_valid_segments(), dept_cd='9999')
 
-    dept_resolution = next(r for r in result.resolutions if r.segment_type == 'DEPT_CD')
+    dept_resolution = next(
+        r for r in result.resolutions if r.segment_type == SegmentType.DEPARTMENT
+    )
     assert dept_resolution.supplied_value == 'BOGUS'
     assert dept_resolution.resolved_value == '9999'
     assert dept_resolution.defaulted is True
 
     # Resolved entity was passed as contextual input for the rest.
-    assert ('DEPT_CD', 'ENTITY_CD', 'USM') in repository.calls
+    assert (SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM') in repository.calls
 
 
 def test_resolve_segments_applies_global_default_for_invalid_segment():
     repository = _FakeRepository({
-        ('SUB_ACCOUNT', '*', '*'): SegmentDefault(
-            segment_type='SUB_ACCOUNT',
+        (SegmentType.SUB_ACCOUNT, '*', '*'): SegmentDefault(
+            segment_type=SegmentType.SUB_ACCOUNT,
             context_type='*',
             context_value='*',
             default_value='UNASSIGNED',
@@ -585,20 +587,20 @@ def test_resolve_segments_applies_global_default_for_invalid_segment():
 
 def test_resolve_segments_applies_defaults_to_multiple_invalid_segments():
     repository = _FakeRepository({
-        ('DEPT_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
-            segment_type='DEPT_CD',
+        (SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type=SegmentType.DEPARTMENT,
             context_type='ENTITY_CD',
             context_value='USM',
             default_value='9999',
         ),
-        ('SUB_ACCOUNT', '*', '*'): SegmentDefault(
-            segment_type='SUB_ACCOUNT',
+        (SegmentType.SUB_ACCOUNT, '*', '*'): SegmentDefault(
+            segment_type=SegmentType.SUB_ACCOUNT,
             context_type='*',
             context_value='*',
             default_value='UNASSIGNED',
         ),
-        ('PRODUCT_CD', '*', '*'): SegmentDefault(
-            segment_type='PRODUCT_CD',
+        (SegmentType.PRODUCT, '*', '*'): SegmentDefault(
+            segment_type=SegmentType.PRODUCT,
             context_type='*',
             context_value='*',
             default_value='999999',
@@ -646,10 +648,10 @@ def test_resolve_segments_invalid_entity_leaves_whole_set_unresolved():
     assert result.segments is None
     # Remaining contextual resolution is not attempted once entity fails.
     assert len(result.resolutions) == 1
-    assert result.resolutions[0].segment_type == 'ENTITY_CD'
+    assert result.resolutions[0].segment_type == SegmentType.ENTITY
     assert result.resolutions[0].supplied_value == 'BOGUS'
     assert result.resolutions[0].resolved_value is None
-    assert repository.calls == [('ENTITY_CD', '*', '*')]
+    assert repository.calls == [(SegmentType.ENTITY, '*', '*')]
 
 
 def test_resolve_segments_invalid_source_cd_leaves_whole_set_unresolved():
@@ -667,15 +669,17 @@ def test_resolve_segments_invalid_source_cd_leaves_whole_set_unresolved():
     assert result.segments is None
     # Entity resolved fine, so every other segment was still processed.
     assert len(result.resolutions) == 9
-    source_resolution = next(r for r in result.resolutions if r.segment_type == 'SOURCE_CD')
+    source_resolution = next(
+        r for r in result.resolutions if r.segment_type == SegmentType.SOURCE
+    )
     assert source_resolution.resolved_value is None
     assert source_resolution.defaulted is False
 
 
 def test_resolve_segments_unresolved_when_configured_default_is_registry_invalid():
     repository = _FakeRepository({
-        ('BRANCH_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
-            segment_type='BRANCH_CD',
+        (SegmentType.BRANCH, 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type=SegmentType.BRANCH,
             context_type='ENTITY_CD',
             context_value='USM',
             default_value='BAD_DEFAULT',
@@ -691,14 +695,16 @@ def test_resolve_segments_unresolved_when_configured_default_is_registry_invalid
 
     assert result.resolved is False
     assert result.segments is None
-    branch_resolution = next(r for r in result.resolutions if r.segment_type == 'BRANCH_CD')
+    branch_resolution = next(
+        r for r in result.resolutions if r.segment_type == SegmentType.BRANCH
+    )
     assert branch_resolution.resolved_value is None
 
 
 def test_resolve_segments_empty_value_is_defaulted():
     repository = _FakeRepository({
-        ('DEPT_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
-            segment_type='DEPT_CD',
+        (SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type=SegmentType.DEPARTMENT,
             context_type='ENTITY_CD',
             context_value='USM',
             default_value='9999',
@@ -985,8 +991,8 @@ def test_process_instruction_valid_posts_successfully():
 
 def test_process_instruction_defaulted_segment_posts_resolved_value():
     repository = _FakeRepository({
-        ('DEPT_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
-            segment_type='DEPT_CD',
+        (SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type=SegmentType.DEPARTMENT,
             context_type='ENTITY_CD',
             context_value='USM',
             default_value='9999',
@@ -1059,8 +1065,8 @@ def test_process_instruction_invalid_source_rejects_via_segment_resolution():
 
 def test_process_instruction_registry_invalid_configured_default_rejects():
     repository = _FakeRepository({
-        ('BRANCH_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
-            segment_type='BRANCH_CD',
+        (SegmentType.BRANCH, 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type=SegmentType.BRANCH,
             context_type='ENTITY_CD',
             context_value='USM',
             default_value='BAD_DEFAULT',
@@ -1081,20 +1087,20 @@ def test_process_instruction_registry_invalid_configured_default_rejects():
 
 def test_process_instruction_multiple_defaults_produce_one_posting():
     repository = _FakeRepository({
-        ('DEPT_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
-            segment_type='DEPT_CD',
+        (SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM'): SegmentDefault(
+            segment_type=SegmentType.DEPARTMENT,
             context_type='ENTITY_CD',
             context_value='USM',
             default_value='9999',
         ),
-        ('SUB_ACCOUNT', '*', '*'): SegmentDefault(
-            segment_type='SUB_ACCOUNT',
+        (SegmentType.SUB_ACCOUNT, '*', '*'): SegmentDefault(
+            segment_type=SegmentType.SUB_ACCOUNT,
             context_type='*',
             context_value='*',
             default_value='UNASSIGNED',
         ),
-        ('PRODUCT_CD', '*', '*'): SegmentDefault(
-            segment_type='PRODUCT_CD',
+        (SegmentType.PRODUCT, '*', '*'): SegmentDefault(
+            segment_type=SegmentType.PRODUCT,
             context_type='*',
             context_value='*',
             default_value='999999',
@@ -1287,8 +1293,8 @@ def test_import_instructions_results_retained_in_deterministic_order():
 def test_import_instructions_defaulted_segment_appears_in_posting():
     repository = _FakeRepository(
         {
-            ('DEPT_CD', 'ENTITY_CD', 'USM'): SegmentDefault(
-                segment_type='DEPT_CD',
+            (SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM'): SegmentDefault(
+                segment_type=SegmentType.DEPARTMENT,
                 context_type='ENTITY_CD',
                 context_value='USM',
                 default_value='9999',

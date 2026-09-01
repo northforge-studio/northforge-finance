@@ -3,10 +3,12 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
+from registry import SegmentType
+
 
 @dataclass(frozen=True)
 class SegmentDefault:
-    segment_type: str
+    segment_type: SegmentType
     context_type: str
     context_value: str
     default_value: str
@@ -14,7 +16,7 @@ class SegmentDefault:
 
 @dataclass(frozen=True)
 class SegmentResolution:
-    segment_type: str
+    segment_type: SegmentType
     supplied_value: str | None
     resolved_value: str | None
     defaulted: bool

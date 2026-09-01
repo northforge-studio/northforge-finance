@@ -10,7 +10,7 @@ from core.store import (
 )
 from core.runs import RunIdentity
 
-from registry import RegistryClient
+from registry import RegistryClient, SegmentType
 
 from gl.manager import GLManager
 from gl.models import (
@@ -87,7 +87,7 @@ class GLClient:
 
     def get_segment_default(
         self,
-        segment_type: str,
+        segment_type: SegmentType,
         *,
         entity_cd: str | None = None,
     ) -> str | None:
@@ -99,7 +99,7 @@ class GLClient:
 
     def resolve_segment(
         self,
-        segment_type: str,
+        segment_type: SegmentType,
         segment_value: str | None,
         *,
         business_dt: date,

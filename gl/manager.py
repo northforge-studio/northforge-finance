@@ -21,38 +21,19 @@ from gl.models import (
 from gl.repository import GLRepository
 
 
-# Translates GL's own segment_type vocabulary (as used in
-# gl.segment_default) to the SegmentType Registry expects for
-# validate_segment(...). Every GL segment type is mapped here,
-# including ENTITY_CD/SOURCE_CD, so those remain Registry-validated
-# like any other segment; they only end up unresolved on an invalid
-# value because gl.segment_default has no rows configured for them.
-_REGISTRY_SEGMENT_TYPES: dict[str, SegmentType] = {
-    'ENTITY_CD': SegmentType.ENTITY,
-    'BRANCH_CD': SegmentType.BRANCH,
-    'DEPT_CD': SegmentType.DEPARTMENT,
-    'GL_ACCOUNT': SegmentType.ACCOUNT,
-    'SUB_ACCOUNT': SegmentType.SUB_ACCOUNT,
-    'AFFILIATE_CD': SegmentType.AFFILIATE,
-    'PRODUCT_CD': SegmentType.PRODUCT,
-    'BOOK_CD': SegmentType.BOOK,
-    'SOURCE_CD': SegmentType.SOURCE,
-}
-
-
-# Maps each GLSegments field to its segment_type. ENTITY_CD is listed
+# Maps each GLSegments field to its segment_type. ENTITY is listed
 # first: it is resolved before the rest so its resolved value can be
 # used as contextual entity_cd input for the other eight.
-_SEGMENT_FIELD_TYPES: tuple[tuple[str, str], ...] = (
-    ('entity_cd', 'ENTITY_CD'),
-    ('branch_cd', 'BRANCH_CD'),
-    ('dept_cd', 'DEPT_CD'),
-    ('gl_account', 'GL_ACCOUNT'),
-    ('sub_account', 'SUB_ACCOUNT'),
-    ('affiliate_cd', 'AFFILIATE_CD'),
-    ('product_cd', 'PRODUCT_CD'),
-    ('book_cd', 'BOOK_CD'),
-    ('source_cd', 'SOURCE_CD'),
+_SEGMENT_FIELD_TYPES: tuple[tuple[str, SegmentType], ...] = (
+    ('entity_cd', SegmentType.ENTITY),
+    ('branch_cd', SegmentType.BRANCH),
+    ('dept_cd', SegmentType.DEPARTMENT),
+    ('gl_account', SegmentType.ACCOUNT),
+    ('sub_account', SegmentType.SUB_ACCOUNT),
+    ('affiliate_cd', SegmentType.AFFILIATE),
+    ('product_cd', SegmentType.PRODUCT),
+    ('book_cd', SegmentType.BOOK),
+    ('source_cd', SegmentType.SOURCE),
 )
 
 
@@ -92,7 +73,7 @@ class GLManager:
 
     def get_segment_default(
         self,
-        segment_type: str,
+        segment_type: SegmentType,
         *,
         entity_cd: str | None = None,
     ) -> str | None:
@@ -114,7 +95,7 @@ class GLManager:
 
     def resolve_segment(
         self,
-        segment_type: str,
+        segment_type: SegmentType,
         segment_value: str | None,
         *,
         business_dt: date,
@@ -157,7 +138,7 @@ class GLManager:
         business_dt: date,
     ) -> GLSegmentResolution:
         entity_resolution = self.resolve_segment(
-            'ENTITY_CD', segments.entity_cd, business_dt=business_dt,
+            SegmentType.ENTITY, segments.entity_cd, business_dt=business_dt,
         )
 
         if entity_resolution.resolved_value is None:
@@ -266,7 +247,7 @@ class GLManager:
 
         if not segment_resolution.resolved:
             unresolved = ','.join(
-                resolution.segment_type
+                resolution.segment_type.field_name.upper()
                 for resolution in segment_resolution.resolutions
                 if resolution.resolved_value is None
             )
@@ -377,12 +358,10 @@ class GLManager:
 
     def _is_registry_valid(
         self,
-        segment_type: str,
+        segment_type: SegmentType,
         business_dt: date,
         segment_value: str,
     ) -> bool:
-        registry_segment_type = _REGISTRY_SEGMENT_TYPES[segment_type]
-
         return self._registry.validate_segment(
-            registry_segment_type, business_dt, segment_value,
+            segment_type, business_dt, segment_value,
         )

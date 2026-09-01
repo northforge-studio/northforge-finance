@@ -8,6 +8,8 @@ from pyspark.sql import DataFrame
 
 from core.store import CsvStore
 
+from registry import SegmentType
+
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
 from gl.models import GLInstruction, GLPosting, GLRejection, SegmentDefault
 from gl.repository import GLRepository
@@ -25,10 +27,10 @@ def repository(spark):
 
 
 def test_get_segment_default_returns_contextual_default(repository):
-    result = repository.get_segment_default('DEPT_CD', 'ENTITY_CD', 'USM')
+    result = repository.get_segment_default(SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM')
 
     assert result == SegmentDefault(
-        segment_type='DEPT_CD',
+        segment_type=SegmentType.DEPARTMENT,
         context_type='ENTITY_CD',
         context_value='USM',
         default_value='9999',
@@ -36,10 +38,10 @@ def test_get_segment_default_returns_contextual_default(repository):
 
 
 def test_get_segment_default_returns_global_default(repository):
-    result = repository.get_segment_default('SUB_ACCOUNT', '*', '*')
+    result = repository.get_segment_default(SegmentType.SUB_ACCOUNT, '*', '*')
 
     assert result == SegmentDefault(
-        segment_type='SUB_ACCOUNT',
+        segment_type=SegmentType.SUB_ACCOUNT,
         context_type='*',
         context_value='*',
         default_value='UNASSIGNED',
@@ -47,7 +49,7 @@ def test_get_segment_default_returns_global_default(repository):
 
 
 def test_get_segment_default_returns_none_for_unknown_combination(repository):
-    result = repository.get_segment_default('DEPT_CD', 'ENTITY_CD', 'UNKNOWN')
+    result = repository.get_segment_default(SegmentType.DEPARTMENT, 'ENTITY_CD', 'UNKNOWN')
 
     assert result is None
 
@@ -56,7 +58,7 @@ def test_get_segment_default_does_not_fall_back_from_contextual_request_to_globa
     repository,
 ):
     # AFFILIATE_CD only has a global (*, *) row configured.
-    result = repository.get_segment_default('AFFILIATE_CD', 'ENTITY_CD', 'USM')
+    result = repository.get_segment_default(SegmentType.AFFILIATE, 'ENTITY_CD', 'USM')
 
     assert result is None
 
@@ -65,13 +67,13 @@ def test_get_segment_default_does_not_fall_back_from_global_request_to_contextua
     repository,
 ):
     # DEPT_CD only has ENTITY_CD-contextual rows configured.
-    result = repository.get_segment_default('DEPT_CD', '*', '*')
+    result = repository.get_segment_default(SegmentType.DEPARTMENT, '*', '*')
 
     assert result is None
 
 
 def test_get_segment_default_preserves_numeric_looking_values_as_strings(repository):
-    result = repository.get_segment_default('GL_ACCOUNT', 'ENTITY_CD', 'USM')
+    result = repository.get_segment_default(SegmentType.ACCOUNT, 'ENTITY_CD', 'USM')
 
     assert result.default_value == '999999'
     assert isinstance(result.default_value, str)
@@ -98,7 +100,7 @@ def test_get_segment_default_works_against_a_fake_store(spark):
     store = _FakeStore({'SEGMENT_DEFAULT': df})
     repository = GLRepository(store, spark)
 
-    result = repository.get_segment_default('DEPT_CD', 'ENTITY_CD', 'ZZZ')
+    result = repository.get_segment_default(SegmentType.DEPARTMENT, 'ENTITY_CD', 'ZZZ')
 
     assert result.default_value == '0099'
     assert isinstance(result.default_value, str)
