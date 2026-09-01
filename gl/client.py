@@ -22,6 +22,7 @@ from gl.models import (
     GLSegments,
     InstructionValidation,
     SegmentResolution,
+    SegmentDefaults,
 )
 from gl.repository import GLRepository
 
@@ -96,6 +97,10 @@ class GLClient:
             segment_type,
             entity_cd=entity_cd,
         )
+
+
+    def get_segment_defaults(self) -> SegmentDefaults:
+        return self.manager.get_segment_defaults()
 
 
     def resolve_segment(

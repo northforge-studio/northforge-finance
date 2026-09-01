@@ -15,6 +15,42 @@ class SegmentDefault:
 
 
 @dataclass(frozen=True)
+class SegmentDefaults:
+    values: tuple[SegmentDefault, ...]
+
+
+    def resolve(
+        self,
+        segment_type: SegmentType,
+        *,
+        entity_cd: str,
+    ) -> str | None:
+        entity_default = next(
+            (
+                item.default_value
+                for item in self.values
+                if item.segment_type == segment_type
+                and item.context_type == 'ENTITY_CD'
+                and item.context_value == entity_cd
+            ),
+            None,
+        )
+
+        if entity_default is not None:
+            return entity_default
+
+        return next(
+            (
+                item.default_value
+                for item in self.values
+                if item.segment_type == segment_type
+                and item.context_type == 'GLOBAL'
+            ),
+            None,
+        )
+
+
+@dataclass(frozen=True)
 class SegmentResolution:
     segment_type: SegmentType
     supplied_value: str | None

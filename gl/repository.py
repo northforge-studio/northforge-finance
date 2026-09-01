@@ -56,6 +56,25 @@ class GLRepository:
         )
 
 
+    def get_segment_defaults(self) -> tuple[SegmentDefault, ...]:
+        df = self._store.read(
+            table_name='SEGMENT_DEFAULT',
+            schema=SEGMENT_DEFAULT_SCHEMA,
+        ).orderBy('SEGMENT_TYPE', 'CONTEXT_TYPE', 'CONTEXT_VALUE')
+
+        rows = df.collect()
+
+        return tuple(
+            SegmentDefault(
+                segment_type=SegmentType[row['SEGMENT_TYPE']],
+                context_type=row['CONTEXT_TYPE'],
+                context_value=row['CONTEXT_VALUE'],
+                default_value=row['DEFAULT_VALUE'],
+            )
+            for row in rows
+        )
+
+
     def write_posting(self, posting: GLPosting) -> None:
         df = self._spark.createDataFrame(
             [self._to_row(posting)],

@@ -9,15 +9,16 @@ from registry.models import SegmentType
 from core.runs.models import RunIdentity
 
 from gl.models import (
-    GLImportResult,
-    GLInstruction,
-    GLInstructionResult,
+    GLSegments,
     GLPosting,
     GLRejection,
-    GLSegmentResolution,
-    GLSegments,
-    InstructionValidation,
+    GLInstruction,
+    GLImportResult,
+    SegmentDefaults,
     SegmentResolution,
+    GLInstructionResult,
+    GLSegmentResolution,
+    InstructionValidation,
 )
 from gl.repository import GLRepository
 
@@ -92,6 +93,12 @@ class GLManager:
             return global_default.default_value
 
         return None
+
+
+    def get_segment_defaults(self) -> SegmentDefaults:
+        return SegmentDefaults(
+            values=self.repository.get_segment_defaults(),
+        )
 
 
     def resolve_segment(

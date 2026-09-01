@@ -11,7 +11,13 @@ from core.store import CsvStore
 from registry.models import SegmentType
 
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
-from gl.models import GLInstruction, GLPosting, GLRejection, SegmentDefault
+from gl.models import (
+    GLInstruction, 
+    GLPosting, 
+    GLRejection, 
+    SegmentDefault, 
+    SegmentDefaults
+)
 from gl.repository import GLRepository
 
 
@@ -688,3 +694,54 @@ def test_delete_rejections_removes_only_rows_for_the_named_workflow_run(
 
     remaining = posting_and_rejection_repository.get_rejections(kept_workflow_run_id).collect()
     assert {UUID(row['WORKFLOW_RUN_ID']) for row in remaining} == {kept_workflow_run_id}
+
+
+def test_resolve_prefers_entity_default():
+    defaults = SegmentDefaults(
+        values=(
+            SegmentDefault(
+                SegmentType.ACCOUNT,
+                'GLOBAL',
+                '*',
+                '999999',
+            ),
+            SegmentDefault(
+                SegmentType.ACCOUNT,
+                'ENTITY_CD',
+                'USMKTS',
+                '990101',
+            ),
+        )
+    )
+
+    assert defaults.resolve(
+        SegmentType.ACCOUNT,
+        entity_cd='USMKTS',
+    ) == '990101'
+
+
+def test_resolve_falls_back_to_global():
+    defaults = SegmentDefaults(
+        values=(
+            SegmentDefault(
+                SegmentType.ACCOUNT,
+                'GLOBAL',
+                '*',
+                '999999',
+            ),
+        )
+    )
+
+    assert defaults.resolve(
+        SegmentType.ACCOUNT,
+        entity_cd='CAMKTS',
+    ) == '999999'
+
+
+def test_resolve_returns_none_when_no_default():
+    defaults = SegmentDefaults(values=())
+
+    assert defaults.resolve(
+        SegmentType.ACCOUNT,
+        entity_cd='USMKTS',
+    ) is None
