@@ -97,7 +97,7 @@ class GLManager:
 
     def get_segment_defaults(self) -> SegmentDefaults:
         return SegmentDefaults(
-            values=self.repository.get_segment_defaults(),
+            values=self._repository.get_segment_defaults(),
         )
 
 

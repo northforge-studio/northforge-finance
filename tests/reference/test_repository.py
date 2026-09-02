@@ -22,9 +22,7 @@ def test_get_fx_rate_reads_configured_columns(repository):
     df = repository.get_reference_data(ReferenceData.FX_RATE)
 
     assert df.columns == [
-        'AUD_LOAD_ID',
         'CONVERSION_DT',
-        'VER_NB',
         'FROM_CURRENCY',
         'TO_CURRENCY',
         'FX_RATE',
@@ -36,9 +34,7 @@ def test_get_counterparty_reads_configured_columns(repository):
     df = repository.get_reference_data(ReferenceData.COUNTERPARTY)
 
     assert df.columns == [
-        'AUD_LOAD_ID',
         'BUSINESS_DT',
-        'VER_NB',
         'CPTY_REF_ID',
         'CLIENT_ID',
         'CPTY_NM',

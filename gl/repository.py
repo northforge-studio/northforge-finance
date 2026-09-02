@@ -64,9 +64,14 @@ class GLRepository:
 
         rows = df.collect()
 
+        segment_types_by_code = {
+            segment_type.field_name.upper(): segment_type
+            for segment_type in SegmentType
+        }
+
         return tuple(
             SegmentDefault(
-                segment_type=SegmentType[row['SEGMENT_TYPE']],
+                segment_type=segment_types_by_code[row['SEGMENT_TYPE']],
                 context_type=row['CONTEXT_TYPE'],
                 context_value=row['CONTEXT_VALUE'],
                 default_value=row['DEFAULT_VALUE'],

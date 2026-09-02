@@ -13,8 +13,8 @@ def repository(spark):
     store = CsvStore(
         spark=spark,
         table_locations={
-            'REGISTRY_GL_ENTITY': 'data/registry/gl_entity.csv',
-            'REGISTRY_GL_BRANCH': 'data/registry/gl_branch.csv',
+            SegmentType.ENTITY: 'data/registry/gl_entity.csv',
+            SegmentType.BRANCH: 'data/registry/gl_branch.csv',
         },
     )
     return RegistryRepository(store)
@@ -23,18 +23,18 @@ def repository(spark):
 def test_get_segment_filters_by_business_dt_segment_cd_and_status(repository):
     df = repository.get_segment(
         SegmentType.ENTITY,
-        date(2025, 3, 31),
-        '505890',
+        date(2026, 3, 31),
+        'USMKTS',
     )
 
     assert df.count() == 1
-    assert df.first()['ENT_DS'] == 'SMBC NIKKO SECURITIES AMERICAS INC.'
+    assert df.first()['ENT_DS'] == 'NorthForge Markets US'
 
 
 def test_get_segment_returns_empty_for_unmatched_segment_cd(repository):
     df = repository.get_segment(
         SegmentType.BRANCH,
-        date(2025, 3, 31),
+        date(2026, 3, 31),
         'UNKNOWN',
     )
 
@@ -60,7 +60,7 @@ def test_get_segment_works_against_a_fake_store(spark):
         ['BUSINESS_DT', 'BCH_CD', 'BCH_DS', 'STATUS'],
     )
 
-    store = _FakeStore({'REGISTRY_GL_BRANCH': branch_df})
+    store = _FakeStore({SegmentType.BRANCH: branch_df})
     repository = RegistryRepository(store)
 
     df = repository.get_segment(

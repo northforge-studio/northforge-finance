@@ -5,12 +5,12 @@ from core.store import CsvStore
 
 
 @pytest.fixture(scope='module')
-def repository(spark):
+def repository(spark, atlas_meta_path, atlas_data_path):
     store = CsvStore(
         spark=spark,
         table_locations={
-            'MAPPING_META': 'data/atlas/mapping_meta.csv',
-            'MAPPING_DATA': 'data/atlas/mapping_data.csv',
+            'MAPPING_META': atlas_meta_path,
+            'MAPPING_DATA': atlas_data_path,
         },
     )
     return AtlasRepository(store)

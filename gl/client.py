@@ -100,7 +100,7 @@ class GLClient:
 
 
     def get_segment_defaults(self) -> SegmentDefaults:
-        return self.manager.get_segment_defaults()
+        return self._manager.get_segment_defaults()
 
 
     def resolve_segment(

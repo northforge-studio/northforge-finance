@@ -25,15 +25,15 @@ def registry(spark):
 def test_validate_segment_is_true_for_active_record(registry):
     assert registry.validate_segment(
         SegmentType.ENTITY,
-        date(2025, 3, 31),
-        '505890',
+        date(2026, 3, 31),
+        'USMKTS',
     ) is True
 
 
 def test_validate_segment_is_false_for_unknown_segment_cd(registry):
     assert registry.validate_segment(
         SegmentType.ENTITY,
-        date(2025, 3, 31),
+        date(2026, 3, 31),
         'UNKNOWN',
     ) is False
 
@@ -42,25 +42,25 @@ def test_validate_segment_is_false_for_unmatched_business_dt(registry):
     assert registry.validate_segment(
         SegmentType.ENTITY,
         date(2099, 1, 1),
-        '505890',
+        'USMKTS',
     ) is False
 
 
 def test_get_segment_details_returns_matching_record(registry):
     result = registry.get_segment_details(
         SegmentType.BRANCH,
-        date(2025, 3, 31),
-        '000000',
+        date(2026, 3, 31),
+        'USNY01',
     )
 
     assert result.count() == 1
-    assert result.first()['BCH_DS'] == 'NON BRANCH'
+    assert result.first()['BCH_DS'] == 'New York'
 
 
 def test_get_segment_details_raises_when_not_found(registry):
     with pytest.raises(KeyError):
         registry.get_segment_details(
             SegmentType.BRANCH,
-            date(2025, 3, 31),
+            date(2026, 3, 31),
             'UNKNOWN',
         )

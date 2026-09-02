@@ -6,20 +6,20 @@ from atlas.repository import AtlasRepository
 from core.store import CsvStore
 
 
-def _make_repository(spark):
+def _make_repository(spark, atlas_meta_path, atlas_data_path):
     store = CsvStore(
         spark=spark,
         table_locations={
-            'MAPPING_META': 'data/atlas/mapping_meta.csv',
-            'MAPPING_DATA': 'data/atlas/mapping_data.csv',
+            'MAPPING_META': atlas_meta_path,
+            'MAPPING_DATA': atlas_data_path,
         },
     )
     return AtlasRepository(store)
 
 
 @pytest.fixture(scope='module')
-def manager(spark):
-    repository = _make_repository(spark)
+def manager(spark, atlas_meta_path, atlas_data_path):
+    repository = _make_repository(spark, atlas_meta_path, atlas_data_path)
     return MappingManager(repository)
 
 
@@ -69,14 +69,18 @@ def test_validate_entity_mapping_missing_source_column(spark, manager):
 
 
 def test_apply_resolves_wildcard_by_weightage(spark, manager):
+    # DEPARTMENT_MAPPING configures both a literal USM/TRD row
+    # (WEIGHTAGE 90000000000000000000) and a USM/* wildcard row
+    # (WEIGHTAGE 10000000000000000000); a record matching both must
+    # resolve to the higher-weightage literal row.
     df = spark.createDataFrame(
         [
             (
                 'record-1',
-                '11392',
-                'NSA',
+                'NFM',
+                'USM',
                 'TRIAL_BALANCE',
-                '',
+                'TRD',
             ),
         ],
         [
@@ -84,17 +88,13 @@ def test_apply_resolves_wildcard_by_weightage(spark, manager):
             'SRC_APP_CD',
             'SRC_ENTITY_CD',
             'DATACLASS',
-            'COA_RULE_ID',
+            'SRC_BOOKING_DEPT_CD',
         ],
     )
 
     result = manager.apply(
         df,
-        'ENTITY_MAPPING',
-    )
-
-    result.show(
-        truncate=False,
+        'DEPARTMENT_MAPPING',
     )
 
     assert result.count() == 1
@@ -104,12 +104,11 @@ def test_apply_resolves_wildcard_by_weightage(spark, manager):
         'SRC_APP_CD',
         'SRC_ENTITY_CD',
         'DATACLASS',
-        'COA_RULE_ID',
-        'GL_ENTITY_CD',
-        'GL_BRANCH_CD',
-        'ENTITY_SUN_ID',
-        'POSTING_MEASURE_FUNC_CCY_CD',
+        'SRC_BOOKING_DEPT_CD',
+        'GL_DEPT_CD',
     ]
+
+    assert result.first()['GL_DEPT_CD'] == 'USTRD1'
 
 
 def test_apply_preserves_unmatched_source_row(spark, manager):

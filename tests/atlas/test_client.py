@@ -4,11 +4,11 @@ from atlas import AtlasClient
 
 
 @pytest.fixture(scope='module')
-def atlas(spark):
+def atlas(spark, atlas_meta_path, atlas_data_path):
     return AtlasClient.from_csv(
         spark=spark,
-        metadata_path='data/atlas/mapping_meta.csv',
-        data_path='data/atlas/mapping_data.csv',
+        metadata_path=atlas_meta_path,
+        data_path=atlas_data_path,
     )
 
 

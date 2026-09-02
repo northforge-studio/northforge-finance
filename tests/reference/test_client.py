@@ -55,7 +55,7 @@ def test_enrich_fx_rate_preserves_unmatched_source_row(spark, reference):
 def test_enrich_counterparty_joins_on_cpty_ref_id(spark, reference):
     df = spark.createDataFrame(
         [
-            ('record-1', '54361'),
+            ('record-1', 'CP-EXT-001'),
         ],
         [
             'RECORD_ID',

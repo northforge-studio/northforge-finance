@@ -34,9 +34,9 @@ class _FakeRegistryClient:
 @pytest.fixture(scope='module')
 def registry():
     return _FakeRegistryClient({
-        (SegmentType.DEPARTMENT, BUSINESS_DT, '9999'),
+        (SegmentType.DEPARTMENT, BUSINESS_DT, 'USGL99'),
         (SegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED'),
-        (SegmentType.ENTITY, BUSINESS_DT, 'USM'),
+        (SegmentType.ENTITY, BUSINESS_DT, 'USMKTS'),
         (SegmentType.BRANCH, BUSINESS_DT, '100'),
         (SegmentType.ACCOUNT, BUSINESS_DT, '123456'),
         (SegmentType.AFFILIATE, BUSINESS_DT, '999999'),
@@ -50,62 +50,62 @@ def registry():
 def gl(spark, registry):
     return GLClient.from_csv(
         spark=spark,
-        segment_default_path='data/gl/segment_defaults.csv',
+        segment_default_path='data/gl/segment_default.csv',
         registry=registry,
     )
 
 
 def test_get_segment_default_returns_contextual_default(gl):
-    assert gl.get_segment_default(SegmentType.DEPARTMENT, entity_cd='USM') == '9999'
+    assert gl.get_segment_default(SegmentType.DEPARTMENT, entity_cd='USMKTS') == 'USGL99'
 
 
 def test_get_segment_default_falls_back_to_global(gl):
-    assert gl.get_segment_default(SegmentType.SUB_ACCOUNT, entity_cd='USM') == 'UNASSIGNED'
+    assert gl.get_segment_default(SegmentType.SUB_ACCOUNT, entity_cd='USMKTS') == '990001'
 
 
 def test_get_segment_default_without_entity_cd_uses_global_only(gl):
-    assert gl.get_segment_default(SegmentType.PRODUCT) == '999999'
+    assert gl.get_segment_default(SegmentType.PRODUCT) == '990003'
 
 
 def test_get_segment_default_returns_none_for_non_defaultable_segments(gl):
-    assert gl.get_segment_default(SegmentType.ENTITY, entity_cd='USM') is None
-    assert gl.get_segment_default(SegmentType.SOURCE, entity_cd='USM') is None
+    assert gl.get_segment_default(SegmentType.ENTITY, entity_cd='USMKTS') is None
+    assert gl.get_segment_default(SegmentType.SOURCE, entity_cd='USMKTS') is None
 
 
 def test_resolve_segment_delegates_to_manager_for_invalid_supplied_value(gl):
     result = gl.resolve_segment(
         SegmentType.DEPARTMENT, 'BOGUS',
         business_dt=BUSINESS_DT,
-        entity_cd='USM',
+        entity_cd='USMKTS',
     )
 
     assert result == SegmentResolution(
         segment_type=SegmentType.DEPARTMENT,
         supplied_value='BOGUS',
-        resolved_value='9999',
+        resolved_value='USGL99',
         defaulted=True,
     )
 
 
 def test_resolve_segment_delegates_to_manager_for_valid_supplied_value(gl):
     result = gl.resolve_segment(
-        SegmentType.DEPARTMENT, '9999',
+        SegmentType.DEPARTMENT, 'USGL99',
         business_dt=BUSINESS_DT,
-        entity_cd='USM',
+        entity_cd='USMKTS',
     )
 
     assert result == SegmentResolution(
         segment_type=SegmentType.DEPARTMENT,
-        supplied_value='9999',
-        resolved_value='9999',
+        supplied_value='USGL99',
+        resolved_value='USGL99',
         defaulted=False,
     )
 
 
 def _valid_segments() -> GLSegments:
     return GLSegments(
-        entity_cd='USM',
-        dept_cd='9999',
+        entity_cd='USMKTS',
+        dept_cd='USGL99',
         branch_cd='100',
         gl_account='123456',
         sub_account='UNASSIGNED',
@@ -136,7 +136,7 @@ def test_resolve_segments_delegates_to_manager_for_invalid_defaultable_segment(g
         r for r in result.resolutions if r.segment_type == SegmentType.DEPARTMENT
     )
     assert dept_resolution.supplied_value == 'BOGUS'
-    assert dept_resolution.resolved_value == '9999'
+    assert dept_resolution.resolved_value == 'USGL99'
     assert dept_resolution.defaulted is True
 
 
@@ -152,8 +152,8 @@ def _valid_instruction() -> GLInstruction:
         posting_stream='STREAM-1',
         src_record_id='REC-1',
         src_app_cd='NFM',
-        entity_cd='USM',
-        dept_cd='9999',
+        entity_cd='USMKTS',
+        dept_cd='USGL99',
         branch_cd='100',
         gl_account='123456',
         sub_account='UNASSIGNED',
@@ -194,7 +194,7 @@ def test_validate_instruction_delegates_to_manager_for_invalid_instruction(gl):
 def gl_with_posting_support(spark, registry, tmp_path):
     return GLClient.from_csv(
         spark=spark,
-        segment_default_path='data/gl/segment_defaults.csv',
+        segment_default_path='data/gl/segment_default.csv',
         registry=registry,
         posting_path=tmp_path / 'POSTING',
         rejection_path=tmp_path / 'REJECTION',

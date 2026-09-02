@@ -192,7 +192,7 @@ def registry():
 def gl(spark, tmp_path, registry):
     return GLClient.from_csv(
         spark=spark,
-        segment_default_path='data/gl/segment_defaults.csv',
+        segment_default_path='data/gl/segment_default.csv',
         registry=registry,
         posting_path=tmp_path / 'POSTING',
     )

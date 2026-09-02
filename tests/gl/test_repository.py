@@ -26,20 +26,20 @@ def repository(spark):
     store = CsvStore(
         spark=spark,
         table_locations={
-            'SEGMENT_DEFAULT': 'data/gl/segment_defaults.csv',
+            'SEGMENT_DEFAULT': 'data/gl/segment_default.csv',
         },
     )
     return GLRepository(store, spark)
 
 
 def test_get_segment_default_returns_contextual_default(repository):
-    result = repository.get_segment_default(SegmentType.DEPARTMENT, 'ENTITY_CD', 'USM')
+    result = repository.get_segment_default(SegmentType.DEPARTMENT, 'ENTITY_CD', 'USMKTS')
 
     assert result == SegmentDefault(
         segment_type=SegmentType.DEPARTMENT,
         context_type='ENTITY_CD',
-        context_value='USM',
-        default_value='9999',
+        context_value='USMKTS',
+        default_value='USGL99',
     )
 
 
@@ -50,7 +50,7 @@ def test_get_segment_default_returns_global_default(repository):
         segment_type=SegmentType.SUB_ACCOUNT,
         context_type='*',
         context_value='*',
-        default_value='UNASSIGNED',
+        default_value='990001',
     )
 
 
@@ -64,7 +64,7 @@ def test_get_segment_default_does_not_fall_back_from_contextual_request_to_globa
     repository,
 ):
     # AFFILIATE_CD only has a global (*, *) row configured.
-    result = repository.get_segment_default(SegmentType.AFFILIATE, 'ENTITY_CD', 'USM')
+    result = repository.get_segment_default(SegmentType.AFFILIATE, 'ENTITY_CD', 'USMKTS')
 
     assert result is None
 
@@ -79,9 +79,9 @@ def test_get_segment_default_does_not_fall_back_from_global_request_to_contextua
 
 
 def test_get_segment_default_preserves_numeric_looking_values_as_strings(repository):
-    result = repository.get_segment_default(SegmentType.ACCOUNT, 'ENTITY_CD', 'USM')
+    result = repository.get_segment_default(SegmentType.ACCOUNT, 'ENTITY_CD', 'USMKTS')
 
-    assert result.default_value == '999999'
+    assert result.default_value == '990101'
     assert isinstance(result.default_value, str)
 
 
