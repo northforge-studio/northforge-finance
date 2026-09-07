@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 
 from gl.models import GLSegments
+from registry.models import SegmentType
 
 
 class BreakAnalysisStatus(StrEnum):
@@ -46,3 +47,35 @@ class BreakAnalysisResult(BaseModel):
     status: BreakAnalysisStatus
     root_cause: RootCause | None
     explanation: str
+
+
+class BreakTopology(StrEnum):
+    ONE_TO_ONE = 'ONE_TO_ONE'
+    MANY_TO_ONE = 'MANY_TO_ONE'
+    ONE_TO_MANY = 'ONE_TO_MANY'
+    MANY_TO_MANY = 'MANY_TO_MANY'
+    INTERFACE_ONLY = 'INTERFACE_ONLY'
+    GL_ONLY = 'GL_ONLY'
+    AMBIGUOUS = 'AMBIGUOUS'
+    UNMATCHED = 'UNMATCHED'
+
+
+@dataclass(frozen=True)
+class BreakCaseEvidence:
+    relaxed_segments: tuple[SegmentType, ...]
+
+
+@dataclass(frozen=True)
+class BreakCase:
+    case_id: UUID
+    topology: BreakTopology
+    records: tuple[BreakRecord, ...]
+    evidence: BreakCaseEvidence | None = None
+
+
+@dataclass(frozen=True)
+class BreakPartitionKey:
+    as_of_date: date
+    entity_cd: str
+    source_cd: str
+    accounted_currency: str
