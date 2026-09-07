@@ -11,18 +11,18 @@ from core.store import (
 from core.runs.models import RunIdentity
 
 from registry import RegistryClient
-from registry.models import SegmentType
+from registry.models import GLSegmentType
 
 from gl.manager import GLManager
 from gl.models import (
-    GLImportResult,
-    GLInstruction,
-    GLInstructionResult,
-    GLSegmentResolution,
     GLSegments,
-    InstructionValidation,
-    SegmentResolution,
-    SegmentDefaults,
+    GLSegmentDefaults,
+    GLSegmentResolution,
+    GLSegmentResolutions,
+    GLInstruction,
+    GLInstructionValidation,
+    GLInstructionResult,
+    GLImportResult,
 )
 from gl.repository import GLRepository
 
@@ -89,7 +89,7 @@ class GLClient:
 
     def get_segment_default(
         self,
-        segment_type: SegmentType,
+        segment_type: GLSegmentType,
         *,
         entity_cd: str | None = None,
     ) -> str | None:
@@ -99,18 +99,18 @@ class GLClient:
         )
 
 
-    def get_segment_defaults(self) -> SegmentDefaults:
+    def get_segment_defaults(self) -> GLSegmentDefaults:
         return self._manager.get_segment_defaults()
 
 
     def resolve_segment(
         self,
-        segment_type: SegmentType,
+        segment_type: GLSegmentType,
         segment_value: str | None,
         *,
         business_dt: date,
         entity_cd: str | None = None,
-    ) -> SegmentResolution:
+    ) -> GLSegmentResolution:
         return self._manager.resolve_segment(
             segment_type,
             segment_value,
@@ -124,7 +124,7 @@ class GLClient:
         segments: GLSegments,
         *,
         business_dt: date,
-    ) -> GLSegmentResolution:
+    ) -> GLSegmentResolutions:
         return self._manager.resolve_segments(
             segments,
             business_dt=business_dt,
@@ -134,7 +134,7 @@ class GLClient:
     def validate_instruction(
         self,
         instruction: GLInstruction,
-    ) -> InstructionValidation:
+    ) -> GLInstructionValidation:
         return self._manager.validate_instruction(instruction)
 
 

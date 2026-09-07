@@ -3,25 +3,38 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from registry.models import SegmentType
+from registry.models import GLSegmentType
 
 
 @dataclass(frozen=True)
-class SegmentDefault:
-    segment_type: SegmentType
+class GLSegments:
+    entity_cd: str | None
+    branch_cd: str | None
+    dept_cd: str | None
+    gl_account: str | None
+    sub_account: str | None
+    affiliate_cd: str | None
+    product_cd: str | None
+    book_cd: str | None
+    source_cd: str | None
+
+
+@dataclass(frozen=True)
+class GLSegmentDefault:
+    segment_type: GLSegmentType
     context_type: str
     context_value: str
     default_value: str
 
 
 @dataclass(frozen=True)
-class SegmentDefaults:
-    values: tuple[SegmentDefault, ...]
+class GLSegmentDefaults:
+    values: tuple[GLSegmentDefault, ...]
 
 
     def resolve(
         self,
-        segment_type: SegmentType,
+        segment_type: GLSegmentType,
         *,
         entity_cd: str,
     ) -> str | None:
@@ -51,30 +64,17 @@ class SegmentDefaults:
 
 
 @dataclass(frozen=True)
-class SegmentResolution:
-    segment_type: SegmentType
+class GLSegmentResolution:
+    segment_type: GLSegmentType
     supplied_value: str | None
     resolved_value: str | None
     defaulted: bool
 
 
 @dataclass(frozen=True)
-class GLSegments:
-    entity_cd: str | None
-    branch_cd: str | None
-    dept_cd: str | None
-    gl_account: str | None
-    sub_account: str | None
-    affiliate_cd: str | None
-    product_cd: str | None
-    book_cd: str | None
-    source_cd: str | None
-
-
-@dataclass(frozen=True)
-class GLSegmentResolution:
+class GLSegmentResolutions:
     segments: GLSegments | None
-    resolutions: tuple[SegmentResolution, ...]
+    resolutions: tuple[GLSegmentResolution, ...]
     resolved: bool
 
 
@@ -126,7 +126,7 @@ class GLInstruction:
 
 
 @dataclass(frozen=True)
-class InstructionValidation:
+class GLInstructionValidation:
     valid: bool
     errors: tuple[str, ...]
 
@@ -276,8 +276,8 @@ class GLInstructionResult:
     posted: bool
     posting: GLPosting | None
     rejection: GLRejection | None
-    validation: InstructionValidation
-    segment_resolution: GLSegmentResolution | None
+    validation: GLInstructionValidation
+    segment_resolution: GLSegmentResolutions | None
 
 
 @dataclass(frozen=True)

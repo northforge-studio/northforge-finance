@@ -8,7 +8,7 @@ from core.store import (
     PostgresStore
 )
 
-from registry.models import SegmentType
+from registry.models import GLSegmentType
 from registry.manager import RegistryManager
 from registry.repository import RegistryRepository
 
@@ -36,15 +36,15 @@ class RegistryClient:
         store = CsvStore(
             spark=spark,
             table_locations={
-                SegmentType.ENTITY: Path(entity_path),
-                SegmentType.DEPARTMENT: Path(department_path),
-                SegmentType.BRANCH: Path(branch_path),
-                SegmentType.ACCOUNT: Path(account_path),
-                SegmentType.SUB_ACCOUNT: Path(sub_account_path),
-                SegmentType.AFFILIATE: Path(affiliate_path),
-                SegmentType.PRODUCT: Path(product_path),
-                SegmentType.BOOK: Path(book_path),
-                SegmentType.SOURCE: Path(source_path),
+                GLSegmentType.ENTITY: Path(entity_path),
+                GLSegmentType.DEPARTMENT: Path(department_path),
+                GLSegmentType.BRANCH: Path(branch_path),
+                GLSegmentType.ACCOUNT: Path(account_path),
+                GLSegmentType.SUB_ACCOUNT: Path(sub_account_path),
+                GLSegmentType.AFFILIATE: Path(affiliate_path),
+                GLSegmentType.PRODUCT: Path(product_path),
+                GLSegmentType.BOOK: Path(book_path),
+                GLSegmentType.SOURCE: Path(source_path),
             },
         )
 
@@ -68,15 +68,15 @@ class RegistryClient:
         store = PostgresStore(
             spark=spark,
             table_names={
-                SegmentType.ENTITY: entity_table,
-                SegmentType.DEPARTMENT: department_table,
-                SegmentType.BRANCH: branch_table,
-                SegmentType.ACCOUNT: account_table,
-                SegmentType.SUB_ACCOUNT: sub_account_table,
-                SegmentType.AFFILIATE: affiliate_table,
-                SegmentType.PRODUCT: product_table,
-                SegmentType.BOOK: book_table,
-                SegmentType.SOURCE: source_table,
+                GLSegmentType.ENTITY: entity_table,
+                GLSegmentType.DEPARTMENT: department_table,
+                GLSegmentType.BRANCH: branch_table,
+                GLSegmentType.ACCOUNT: account_table,
+                GLSegmentType.SUB_ACCOUNT: sub_account_table,
+                GLSegmentType.AFFILIATE: affiliate_table,
+                GLSegmentType.PRODUCT: product_table,
+                GLSegmentType.BOOK: book_table,
+                GLSegmentType.SOURCE: source_table,
             },
         )
 
@@ -85,7 +85,7 @@ class RegistryClient:
 
     def validate_segment(
         self,
-        segment: SegmentType,
+        segment: GLSegmentType,
         business_dt: date,
         segment_cd: str,
     ) -> bool:
@@ -94,7 +94,7 @@ class RegistryClient:
 
     def get_segment_details(
         self,
-        segment: SegmentType,
+        segment: GLSegmentType,
         business_dt: date,
         segment_cd: str,
     ) -> DataFrame:

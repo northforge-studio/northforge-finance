@@ -5,7 +5,7 @@ from pyspark.sql import functions as F
 
 from core.store import Store
 
-from registry.models import SegmentType
+from registry.models import GLSegmentType
 
 from gl.contracts import (
     INTERFACE_TRIAL_BALANCE_SCHEMA,
@@ -13,7 +13,7 @@ from gl.contracts import (
     REJECTION_SCHEMA,
     SEGMENT_DEFAULT_SCHEMA,
 )
-from gl.models import GLInstruction, GLPosting, GLRejection, SegmentDefault
+from gl.models import GLInstruction, GLPosting, GLRejection, GLSegmentDefault
 
 
 class GLRepository:
@@ -24,10 +24,10 @@ class GLRepository:
 
     def get_segment_default(
         self,
-        segment_type: SegmentType,
+        segment_type: GLSegmentType,
         context_type: str,
         context_value: str,
-    ) -> SegmentDefault | None:
+    ) -> GLSegmentDefault | None:
         df = self._store.read(
             table_name='SEGMENT_DEFAULT',
             schema=SEGMENT_DEFAULT_SCHEMA,
@@ -48,7 +48,7 @@ class GLRepository:
 
         row = rows[0]
 
-        return SegmentDefault(
+        return GLSegmentDefault(
             segment_type=segment_type,
             context_type=row['CONTEXT_TYPE'],
             context_value=row['CONTEXT_VALUE'],
@@ -56,7 +56,7 @@ class GLRepository:
         )
 
 
-    def get_segment_defaults(self) -> tuple[SegmentDefault, ...]:
+    def get_segment_defaults(self) -> tuple[GLSegmentDefault, ...]:
         df = self._store.read(
             table_name='SEGMENT_DEFAULT',
             schema=SEGMENT_DEFAULT_SCHEMA,
@@ -66,11 +66,11 @@ class GLRepository:
 
         segment_types_by_code = {
             segment_type.field_name.upper(): segment_type
-            for segment_type in SegmentType
+            for segment_type in GLSegmentType
         }
 
         return tuple(
-            SegmentDefault(
+            GLSegmentDefault(
                 segment_type=segment_types_by_code[row['SEGMENT_TYPE']],
                 context_type=row['CONTEXT_TYPE'],
                 context_value=row['CONTEXT_VALUE'],

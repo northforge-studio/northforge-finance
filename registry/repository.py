@@ -9,7 +9,7 @@ from registry.contracts import (
     SEGMENT_SCHEMAS,
     SEGMENT_CODE_COLUMNS,
 )
-from registry.models import SegmentType
+from registry.models import GLSegmentType
 
 
 class RegistryRepository:
@@ -19,7 +19,7 @@ class RegistryRepository:
 
     def get_segment(
         self,
-        segment: SegmentType,
+        segment: GLSegmentType,
         business_dt: date,
         segment_cd: str,
     ) -> DataFrame:

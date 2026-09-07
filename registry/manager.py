@@ -2,7 +2,7 @@ from datetime import date
 
 from pyspark.sql import DataFrame
 
-from registry.models import SegmentType
+from registry.models import GLSegmentType
 from registry.repository import RegistryRepository
 
 
@@ -13,7 +13,7 @@ class RegistryManager:
 
     def validate_segment(
         self,
-        segment: SegmentType,
+        segment: GLSegmentType,
         business_dt: date,
         segment_cd: str,
     ) -> bool:
@@ -24,7 +24,7 @@ class RegistryManager:
 
     def get_segment_details(
         self,
-        segment: SegmentType,
+        segment: GLSegmentType,
         business_dt: date,
         segment_cd: str,
     ) -> DataFrame:

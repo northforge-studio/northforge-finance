@@ -5,7 +5,7 @@ from pyspark.sql.types import (
     StructType,
 )
 
-from registry.models import SegmentType
+from registry.models import GLSegmentType
 
 
 ENTITY_SCHEMA = StructType(
@@ -101,27 +101,27 @@ SOURCE_SCHEMA = StructType(
 )
 
 
-SEGMENT_SCHEMAS: dict[SegmentType, StructType] = {
-    SegmentType.ENTITY: ENTITY_SCHEMA,
-    SegmentType.BRANCH: BRANCH_SCHEMA,
-    SegmentType.DEPARTMENT: DEPARTMENT_SCHEMA,
-    SegmentType.ACCOUNT: ACCOUNT_SCHEMA,
-    SegmentType.SUB_ACCOUNT: SUB_ACCOUNT_SCHEMA,
-    SegmentType.AFFILIATE: AFFILIATE_SCHEMA,
-    SegmentType.PRODUCT: PRODUCT_SCHEMA,
-    SegmentType.BOOK: BOOK_SCHEMA,
-    SegmentType.SOURCE: SOURCE_SCHEMA,
+SEGMENT_SCHEMAS: dict[GLSegmentType, StructType] = {
+    GLSegmentType.ENTITY: ENTITY_SCHEMA,
+    GLSegmentType.BRANCH: BRANCH_SCHEMA,
+    GLSegmentType.DEPARTMENT: DEPARTMENT_SCHEMA,
+    GLSegmentType.ACCOUNT: ACCOUNT_SCHEMA,
+    GLSegmentType.SUB_ACCOUNT: SUB_ACCOUNT_SCHEMA,
+    GLSegmentType.AFFILIATE: AFFILIATE_SCHEMA,
+    GLSegmentType.PRODUCT: PRODUCT_SCHEMA,
+    GLSegmentType.BOOK: BOOK_SCHEMA,
+    GLSegmentType.SOURCE: SOURCE_SCHEMA,
 }
 
 
-SEGMENT_CODE_COLUMNS: dict[SegmentType, str] = {
-    SegmentType.ENTITY: 'ENT_CD',
-    SegmentType.BRANCH: 'BCH_CD',
-    SegmentType.DEPARTMENT: 'DEPT_CD',
-    SegmentType.ACCOUNT: 'ACCT_CD',
-    SegmentType.SUB_ACCOUNT: 'SUB_ACCT_CD',
-    SegmentType.AFFILIATE: 'AFFIL_CD',
-    SegmentType.PRODUCT: 'PROD_CD',
-    SegmentType.BOOK: 'BK_CD',
-    SegmentType.SOURCE: 'SRCE_CD',
+SEGMENT_CODE_COLUMNS: dict[GLSegmentType, str] = {
+    GLSegmentType.ENTITY: 'ENT_CD',
+    GLSegmentType.BRANCH: 'BCH_CD',
+    GLSegmentType.DEPARTMENT: 'DEPT_CD',
+    GLSegmentType.ACCOUNT: 'ACCT_CD',
+    GLSegmentType.SUB_ACCOUNT: 'SUB_ACCT_CD',
+    GLSegmentType.AFFILIATE: 'AFFIL_CD',
+    GLSegmentType.PRODUCT: 'PROD_CD',
+    GLSegmentType.BOOK: 'BK_CD',
+    GLSegmentType.SOURCE: 'SRCE_CD',
 }

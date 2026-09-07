@@ -4,21 +4,21 @@ from uuid import UUID, uuid4
 from pyspark.sql import DataFrame
 
 from registry import RegistryClient
-from registry.models import SegmentType
+from registry.models import GLSegmentType
 
 from core.runs.models import RunIdentity
 
 from gl.models import (
     GLSegments,
+    GLSegmentDefaults,
+    GLSegmentResolution,
+    GLSegmentResolutions,
+    GLInstruction,
+    GLInstructionValidation,
     GLPosting,
     GLRejection,
-    GLInstruction,
-    GLImportResult,
-    SegmentDefaults,
-    SegmentResolution,
     GLInstructionResult,
-    GLSegmentResolution,
-    InstructionValidation,
+    GLImportResult,
 )
 from gl.repository import GLRepository
 
@@ -26,16 +26,16 @@ from gl.repository import GLRepository
 # Maps each GLSegments field to its segment_type. ENTITY is listed
 # first: it is resolved before the rest so its resolved value can be
 # used as contextual entity_cd input for the other eight.
-_SEGMENT_FIELD_TYPES: tuple[tuple[str, SegmentType], ...] = (
-    ('entity_cd', SegmentType.ENTITY),
-    ('branch_cd', SegmentType.BRANCH),
-    ('dept_cd', SegmentType.DEPARTMENT),
-    ('gl_account', SegmentType.ACCOUNT),
-    ('sub_account', SegmentType.SUB_ACCOUNT),
-    ('affiliate_cd', SegmentType.AFFILIATE),
-    ('product_cd', SegmentType.PRODUCT),
-    ('book_cd', SegmentType.BOOK),
-    ('source_cd', SegmentType.SOURCE),
+_SEGMENT_FIELD_TYPES: tuple[tuple[str, GLSegmentType], ...] = (
+    ('entity_cd', GLSegmentType.ENTITY),
+    ('branch_cd', GLSegmentType.BRANCH),
+    ('dept_cd', GLSegmentType.DEPARTMENT),
+    ('gl_account', GLSegmentType.ACCOUNT),
+    ('sub_account', GLSegmentType.SUB_ACCOUNT),
+    ('affiliate_cd', GLSegmentType.AFFILIATE),
+    ('product_cd', GLSegmentType.PRODUCT),
+    ('book_cd', GLSegmentType.BOOK),
+    ('source_cd', GLSegmentType.SOURCE),
 )
 
 
@@ -75,7 +75,7 @@ class GLManager:
 
     def get_segment_default(
         self,
-        segment_type: SegmentType,
+        segment_type: GLSegmentType,
         *,
         entity_cd: str | None = None,
     ) -> str | None:
@@ -95,24 +95,24 @@ class GLManager:
         return None
 
 
-    def get_segment_defaults(self) -> SegmentDefaults:
-        return SegmentDefaults(
+    def get_segment_defaults(self) -> GLSegmentDefaults:
+        return GLSegmentDefaults(
             values=self._repository.get_segment_defaults(),
         )
 
 
     def resolve_segment(
         self,
-        segment_type: SegmentType,
+        segment_type: GLSegmentType,
         segment_value: str | None,
         *,
         business_dt: date,
         entity_cd: str | None = None,
-    ) -> SegmentResolution:
+    ) -> GLSegmentResolution:
         if segment_value and self._is_registry_valid(
             segment_type, business_dt, segment_value,
         ):
-            return SegmentResolution(
+            return GLSegmentResolution(
                 segment_type=segment_type,
                 supplied_value=segment_value,
                 resolved_value=segment_value,
@@ -124,14 +124,14 @@ class GLManager:
         if default_value is not None and self._is_registry_valid(
             segment_type, business_dt, default_value,
         ):
-            return SegmentResolution(
+            return GLSegmentResolution(
                 segment_type=segment_type,
                 supplied_value=segment_value,
                 resolved_value=default_value,
                 defaulted=True,
             )
 
-        return SegmentResolution(
+        return GLSegmentResolution(
             segment_type=segment_type,
             supplied_value=segment_value,
             resolved_value=None,
@@ -144,13 +144,13 @@ class GLManager:
         segments: GLSegments,
         *,
         business_dt: date,
-    ) -> GLSegmentResolution:
+    ) -> GLSegmentResolutions:
         entity_resolution = self.resolve_segment(
-            SegmentType.ENTITY, segments.entity_cd, business_dt=business_dt,
+            GLSegmentType.ENTITY, segments.entity_cd, business_dt=business_dt,
         )
 
         if entity_resolution.resolved_value is None:
-            return GLSegmentResolution(
+            return GLSegmentResolutions(
                 segments=None,
                 resolutions=(entity_resolution,),
                 resolved=False,
@@ -170,7 +170,7 @@ class GLManager:
             )
 
         if any(resolution.resolved_value is None for resolution in resolutions):
-            return GLSegmentResolution(
+            return GLSegmentResolutions(
                 segments=None,
                 resolutions=tuple(resolutions),
                 resolved=False,
@@ -181,7 +181,7 @@ class GLManager:
             for (field, _), resolution in zip(_SEGMENT_FIELD_TYPES, resolutions)
         })
 
-        return GLSegmentResolution(
+        return GLSegmentResolutions(
             segments=final_segments,
             resolutions=tuple(resolutions),
             resolved=True,
@@ -191,7 +191,7 @@ class GLManager:
     def validate_instruction(
         self,
         instruction: GLInstruction,
-    ) -> InstructionValidation:
+    ) -> GLInstructionValidation:
         errors: list[str] = []
 
         for field, error_code, check in _REQUIRED_INSTRUCTION_FIELDS:
@@ -203,7 +203,7 @@ class GLManager:
         if instruction.cr_dr_ind not in _VALID_CR_DR_VALUES:
             errors.append('INVALID_CR_DR_IND')
 
-        return InstructionValidation(valid=not errors, errors=tuple(errors))
+        return GLInstructionValidation(valid=not errors, errors=tuple(errors))
 
 
     def process_instruction(
@@ -366,7 +366,7 @@ class GLManager:
 
     def _is_registry_valid(
         self,
-        segment_type: SegmentType,
+        segment_type: GLSegmentType,
         business_dt: date,
         segment_value: str,
     ) -> bool:

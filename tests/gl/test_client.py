@@ -10,10 +10,10 @@ from pyspark.sql import DataFrame
 from core.store import CsvStore
 from core.runs.models import RunIdentity
 
-from registry.models import SegmentType
+from registry.models import GLSegmentType
 
 from gl import GLClient
-from gl.models import GLInstruction, GLSegments, SegmentResolution
+from gl.models import GLInstruction, GLSegments, GLSegmentResolution
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
 
 
@@ -34,15 +34,15 @@ class _FakeRegistryClient:
 @pytest.fixture(scope='module')
 def registry():
     return _FakeRegistryClient({
-        (SegmentType.DEPARTMENT, BUSINESS_DT, 'USGL99'),
-        (SegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED'),
-        (SegmentType.ENTITY, BUSINESS_DT, 'USMKTS'),
-        (SegmentType.BRANCH, BUSINESS_DT, '100'),
-        (SegmentType.ACCOUNT, BUSINESS_DT, '123456'),
-        (SegmentType.AFFILIATE, BUSINESS_DT, '999999'),
-        (SegmentType.PRODUCT, BUSINESS_DT, 'PRD1'),
-        (SegmentType.BOOK, BUSINESS_DT, 'BK1'),
-        (SegmentType.SOURCE, BUSINESS_DT, 'SRC1'),
+        (GLSegmentType.DEPARTMENT, BUSINESS_DT, 'USGL99'),
+        (GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED'),
+        (GLSegmentType.ENTITY, BUSINESS_DT, 'USMKTS'),
+        (GLSegmentType.BRANCH, BUSINESS_DT, '100'),
+        (GLSegmentType.ACCOUNT, BUSINESS_DT, '123456'),
+        (GLSegmentType.AFFILIATE, BUSINESS_DT, '999999'),
+        (GLSegmentType.PRODUCT, BUSINESS_DT, 'PRD1'),
+        (GLSegmentType.BOOK, BUSINESS_DT, 'BK1'),
+        (GLSegmentType.SOURCE, BUSINESS_DT, 'SRC1'),
     })
 
 
@@ -56,31 +56,31 @@ def gl(spark, registry):
 
 
 def test_get_segment_default_returns_contextual_default(gl):
-    assert gl.get_segment_default(SegmentType.DEPARTMENT, entity_cd='USMKTS') == 'USGL99'
+    assert gl.get_segment_default(GLSegmentType.DEPARTMENT, entity_cd='USMKTS') == 'USGL99'
 
 
 def test_get_segment_default_falls_back_to_global(gl):
-    assert gl.get_segment_default(SegmentType.SUB_ACCOUNT, entity_cd='USMKTS') == '990001'
+    assert gl.get_segment_default(GLSegmentType.SUB_ACCOUNT, entity_cd='USMKTS') == '990001'
 
 
 def test_get_segment_default_without_entity_cd_uses_global_only(gl):
-    assert gl.get_segment_default(SegmentType.PRODUCT) == '990003'
+    assert gl.get_segment_default(GLSegmentType.PRODUCT) == '990003'
 
 
 def test_get_segment_default_returns_none_for_non_defaultable_segments(gl):
-    assert gl.get_segment_default(SegmentType.ENTITY, entity_cd='USMKTS') is None
-    assert gl.get_segment_default(SegmentType.SOURCE, entity_cd='USMKTS') is None
+    assert gl.get_segment_default(GLSegmentType.ENTITY, entity_cd='USMKTS') is None
+    assert gl.get_segment_default(GLSegmentType.SOURCE, entity_cd='USMKTS') is None
 
 
 def test_resolve_segment_delegates_to_manager_for_invalid_supplied_value(gl):
     result = gl.resolve_segment(
-        SegmentType.DEPARTMENT, 'BOGUS',
+        GLSegmentType.DEPARTMENT, 'BOGUS',
         business_dt=BUSINESS_DT,
         entity_cd='USMKTS',
     )
 
-    assert result == SegmentResolution(
-        segment_type=SegmentType.DEPARTMENT,
+    assert result == GLSegmentResolution(
+        segment_type=GLSegmentType.DEPARTMENT,
         supplied_value='BOGUS',
         resolved_value='USGL99',
         defaulted=True,
@@ -89,13 +89,13 @@ def test_resolve_segment_delegates_to_manager_for_invalid_supplied_value(gl):
 
 def test_resolve_segment_delegates_to_manager_for_valid_supplied_value(gl):
     result = gl.resolve_segment(
-        SegmentType.DEPARTMENT, 'USGL99',
+        GLSegmentType.DEPARTMENT, 'USGL99',
         business_dt=BUSINESS_DT,
         entity_cd='USMKTS',
     )
 
-    assert result == SegmentResolution(
-        segment_type=SegmentType.DEPARTMENT,
+    assert result == GLSegmentResolution(
+        segment_type=GLSegmentType.DEPARTMENT,
         supplied_value='USGL99',
         resolved_value='USGL99',
         defaulted=False,
@@ -133,7 +133,7 @@ def test_resolve_segments_delegates_to_manager_for_invalid_defaultable_segment(g
     assert result.segments == _valid_segments()
 
     dept_resolution = next(
-        r for r in result.resolutions if r.segment_type == SegmentType.DEPARTMENT
+        r for r in result.resolutions if r.segment_type == GLSegmentType.DEPARTMENT
     )
     assert dept_resolution.supplied_value == 'BOGUS'
     assert dept_resolution.resolved_value == 'USGL99'

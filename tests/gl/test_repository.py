@@ -8,15 +8,15 @@ from pyspark.sql import DataFrame
 
 from core.store import CsvStore
 
-from registry.models import SegmentType
+from registry.models import GLSegmentType
 
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
 from gl.models import (
     GLInstruction, 
     GLPosting, 
     GLRejection, 
-    SegmentDefault, 
-    SegmentDefaults
+    GLSegmentDefault, 
+    GLSegmentDefaults
 )
 from gl.repository import GLRepository
 
@@ -33,10 +33,10 @@ def repository(spark):
 
 
 def test_get_segment_default_returns_contextual_default(repository):
-    result = repository.get_segment_default(SegmentType.DEPARTMENT, 'ENTITY_CD', 'USMKTS')
+    result = repository.get_segment_default(GLSegmentType.DEPARTMENT, 'ENTITY_CD', 'USMKTS')
 
-    assert result == SegmentDefault(
-        segment_type=SegmentType.DEPARTMENT,
+    assert result == GLSegmentDefault(
+        segment_type=GLSegmentType.DEPARTMENT,
         context_type='ENTITY_CD',
         context_value='USMKTS',
         default_value='USGL99',
@@ -44,10 +44,10 @@ def test_get_segment_default_returns_contextual_default(repository):
 
 
 def test_get_segment_default_returns_global_default(repository):
-    result = repository.get_segment_default(SegmentType.SUB_ACCOUNT, '*', '*')
+    result = repository.get_segment_default(GLSegmentType.SUB_ACCOUNT, '*', '*')
 
-    assert result == SegmentDefault(
-        segment_type=SegmentType.SUB_ACCOUNT,
+    assert result == GLSegmentDefault(
+        segment_type=GLSegmentType.SUB_ACCOUNT,
         context_type='*',
         context_value='*',
         default_value='990001',
@@ -55,7 +55,7 @@ def test_get_segment_default_returns_global_default(repository):
 
 
 def test_get_segment_default_returns_none_for_unknown_combination(repository):
-    result = repository.get_segment_default(SegmentType.DEPARTMENT, 'ENTITY_CD', 'UNKNOWN')
+    result = repository.get_segment_default(GLSegmentType.DEPARTMENT, 'ENTITY_CD', 'UNKNOWN')
 
     assert result is None
 
@@ -64,7 +64,7 @@ def test_get_segment_default_does_not_fall_back_from_contextual_request_to_globa
     repository,
 ):
     # AFFILIATE_CD only has a global (*, *) row configured.
-    result = repository.get_segment_default(SegmentType.AFFILIATE, 'ENTITY_CD', 'USMKTS')
+    result = repository.get_segment_default(GLSegmentType.AFFILIATE, 'ENTITY_CD', 'USMKTS')
 
     assert result is None
 
@@ -73,13 +73,13 @@ def test_get_segment_default_does_not_fall_back_from_global_request_to_contextua
     repository,
 ):
     # DEPT_CD only has ENTITY_CD-contextual rows configured.
-    result = repository.get_segment_default(SegmentType.DEPARTMENT, '*', '*')
+    result = repository.get_segment_default(GLSegmentType.DEPARTMENT, '*', '*')
 
     assert result is None
 
 
 def test_get_segment_default_preserves_numeric_looking_values_as_strings(repository):
-    result = repository.get_segment_default(SegmentType.ACCOUNT, 'ENTITY_CD', 'USMKTS')
+    result = repository.get_segment_default(GLSegmentType.ACCOUNT, 'ENTITY_CD', 'USMKTS')
 
     assert result.default_value == '990101'
     assert isinstance(result.default_value, str)
@@ -106,7 +106,7 @@ def test_get_segment_default_works_against_a_fake_store(spark):
     store = _FakeStore({'SEGMENT_DEFAULT': df})
     repository = GLRepository(store, spark)
 
-    result = repository.get_segment_default(SegmentType.DEPARTMENT, 'ENTITY_CD', 'ZZZ')
+    result = repository.get_segment_default(GLSegmentType.DEPARTMENT, 'ENTITY_CD', 'ZZZ')
 
     assert result.default_value == '0099'
     assert isinstance(result.default_value, str)
@@ -697,16 +697,16 @@ def test_delete_rejections_removes_only_rows_for_the_named_workflow_run(
 
 
 def test_resolve_prefers_entity_default():
-    defaults = SegmentDefaults(
+    defaults = GLSegmentDefaults(
         values=(
-            SegmentDefault(
-                SegmentType.ACCOUNT,
+            GLSegmentDefault(
+                GLSegmentType.ACCOUNT,
                 'GLOBAL',
                 '*',
                 '999999',
             ),
-            SegmentDefault(
-                SegmentType.ACCOUNT,
+            GLSegmentDefault(
+                GLSegmentType.ACCOUNT,
                 'ENTITY_CD',
                 'USMKTS',
                 '990101',
@@ -715,16 +715,16 @@ def test_resolve_prefers_entity_default():
     )
 
     assert defaults.resolve(
-        SegmentType.ACCOUNT,
+        GLSegmentType.ACCOUNT,
         entity_cd='USMKTS',
     ) == '990101'
 
 
 def test_resolve_falls_back_to_global():
-    defaults = SegmentDefaults(
+    defaults = GLSegmentDefaults(
         values=(
-            SegmentDefault(
-                SegmentType.ACCOUNT,
+            GLSegmentDefault(
+                GLSegmentType.ACCOUNT,
                 'GLOBAL',
                 '*',
                 '999999',
@@ -733,15 +733,15 @@ def test_resolve_falls_back_to_global():
     )
 
     assert defaults.resolve(
-        SegmentType.ACCOUNT,
+        GLSegmentType.ACCOUNT,
         entity_cd='CAMKTS',
     ) == '999999'
 
 
 def test_resolve_returns_none_when_no_default():
-    defaults = SegmentDefaults(values=())
+    defaults = GLSegmentDefaults(values=())
 
     assert defaults.resolve(
-        SegmentType.ACCOUNT,
+        GLSegmentType.ACCOUNT,
         entity_cd='USMKTS',
     ) is None

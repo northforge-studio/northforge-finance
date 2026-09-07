@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from registry import RegistryClient
-from registry.models import SegmentType
+from registry.models import GLSegmentType
 
 
 @pytest.fixture(scope='module')
@@ -24,7 +24,7 @@ def registry(spark):
 
 def test_validate_segment_is_true_for_active_record(registry):
     assert registry.validate_segment(
-        SegmentType.ENTITY,
+        GLSegmentType.ENTITY,
         date(2026, 3, 31),
         'USMKTS',
     ) is True
@@ -32,7 +32,7 @@ def test_validate_segment_is_true_for_active_record(registry):
 
 def test_validate_segment_is_false_for_unknown_segment_cd(registry):
     assert registry.validate_segment(
-        SegmentType.ENTITY,
+        GLSegmentType.ENTITY,
         date(2026, 3, 31),
         'UNKNOWN',
     ) is False
@@ -40,7 +40,7 @@ def test_validate_segment_is_false_for_unknown_segment_cd(registry):
 
 def test_validate_segment_is_false_for_unmatched_business_dt(registry):
     assert registry.validate_segment(
-        SegmentType.ENTITY,
+        GLSegmentType.ENTITY,
         date(2099, 1, 1),
         'USMKTS',
     ) is False
@@ -48,7 +48,7 @@ def test_validate_segment_is_false_for_unmatched_business_dt(registry):
 
 def test_get_segment_details_returns_matching_record(registry):
     result = registry.get_segment_details(
-        SegmentType.BRANCH,
+        GLSegmentType.BRANCH,
         date(2026, 3, 31),
         'USNY01',
     )
@@ -60,7 +60,7 @@ def test_get_segment_details_returns_matching_record(registry):
 def test_get_segment_details_raises_when_not_found(registry):
     with pytest.raises(KeyError):
         registry.get_segment_details(
-            SegmentType.BRANCH,
+            GLSegmentType.BRANCH,
             date(2026, 3, 31),
             'UNKNOWN',
         )
