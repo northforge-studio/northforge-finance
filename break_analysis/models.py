@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 
 from gl.models import GLSegments
-from registry.models import SegmentType
+from registry.models import GLSegmentType
 
 
 class BreakAnalysisStatus(StrEnum):
@@ -62,7 +62,7 @@ class BreakTopology(StrEnum):
 
 @dataclass(frozen=True)
 class BreakCaseEvidence:
-    relaxed_segments: tuple[SegmentType, ...]
+    relaxed_segments: tuple[GLSegmentType, ...]
 
 
 @dataclass(frozen=True)

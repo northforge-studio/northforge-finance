@@ -21,7 +21,7 @@ from core.runs import RunRepository, RunTracker
 from gl import GLClient
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
 from gl.models import GLInstruction
-from registry.models import SegmentType
+from registry.models import GLSegmentType
 
 from recon import ReconClient
 from recon.models import ReconRunResult
@@ -98,16 +98,16 @@ class _FakeRegistryClient:
 
 
 VALID_SEGMENTS = {
-    (SegmentType.ENTITY, BUSINESS_DT, 'USM'),
-    (SegmentType.DEPARTMENT, BUSINESS_DT, '9999'),
-    (SegmentType.BRANCH, BUSINESS_DT, '100'),
-    (SegmentType.ACCOUNT, BUSINESS_DT, '123456'),
-    (SegmentType.ACCOUNT, BUSINESS_DT, '223456'),
-    (SegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED'),
-    (SegmentType.AFFILIATE, BUSINESS_DT, '999999'),
-    (SegmentType.PRODUCT, BUSINESS_DT, 'PRD1'),
-    (SegmentType.BOOK, BUSINESS_DT, 'BK1'),
-    (SegmentType.SOURCE, BUSINESS_DT, 'SRC1'),
+    (GLSegmentType.ENTITY, BUSINESS_DT, 'USM'),
+    (GLSegmentType.DEPARTMENT, BUSINESS_DT, '9999'),
+    (GLSegmentType.BRANCH, BUSINESS_DT, '100'),
+    (GLSegmentType.ACCOUNT, BUSINESS_DT, '123456'),
+    (GLSegmentType.ACCOUNT, BUSINESS_DT, '223456'),
+    (GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED'),
+    (GLSegmentType.AFFILIATE, BUSINESS_DT, '999999'),
+    (GLSegmentType.PRODUCT, BUSINESS_DT, 'PRD1'),
+    (GLSegmentType.BOOK, BUSINESS_DT, 'BK1'),
+    (GLSegmentType.SOURCE, BUSINESS_DT, 'SRC1'),
 }
 
 

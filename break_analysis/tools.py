@@ -4,18 +4,18 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 
 from registry import RegistryClient
-from registry.models import SegmentType
+from registry.models import GLSegmentType
 
 
 class ValidateSegmentInput(BaseModel):
-    segment_type: SegmentType
+    segment_type: GLSegmentType
     segment_value: str
     business_dt: date
 
 
 @dataclass(frozen=True)
 class SegmentValidationResult:
-    segment_type: SegmentType
+    segment_type: GLSegmentType
     segment_value: str
     is_valid: bool
 
@@ -30,7 +30,7 @@ class RegistryTools:
 
     def validate_segment(
         self,
-        segment_type: SegmentType,
+        segment_type: GLSegmentType,
         segment_value: str,
         business_dt: date,
     ) -> SegmentValidationResult:
