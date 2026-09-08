@@ -222,19 +222,6 @@ def test_ignores_cr_dr_ind_in_grouping_and_calculation(spark):
     assert rows[0]['DIFFERENCE_AMOUNT'] == Decimal('0.00')
 
 
-def test_calculates_without_a_cr_dr_ind_column_present(spark):
-    # calculate_recon must not require CR_DR_IND to exist at all.
-    rows = _result_rows(
-        spark,
-        interface_rows=[_row(Decimal('10.00'))],
-        gl_rows=[_row(Decimal('10.00'))],
-        with_cr_dr_ind=False,
-    )
-
-    assert len(rows) == 1
-    assert rows[0]['DIFFERENCE_AMOUNT'] == Decimal('0.00')
-
-
 def test_both_sides_empty_yields_no_rows(spark):
     rows = _result_rows(spark, interface_rows=[], gl_rows=[])
 

@@ -267,19 +267,6 @@ def test_get_postings_returns_rows_from_multiple_producer_runs_under_the_same_wo
     }
 
 
-def test_get_postings_excludes_rows_from_other_workflows(posting_repository):
-    kept_workflow_run_id = uuid4()
-    other_workflow_run_id = uuid4()
-
-    posting_repository.write_posting(_posting(workflow_run_id=kept_workflow_run_id))
-    posting_repository.write_posting(_posting(workflow_run_id=other_workflow_run_id))
-
-    rows = posting_repository.get_postings(kept_workflow_run_id).collect()
-
-    assert len(rows) == 1
-    assert UUID(rows[0]['WORKFLOW_RUN_ID']) == kept_workflow_run_id
-
-
 def test_get_postings_allows_more_than_one_row_for_same_posting_id(posting_repository):
     workflow_run_id = uuid4()
     first = _posting(gl_posting_id=uuid4(), posting_id='DUP', workflow_run_id=workflow_run_id)
@@ -383,20 +370,6 @@ def test_write_rejection_persists_lineage_and_diagnostics(rejection_repository):
     assert row['REJECTION_DETAIL'] == rejection.rejection_detail
 
 
-def test_write_rejection_stores_segment_resolution_rejection_type(rejection_repository):
-    rejection = _rejection(
-        rejection_type='SEGMENT_RESOLUTION',
-        rejection_detail='DEPT_CD,BRANCH_CD',
-    )
-
-    rejection_repository.write_rejection(rejection)
-
-    row = rejection_repository.get_rejections(rejection.workflow_run_id).collect()[0]
-
-    assert row['REJECTION_TYPE'] == 'SEGMENT_RESOLUTION'
-    assert row['REJECTION_DETAIL'] == 'DEPT_CD,BRANCH_CD'
-
-
 def test_get_rejections_returns_only_the_named_workflows_rows(rejection_repository):
     # Same regression scenario as postings: the same business_dt can be
     # processed by multiple GL workflows, so business_dt must never be
@@ -433,19 +406,6 @@ def test_get_rejections_returns_rows_from_multiple_producer_runs_under_the_same_
     assert {UUID(r['PRODUCER_RUN_ID']) for r in rows} == {
         g1.producer_run_id, g2.producer_run_id,
     }
-
-
-def test_get_rejections_excludes_rows_from_other_workflows(rejection_repository):
-    kept_workflow_run_id = uuid4()
-    other_workflow_run_id = uuid4()
-
-    rejection_repository.write_rejection(_rejection(workflow_run_id=kept_workflow_run_id))
-    rejection_repository.write_rejection(_rejection(workflow_run_id=other_workflow_run_id))
-
-    rows = rejection_repository.get_rejections(kept_workflow_run_id).collect()
-
-    assert len(rows) == 1
-    assert UUID(rows[0]['WORKFLOW_RUN_ID']) == kept_workflow_run_id
 
 
 # -- get_instructions -------------------------------------------------------

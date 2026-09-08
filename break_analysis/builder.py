@@ -102,3 +102,31 @@ class BreakCaseBuilder:
                 )
 
         return tuple(pivots)
+
+
+    def _find_neighborhood(
+        self,
+        pivot: _PivotCandidate,
+        records: Iterable[BreakRecord],
+    ) -> tuple[BreakRecord, ...]:
+        effective_anchors = tuple(
+            segment_type
+            for segment_type in _TRANSFORMABLE_SEGMENTS
+            if segment_type not in pivot.relaxed_segments
+        )
+
+        pivot_signature = tuple(
+            getattr(pivot.record.segments, segment_type.field_name)
+            for segment_type in effective_anchors
+        )
+
+        neighborhood = tuple(
+            record
+            for record in records
+            if tuple(
+                getattr(record.segments, segment_type.field_name)
+                for segment_type in effective_anchors
+            ) == pivot_signature
+        )
+
+        return neighborhood

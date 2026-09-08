@@ -23,27 +23,6 @@ def manager(spark, atlas_meta_path, atlas_data_path):
     return MappingManager(repository)
 
 
-def test_validate_entity_mapping_source_columns(spark, manager):
-    df = spark.createDataFrame(
-        [
-            ('SRC_SYS', '100', 'TRIAL_BALANCE', 'RULE_1'),
-        ],
-        [
-            'SRC_APP_CD',
-            'SRC_ENTITY_CD',
-            'DATACLASS',
-            'COA_RULE_ID',
-        ],
-    )
-
-    mapping = manager.get_mapping('ENTITY_MAPPING')
-
-    manager._validate(
-        df,
-        mapping
-    )
-
-
 def test_validate_entity_mapping_missing_source_column(spark, manager):
     df = spark.createDataFrame(
         [

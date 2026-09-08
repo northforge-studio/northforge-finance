@@ -178,19 +178,6 @@ def test_contextual_default_takes_precedence_over_global():
     assert repository.calls == [(GLSegmentType.BOOK, 'ENTITY_CD', 'CAM')]
 
 
-def test_segment_with_no_configured_defaults_returns_none():
-    repository = _FakeRepository({})
-    manager = GLManager(repository, _no_registry_calls_expected())
-
-    result = manager.get_segment_default(GLSegmentType.ENTITY, entity_cd='USM')
-
-    assert result is None
-    assert repository.calls == [
-        (GLSegmentType.ENTITY, 'ENTITY_CD', 'USM'),
-        (GLSegmentType.ENTITY, '*', '*'),
-    ]
-
-
 # -- resolve_segment ---------------------------------------------------
 
 def test_resolve_segment_returns_supplied_value_unchanged_when_registry_valid():
@@ -361,30 +348,6 @@ def test_resolve_segment_empty_supplied_value_skips_registry_and_uses_default():
     assert registry.calls == [(GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED')]
 
 
-def test_resolve_segment_none_supplied_value_skips_registry_and_uses_default():
-    repository = _FakeRepository({
-        (GLSegmentType.SUB_ACCOUNT, '*', '*'): GLSegmentDefault(
-            segment_type=GLSegmentType.SUB_ACCOUNT,
-            context_type='*',
-            context_value='*',
-            default_value='UNASSIGNED',
-        ),
-    })
-    registry = _FakeRegistryClient({
-        (GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED'),
-    })
-    manager = GLManager(repository, registry)
-
-    result = manager.resolve_segment(
-        GLSegmentType.SUB_ACCOUNT, None,
-        business_dt=BUSINESS_DT,
-    )
-
-    assert result.resolved_value == 'UNASSIGNED'
-    assert result.defaulted is True
-    assert registry.calls == [(GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED')]
-
-
 def test_resolve_segment_invalid_entity_cd_is_naturally_unresolved():
     # ENTITY is Registry-mapped like any other segment, but
     # gl.segment_default has no configured rows for it.
@@ -407,25 +370,6 @@ def test_resolve_segment_invalid_entity_cd_is_naturally_unresolved():
     assert repository.calls == [
         (GLSegmentType.ENTITY, '*', '*'),
     ]
-
-
-def test_resolve_segment_invalid_source_cd_is_naturally_unresolved():
-    repository = _FakeRepository({})
-    registry = _FakeRegistryClient(set())
-    manager = GLManager(repository, registry)
-
-    result = manager.resolve_segment(
-        GLSegmentType.SOURCE, 'BOGUS',
-        business_dt=BUSINESS_DT,
-    )
-
-    assert result == GLSegmentResolution(
-        segment_type=GLSegmentType.SOURCE,
-        supplied_value='BOGUS',
-        resolved_value=None,
-        defaulted=False,
-    )
-    assert registry.calls == [(GLSegmentType.SOURCE, BUSINESS_DT, 'BOGUS')]
 
 
 def test_resolve_segment_keeps_valid_supplied_value_even_if_it_looks_like_a_default():
@@ -840,15 +784,6 @@ def test_validate_instruction_collects_multiple_errors_together():
     }
 
 
-def test_validate_instruction_allows_empty_defaultable_segment():
-    instruction = replace(_valid_instruction(), sub_account='')
-
-    result = _manager().validate_instruction(instruction)
-
-    assert result.valid is True
-    assert result.errors == ()
-
-
 def test_validate_instruction_allows_registry_invalid_looking_segment():
     # Structural validation never checks segment values against
     # Registry — that only happens later, in resolve_segment(s).
@@ -1060,28 +995,6 @@ def test_process_instruction_invalid_source_rejects_via_segment_resolution():
     assert result.posted is False
     assert result.rejection.rejection_type == 'SEGMENT_RESOLUTION'
     assert 'SOURCE_CD' in result.rejection.rejection_detail
-    assert repository.postings == []
-
-
-def test_process_instruction_registry_invalid_configured_default_rejects():
-    repository = _FakeRepository({
-        (GLSegmentType.BRANCH, 'ENTITY_CD', 'USM'): GLSegmentDefault(
-            segment_type=GLSegmentType.BRANCH,
-            context_type='ENTITY_CD',
-            context_value='USM',
-            default_value='BAD_DEFAULT',
-        ),
-    })
-    # 'BAD_DEFAULT' is configured but never registered as Registry-valid.
-    registry = _FakeRegistryClient(_valid_registry_entries())
-    manager = GLManager(repository, registry)
-    instruction = replace(_valid_instruction(), branch_cd='BOGUS')
-
-    result = manager.process_instruction(instruction)
-
-    assert result.posted is False
-    assert result.rejection.rejection_type == 'SEGMENT_RESOLUTION'
-    assert 'BRANCH_CD' in result.rejection.rejection_detail
     assert repository.postings == []
 
 

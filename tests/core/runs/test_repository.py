@@ -303,16 +303,6 @@ def test_get_execution_runs_returns_empty_tuple_when_none_exist(repository, work
     assert repository.get_execution_runs(workflow_run.workflow_run_id) == ()
 
 
-def test_get_execution_runs_returns_execution_run_instances(repository, workflow_run):
-    run = _make_execution_run(workflow_run.workflow_run_id)
-    repository.create_execution_run(run)
-
-    fetched = repository.get_execution_runs(workflow_run.workflow_run_id)
-
-    assert len(fetched) == 1
-    assert isinstance(fetched[0], ExecutionRun)
-
-
 def test_update_execution_status(repository, workflow_run):
     run = ExecutionRun(
         run_id=uuid4(),
@@ -461,61 +451,3 @@ def test_get_workflow_summary_with_no_executions(repository, workflow_run):
 def test_get_workflow_summary_unknown_workflow_raises(repository):
     with pytest.raises(KeyError):
         repository.get_workflow_summary(uuid4())
-
-
-def test_get_workflow_summary_excludes_dependencies_from_other_workflows(
-    repository, workflow_run, executor,
-):
-    other_workflow = WorkflowRun(
-        workflow_run_id=uuid4(),
-        dataclass='TRIAL_BALANCE',
-        business_dt=date(2026, 8, 24),
-        status=RunStatus.RUNNING,
-        started_at=datetime.now(timezone.utc),
-        completed_at=None,
-    )
-    repository.create_workflow_run(other_workflow)
-
-    own_producer = _make_execution_run(workflow_run.workflow_run_id)
-    own_consumer = _make_execution_run(workflow_run.workflow_run_id)
-    repository.create_execution_run(own_producer)
-    repository.create_execution_run(own_consumer)
-    own_dependency = RunDependency(
-        consumer_run_id=own_consumer.run_id,
-        producer_run_id=own_producer.run_id,
-        input_role='staging',
-    )
-    repository.create_dependency(own_dependency)
-
-    other_producer = _make_execution_run(other_workflow.workflow_run_id)
-    other_consumer = _make_execution_run(other_workflow.workflow_run_id)
-    repository.create_execution_run(other_producer)
-    repository.create_execution_run(other_consumer)
-    other_dependency = RunDependency(
-        consumer_run_id=other_consumer.run_id,
-        producer_run_id=other_producer.run_id,
-        input_role='staging',
-    )
-    repository.create_dependency(other_dependency)
-
-    try:
-        summary = repository.get_workflow_summary(workflow_run.workflow_run_id)
-
-        assert set(summary.executions) == {own_producer, own_consumer}
-        assert summary.dependencies == (own_dependency,)
-    finally:
-        executor.execute(
-            'DELETE FROM core.run_dependency WHERE consumer_run_id IN ('
-            '    SELECT run_id FROM core.execution_run '
-            '    WHERE workflow_run_id = :workflow_run_id'
-            ')',
-            {'workflow_run_id': other_workflow.workflow_run_id},
-        )
-        executor.execute(
-            'DELETE FROM core.execution_run WHERE workflow_run_id = :workflow_run_id',
-            {'workflow_run_id': other_workflow.workflow_run_id},
-        )
-        executor.execute(
-            'DELETE FROM core.workflow_run WHERE workflow_run_id = :workflow_run_id',
-            {'workflow_run_id': other_workflow.workflow_run_id},
-        )

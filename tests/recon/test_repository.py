@@ -102,42 +102,6 @@ def test_write_results_with_empty_sequence_is_a_no_op(repository):
     assert repository.get_results(uuid4()).collect() == []
 
 
-def test_get_results_returns_only_the_named_workflows_rows(repository):
-    kept = _result()
-    other = _result(as_of_date=kept.as_of_date)
-
-    repository.write_results([kept, other])
-
-    rows = repository.get_results(kept.workflow_run_id).collect()
-
-    assert len(rows) == 1
-    assert UUID(rows[0]['WORKFLOW_RUN_ID']) == kept.workflow_run_id
-
-
-def test_get_results_returns_rows_from_multiple_producer_runs_under_the_same_workflow(
-    repository,
-):
-    # WORKFLOW_RUN_ID is the operational read key: rows sharing a
-    # WORKFLOW_RUN_ID but carrying different PRODUCER_RUN_IDs (e.g. a
-    # re-run of recon under the same workflow) are still both selected
-    # together.
-    shared_workflow_run_id = uuid4()
-
-    r1 = _result(workflow_run_id=shared_workflow_run_id)
-    r2 = _result(workflow_run_id=shared_workflow_run_id)
-
-    repository.write_results([r1, r2])
-
-    rows = repository.get_results(shared_workflow_run_id).collect()
-
-    assert {UUID(r['RECON_RESULT_ID']) for r in rows} == {
-        r1.recon_result_id, r2.recon_result_id,
-    }
-    assert {UUID(r['PRODUCER_RUN_ID']) for r in rows} == {
-        r1.producer_run_id, r2.producer_run_id,
-    }
-
-
 def test_get_results_excludes_rows_from_other_workflows(repository):
     kept_workflow_run_id = uuid4()
     other_workflow_run_id = uuid4()

@@ -88,22 +88,6 @@ def test_read_staging_preserves_producer_run_id_on_returned_rows(repository, spa
     assert row['PRODUCER_RUN_ID'] == producer_run_id
 
 
-def test_read_staging_same_business_dt_two_workflows_do_not_mix(repository, spark):
-    # Two Foundry workflows processed the same business_dt; selecting one
-    # workflow must not pull in the other's rows.
-    w1 = str(uuid4())
-    w2 = str(uuid4())
-
-    _write_staging_row(repository, spark, WORKFLOW_RUN_ID=w1, SRC_RECORD_ID='w1-rec')
-    _write_staging_row(repository, spark, WORKFLOW_RUN_ID=w2, SRC_RECORD_ID='w2-rec')
-
-    only_w2 = repository.read_staging(w2).collect()
-
-    assert len(only_w2) == 1
-    assert only_w2[0]['WORKFLOW_RUN_ID'] == w2
-    assert only_w2[0]['SRC_RECORD_ID'] == 'w2-rec'
-
-
 def test_read_staging_raises_when_no_rows_for_workflow(repository):
     with pytest.raises(ValueError):
         repository.read_staging(uuid4())

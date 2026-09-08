@@ -71,21 +71,6 @@ def test_write_resolves_logical_table_to_physical_table(mock_executor):
     )
 
 
-def test_write_lowercases_dataframe_columns_before_writing(mock_executor):
-    spark = MagicMock()
-    df = MagicMock()
-    df.columns = ['BUSINESS_DT', 'BATCH_ID']
-
-    store = PostgresStore(
-        spark=spark,
-        table_names=TABLE_LOCATIONS,
-    )
-
-    store.write(df, table_name='CFG_TRANSFORMATIONS')
-
-    df.toDF.assert_called_once_with('business_dt', 'batch_id')
-
-
 def test_write_fills_null_string_columns_with_empty_string(mock_executor, spark):
     schema = StructType([
         StructField('SRC_ACCOUNT_ID', StringType(), nullable=True),

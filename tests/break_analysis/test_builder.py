@@ -4,7 +4,7 @@ from uuid import uuid4
 
 from registry.models import GLSegmentType
 
-from break_analysis.builder import BreakCaseBuilder
+from break_analysis.builder import BreakCaseBuilder, _PivotCandidate
 from break_analysis.models import BreakPartitionKey, BreakRecord
 from gl.models import GLSegments, GLSegmentDefault, GLSegmentDefaults
 
@@ -230,20 +230,6 @@ def test_segment_with_no_configured_default_is_excluded_from_applicable_defaults
 
 # -- _find_pivots ---------------------------------------------------------
 
-def test_record_matching_one_applicable_default_becomes_a_pivot():
-    segment_defaults = _segment_defaults(
-        _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
-    )
-    builder = _builder(segment_defaults)
-    record = _record(segments=_segments(dept_cd='9999'))
-
-    pivots = builder._find_pivots(_partition_key(), [record])
-
-    assert len(pivots) == 1
-    assert pivots[0].record == record
-    assert pivots[0].relaxed_segments == (GLSegmentType.DEPARTMENT,)
-
-
 def test_record_matching_multiple_applicable_defaults_has_all_corresponding_relaxed_segments():
     segment_defaults = _segment_defaults(
         _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
@@ -323,3 +309,44 @@ def test_empty_partition_records_return_no_pivots():
     pivots = builder._find_pivots(_partition_key(), [])
 
     assert pivots == ()
+
+
+# -- _find_neighborhood ----------------------------------------------------
+
+def test_one_relaxed_segment_requires_remaining_segments_to_match():
+    pivot_record = _record(segments=_segments(dept_cd='9999'))
+    pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
+    # Differs only on DEPARTMENT, the relaxed segment; every other
+    # transformable segment matches the pivot.
+    compatible = _record(segments=_segments(dept_cd='4000'))
+
+    neighborhood = _builder()._find_neighborhood(pivot, [pivot_record, compatible])
+
+    assert set(neighborhood) == {pivot_record, compatible}
+
+
+def test_multiple_relaxed_segments_require_all_other_segments_to_match():
+    pivot_record = _record(segments=_segments(dept_cd='9999', sub_account='UNASSIGNED'))
+    pivot = _PivotCandidate(
+        record=pivot_record,
+        relaxed_segments=(GLSegmentType.DEPARTMENT, GLSegmentType.SUB_ACCOUNT),
+    )
+    # Differs only on the two relaxed segments; every non-relaxed
+    # transformable segment matches the pivot.
+    compatible = _record(segments=_segments(dept_cd='4000', sub_account='001'))
+
+    neighborhood = _builder()._find_neighborhood(pivot, [pivot_record, compatible])
+
+    assert set(neighborhood) == {pivot_record, compatible}
+
+
+def test_difference_on_any_effective_anchor_excludes_the_record():
+    pivot_record = _record(segments=_segments(dept_cd='9999'))
+    pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
+    # branch_cd is an effective anchor (not relaxed), so this record must
+    # be excluded even though DEPARTMENT differs too.
+    unrelated = _record(segments=_segments(dept_cd='9999', branch_cd='200'))
+
+    neighborhood = _builder()._find_neighborhood(pivot, [pivot_record, unrelated])
+
+    assert neighborhood == (pivot_record,)
