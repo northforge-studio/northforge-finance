@@ -1,10 +1,17 @@
+from uuid import UUID
 from dataclasses import dataclass
 from collections import defaultdict
 from collections.abc import Iterable
 
-from gl.models import GLSegmentDefaults, GLSegmentType
+from gl.models import GLSegmentDefaults
+from registry.models import GLSegmentType
 
-from break_analysis.models import BreakRecord, BreakPartitionKey
+from break_analysis.models import (
+    GLSegmentType,
+    BreakTopology,
+    BreakRecord, 
+    BreakPartitionKey,
+)
 
 
 _TRANSFORMABLE_SEGMENTS = (
@@ -21,6 +28,13 @@ _TRANSFORMABLE_SEGMENTS = (
 @dataclass(frozen=True)
 class _PivotCandidate:
     record: BreakRecord
+    relaxed_segments: tuple[GLSegmentType, ...]
+
+
+@dataclass(frozen=True)
+class _BreakCaseCandidate:
+    records: tuple[BreakRecord, ...]
+    topology: BreakTopology
     relaxed_segments: tuple[GLSegmentType, ...]
 
 
@@ -140,3 +154,89 @@ class BreakCaseBuilder:
             record.difference_amount
             for record in records
         ) == 0
+
+
+    def _build_candidate(
+        self,
+        pivot: _PivotCandidate,
+        records: Iterable[BreakRecord],
+    ) -> _BreakCaseCandidate | None:
+        neighborhood = self._find_neighborhood(
+            pivot,
+            records,
+        )
+
+        if len(neighborhood) < 2:
+            return None
+
+        if not self._is_closed(neighborhood):
+            return None
+
+        topology = (
+            BreakTopology.ONE_TO_ONE
+            if len(neighborhood) == 2
+            else BreakTopology.MANY_TO_ONE
+        )
+
+        return _BreakCaseCandidate(
+            records=neighborhood,
+            topology=topology,
+            relaxed_segments=pivot.relaxed_segments,
+        )
+
+
+    def _find_candidates(
+        self,
+        partition_key: BreakPartitionKey,
+        records: tuple[BreakRecord, ...],
+    ) -> tuple[_BreakCaseCandidate, ...]:
+        pivots = self._find_pivots(
+            partition_key,
+            records,
+        )
+
+        candidates: list[_BreakCaseCandidate] = []
+
+        for pivot in pivots:
+            candidate = self._build_candidate(
+                pivot,
+                records,
+            )
+
+            if candidate is not None:
+                candidates.append(candidate)
+
+        return tuple(candidates)
+
+
+    def _deduplicate_candidates(
+        self,
+        candidates: Iterable[_BreakCaseCandidate],
+    ) -> tuple[_BreakCaseCandidate, ...]:
+        seen: set[
+            tuple[
+                frozenset[UUID],
+                BreakTopology,
+                tuple[GLSegmentType, ...],
+            ]
+        ] = set()
+
+        deduplicated: list[_BreakCaseCandidate] = []
+
+        for candidate in candidates:
+            key = (
+                frozenset(
+                    record.recon_result_id
+                    for record in candidate.records
+                ),
+                candidate.topology,
+                candidate.relaxed_segments,
+            )
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            deduplicated.append(candidate)
+
+        return tuple(deduplicated)
