@@ -881,3 +881,199 @@ def test_each_case_gets_a_case_id():
         assert isinstance(case.case_id, UUID)
 
     assert cases[0].case_id != cases[1].case_id
+
+
+# -- _classify_leftovers -------------------------------------------------
+
+def test_classify_leftovers_interface_balance_only_yields_interface_only():
+    record = _record(
+        interface_balance=Decimal('100.00'),
+        gl_balance=Decimal('0.00'),
+        difference_amount=Decimal('100.00'),
+    )
+
+    [case] = _builder()._classify_leftovers([record])
+
+    assert case.topology == BreakTopology.INTERFACE_ONLY
+    assert case.records == (record,)
+    assert case.evidence is None
+
+
+def test_classify_leftovers_gl_balance_only_yields_gl_only():
+    record = _record(
+        interface_balance=Decimal('0.00'),
+        gl_balance=Decimal('100.00'),
+        difference_amount=Decimal('-100.00'),
+    )
+
+    [case] = _builder()._classify_leftovers([record])
+
+    assert case.topology == BreakTopology.GL_ONLY
+    assert case.records == (record,)
+
+
+def test_classify_leftovers_both_sides_populated_yields_unmatched():
+    record = _record(
+        interface_balance=Decimal('100.00'),
+        gl_balance=Decimal('80.00'),
+        difference_amount=Decimal('20.00'),
+    )
+
+    [case] = _builder()._classify_leftovers([record])
+
+    assert case.topology == BreakTopology.UNMATCHED
+    assert case.records == (record,)
+
+
+# -- build ------------------------------------------------------------------
+
+def test_build_known_one_to_one_scenario_yields_one_case():
+    segment_defaults = _segment_defaults(
+        _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
+    )
+    builder = _builder(segment_defaults)
+    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    partner_record = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
+
+    cases = builder.build([pivot_record, partner_record])
+
+    assert len(cases) == 1
+    [case] = cases
+    assert case.topology == BreakTopology.ONE_TO_ONE
+    assert set(case.records) == {pivot_record, partner_record}
+
+
+def test_build_known_many_to_one_scenario_yields_one_case():
+    segment_defaults = _segment_defaults(
+        _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
+    )
+    builder = _builder(segment_defaults)
+    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    first = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-20.00'))
+    second = _record(segments=_segments(dept_cd='0001'), difference_amount=Decimal('-30.00'))
+
+    cases = builder.build([pivot_record, first, second])
+
+    assert len(cases) == 1
+    [case] = cases
+    assert case.topology == BreakTopology.MANY_TO_ONE
+    assert set(case.records) == {pivot_record, first, second}
+
+
+def test_build_multiple_independent_cases_in_same_partition_remain_separate():
+    segment_defaults = _segment_defaults(
+        _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
+    )
+    builder = _builder(segment_defaults)
+    pivot_a = _record(segments=_segments(branch_cd='100', dept_cd='9999'), difference_amount=Decimal('50.00'))
+    partner_a = _record(segments=_segments(branch_cd='100', dept_cd='4000'), difference_amount=Decimal('-50.00'))
+    pivot_b = _record(segments=_segments(branch_cd='200', dept_cd='9999'), difference_amount=Decimal('30.00'))
+    partner_b = _record(segments=_segments(branch_cd='200', dept_cd='4000'), difference_amount=Decimal('-30.00'))
+
+    cases = builder.build([pivot_a, partner_a, pivot_b, partner_b])
+
+    assert len(cases) == 2
+    assert all(case.topology == BreakTopology.ONE_TO_ONE for case in cases)
+    assert {frozenset(case.records) for case in cases} == {
+        frozenset({pivot_a, partner_a}),
+        frozenset({pivot_b, partner_b}),
+    }
+
+
+def test_build_cases_across_different_partitions_remain_separate():
+    segment_defaults = _segment_defaults(
+        _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
+        _entity_default(GLSegmentType.DEPARTMENT, 'CAM', '9999'),
+    )
+    builder = _builder(segment_defaults)
+    pivot_usm = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    partner_usm = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
+    pivot_cam = _record(
+        segments=_segments(entity_cd='CAM', dept_cd='9999'),
+        difference_amount=Decimal('30.00'),
+    )
+    partner_cam = _record(
+        segments=_segments(entity_cd='CAM', dept_cd='4000'),
+        difference_amount=Decimal('-30.00'),
+    )
+
+    cases = builder.build([pivot_usm, partner_usm, pivot_cam, partner_cam])
+
+    assert len(cases) == 2
+    assert {frozenset(case.records) for case in cases} == {
+        frozenset({pivot_usm, partner_usm}),
+        frozenset({pivot_cam, partner_cam}),
+    }
+
+
+def test_build_overlapping_candidates_yield_ambiguous_case():
+    segment_defaults = _segment_defaults(
+        _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
+        _entity_default(GLSegmentType.SUB_ACCOUNT, 'USM', 'UNASSIGNED'),
+    )
+    builder = _builder(segment_defaults)
+    # Each pivot closes independently against the same shared record, so
+    # the two candidates overlap and must merge into one AMBIGUOUS case.
+    pivot_a = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    pivot_b = _record(segments=_segments(sub_account='UNASSIGNED'), difference_amount=Decimal('50.00'))
+    shared_partner = _record(difference_amount=Decimal('-50.00'))
+
+    cases = builder.build([pivot_a, pivot_b, shared_partner])
+
+    assert len(cases) == 1
+    [case] = cases
+    assert case.topology == BreakTopology.AMBIGUOUS
+    assert case.evidence is None
+    assert set(case.records) == {pivot_a, pivot_b, shared_partner}
+
+
+def test_build_classifies_unconsumed_records_as_leftovers():
+    builder = _builder()
+    interface_only = _record(
+        interface_balance=Decimal('100.00'),
+        gl_balance=Decimal('0.00'),
+        difference_amount=Decimal('100.00'),
+    )
+
+    cases = builder.build([interface_only])
+
+    assert len(cases) == 1
+    [case] = cases
+    assert case.topology == BreakTopology.INTERFACE_ONLY
+    assert case.records == (interface_only,)
+    assert case.evidence is None
+
+
+def test_build_every_input_record_appears_in_exactly_one_case():
+    segment_defaults = _segment_defaults(
+        _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
+    )
+    builder = _builder(segment_defaults)
+    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    partner_record = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
+    leftover = _record(
+        interface_balance=Decimal('20.00'),
+        gl_balance=Decimal('0.00'),
+        difference_amount=Decimal('20.00'),
+    )
+
+    cases = builder.build([pivot_record, partner_record, leftover])
+
+    all_case_record_ids = [
+        record.recon_result_id
+        for case in cases
+        for record in case.records
+    ]
+
+    assert len(all_case_record_ids) == len(set(all_case_record_ids))
+    assert set(all_case_record_ids) == {
+        pivot_record.recon_result_id,
+        partner_record.recon_result_id,
+        leftover.recon_result_id,
+    }
+
+
+def test_build_empty_input_returns_empty_tuple():
+    cases = _builder().build([])
+
+    assert cases == ()

@@ -351,3 +351,70 @@ class BreakCaseBuilder:
             )
 
         return tuple(cases)
+
+
+    def _classify_leftovers(
+        self,
+        records: Iterable[BreakRecord],
+    ) -> tuple[BreakCase, ...]:
+        cases: list[BreakCase] = []
+
+        for record in records:
+            if record.interface_balance != 0 and record.gl_balance == 0:
+                topology = BreakTopology.INTERFACE_ONLY
+            elif record.interface_balance == 0 and record.gl_balance != 0:
+                topology = BreakTopology.GL_ONLY
+            else:
+                topology = BreakTopology.UNMATCHED
+
+            cases.append(
+                BreakCase(
+                    case_id=uuid4(),
+                    topology=topology,
+                    records=(record,),
+                    evidence=None,
+                )
+            )
+
+        return tuple(cases)
+
+
+    def build(
+        self,
+        records: Iterable[BreakRecord],
+    ) -> tuple[BreakCase, ...]:
+        records = tuple(records)
+
+        cases: list[BreakCase] = []
+
+        for partition_key, partition_records in self._partition(records).items():
+            candidates = self._find_candidates(
+                partition_key,
+                partition_records,
+            )
+
+            candidates = self._deduplicate_candidates(candidates)
+
+            resolved = self._resolve_candidates(candidates)
+
+            candidate_cases = self._to_break_cases(resolved)
+
+            cases.extend(candidate_cases)
+
+            consumed_ids = {
+                record.recon_result_id
+                for case in candidate_cases
+                for record in case.records
+            }
+
+            leftovers = tuple(
+                record
+                for record in partition_records
+                if record.recon_result_id not in consumed_ids
+            )
+
+            cases.extend(
+                self._classify_leftovers(leftovers)
+            )
+
+        return tuple(cases)
