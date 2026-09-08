@@ -350,3 +350,23 @@ def test_difference_on_any_effective_anchor_excludes_the_record():
     neighborhood = _builder()._find_neighborhood(pivot, [pivot_record, unrelated])
 
     assert neighborhood == (pivot_record,)
+
+
+# -- _is_closed -------------------------------------------------------------
+
+def test_records_with_offsetting_differences_are_closed():
+    first = _record(difference_amount=Decimal('50.00'))
+    second = _record(difference_amount=Decimal('-50.00'))
+
+    assert _builder()._is_closed([first, second]) is True
+
+
+def test_records_with_nonzero_net_difference_are_not_closed():
+    first = _record(difference_amount=Decimal('50.00'))
+    second = _record(difference_amount=Decimal('-30.00'))
+
+    assert _builder()._is_closed([first, second]) is False
+
+
+def test_empty_records_are_closed():
+    assert _builder()._is_closed([]) is True

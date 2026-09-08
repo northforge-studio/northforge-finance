@@ -130,3 +130,13 @@ class BreakCaseBuilder:
         )
 
         return neighborhood
+
+
+    def _is_closed(
+        self,
+        records: Iterable[BreakRecord],
+    ) -> bool:
+        return sum(
+            record.difference_amount
+            for record in records
+        ) == 0
