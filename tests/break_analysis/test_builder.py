@@ -1,11 +1,16 @@
 from datetime import date
 from decimal import Decimal
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from registry.models import GLSegmentType
 
-from break_analysis.builder import BreakCaseBuilder, _PivotCandidate, _BreakCaseCandidate
-from break_analysis.models import BreakPartitionKey, BreakRecord, BreakTopology
+from break_analysis.builder import (
+    BreakCaseBuilder,
+    _PivotCandidate,
+    _BreakCaseCandidate,
+    _ResolvedCandidate,
+)
+from break_analysis.models import BreakPartitionKey, BreakRecord, BreakTopology, BreakCase
 from gl.models import GLSegments, GLSegmentDefault, GLSegmentDefaults
 
 
@@ -689,3 +694,190 @@ def test_empty_candidates_returns_empty_tuple():
     result = _builder()._deduplicate_candidates([])
 
     assert result == ()
+
+
+# -- _resolve_candidates -----------------------------------------------------
+
+def test_single_candidate_is_accepted_unchanged():
+    first = _record()
+    second = _record()
+    candidate = _BreakCaseCandidate(
+        records=(first, second),
+        topology=BreakTopology.ONE_TO_ONE,
+        relaxed_segments=(GLSegmentType.DEPARTMENT,),
+    )
+
+    resolved = _builder()._resolve_candidates([candidate])
+
+    assert resolved == (
+        _ResolvedCandidate(
+            records=(first, second),
+            topology=BreakTopology.ONE_TO_ONE,
+            relaxed_segments=(GLSegmentType.DEPARTMENT,),
+        ),
+    )
+
+
+def test_multiple_non_overlapping_candidates_are_accepted_independently():
+    first, second = _record(), _record()
+    third, fourth = _record(), _record()
+    candidate_a = _BreakCaseCandidate(
+        records=(first, second),
+        topology=BreakTopology.ONE_TO_ONE,
+        relaxed_segments=(GLSegmentType.DEPARTMENT,),
+    )
+    candidate_b = _BreakCaseCandidate(
+        records=(third, fourth),
+        topology=BreakTopology.ONE_TO_ONE,
+        relaxed_segments=(GLSegmentType.SUB_ACCOUNT,),
+    )
+
+    resolved = _builder()._resolve_candidates([candidate_a, candidate_b])
+
+    assert len(resolved) == 2
+    assert set(resolved) == {
+        _ResolvedCandidate(
+            records=(first, second),
+            topology=BreakTopology.ONE_TO_ONE,
+            relaxed_segments=(GLSegmentType.DEPARTMENT,),
+        ),
+        _ResolvedCandidate(
+            records=(third, fourth),
+            topology=BreakTopology.ONE_TO_ONE,
+            relaxed_segments=(GLSegmentType.SUB_ACCOUNT,),
+        ),
+    }
+
+
+def test_two_overlapping_candidates_yield_one_ambiguous_result():
+    shared = _record()
+    only_in_a = _record()
+    only_in_b = _record()
+    candidate_a = _BreakCaseCandidate(
+        records=(shared, only_in_a),
+        topology=BreakTopology.ONE_TO_ONE,
+        relaxed_segments=(GLSegmentType.DEPARTMENT,),
+    )
+    candidate_b = _BreakCaseCandidate(
+        records=(shared, only_in_b),
+        topology=BreakTopology.ONE_TO_ONE,
+        relaxed_segments=(GLSegmentType.SUB_ACCOUNT,),
+    )
+
+    resolved = _builder()._resolve_candidates([candidate_a, candidate_b])
+
+    assert len(resolved) == 1
+    assert resolved[0].topology == BreakTopology.AMBIGUOUS
+    assert resolved[0].relaxed_segments is None
+
+
+def test_transitively_overlapping_candidates_yield_one_ambiguous_result():
+    shared_ab = _record()
+    shared_bc = _record()
+    only_in_a = _record()
+    only_in_c = _record()
+    # candidate_a and candidate_c share no record directly, but both
+    # overlap with candidate_b, so all three must merge transitively.
+    candidate_a = _BreakCaseCandidate(
+        records=(only_in_a, shared_ab),
+        topology=BreakTopology.ONE_TO_ONE,
+        relaxed_segments=(GLSegmentType.DEPARTMENT,),
+    )
+    candidate_b = _BreakCaseCandidate(
+        records=(shared_ab, shared_bc),
+        topology=BreakTopology.ONE_TO_ONE,
+        relaxed_segments=(GLSegmentType.SUB_ACCOUNT,),
+    )
+    candidate_c = _BreakCaseCandidate(
+        records=(shared_bc, only_in_c),
+        topology=BreakTopology.ONE_TO_ONE,
+        relaxed_segments=(GLSegmentType.BRANCH,),
+    )
+
+    resolved = _builder()._resolve_candidates([candidate_a, candidate_b, candidate_c])
+
+    assert len(resolved) == 1
+    assert resolved[0].topology == BreakTopology.AMBIGUOUS
+    assert set(resolved[0].records) == {only_in_a, shared_ab, shared_bc, only_in_c}
+
+
+def test_ambiguous_result_contains_union_of_records_without_duplicates():
+    shared = _record()
+    only_in_a = _record()
+    only_in_b = _record()
+    candidate_a = _BreakCaseCandidate(
+        records=(shared, only_in_a),
+        topology=BreakTopology.ONE_TO_ONE,
+        relaxed_segments=(GLSegmentType.DEPARTMENT,),
+    )
+    candidate_b = _BreakCaseCandidate(
+        records=(shared, only_in_b),
+        topology=BreakTopology.ONE_TO_ONE,
+        relaxed_segments=(GLSegmentType.SUB_ACCOUNT,),
+    )
+
+    resolved = _builder()._resolve_candidates([candidate_a, candidate_b])
+
+    assert len(resolved) == 1
+    assert len(resolved[0].records) == 3
+    assert set(resolved[0].records) == {shared, only_in_a, only_in_b}
+
+
+def test_empty_candidates_returns_empty_tuple_for_resolve():
+    resolved = _builder()._resolve_candidates([])
+
+    assert resolved == ()
+
+
+# -- _to_break_cases ----------------------------------------------------------
+
+def test_resolved_normal_candidate_becomes_break_case_with_evidence():
+    first, second = _record(), _record()
+    resolved = _ResolvedCandidate(
+        records=(first, second),
+        topology=BreakTopology.ONE_TO_ONE,
+        relaxed_segments=(GLSegmentType.DEPARTMENT,),
+    )
+
+    [case] = _builder()._to_break_cases([resolved])
+
+    assert isinstance(case, BreakCase)
+    assert case.topology == BreakTopology.ONE_TO_ONE
+    assert case.records == (first, second)
+    assert case.evidence is not None
+    assert case.evidence.relaxed_segments == (GLSegmentType.DEPARTMENT,)
+
+
+def test_ambiguous_candidate_becomes_break_case_with_no_evidence():
+    first, second = _record(), _record()
+    resolved = _ResolvedCandidate(
+        records=(first, second),
+        topology=BreakTopology.AMBIGUOUS,
+        relaxed_segments=None,
+    )
+
+    [case] = _builder()._to_break_cases([resolved])
+
+    assert case.topology == BreakTopology.AMBIGUOUS
+    assert case.evidence is None
+
+
+def test_each_case_gets_a_case_id():
+    first_resolved = _ResolvedCandidate(
+        records=(_record(), _record()),
+        topology=BreakTopology.ONE_TO_ONE,
+        relaxed_segments=(GLSegmentType.DEPARTMENT,),
+    )
+    second_resolved = _ResolvedCandidate(
+        records=(_record(), _record()),
+        topology=BreakTopology.ONE_TO_ONE,
+        relaxed_segments=(GLSegmentType.SUB_ACCOUNT,),
+    )
+
+    cases = _builder()._to_break_cases([first_resolved, second_resolved])
+
+    assert len(cases) == 2
+    for case in cases:
+        assert isinstance(case.case_id, UUID)
+
+    assert cases[0].case_id != cases[1].case_id

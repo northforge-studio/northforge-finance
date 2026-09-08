@@ -1,4 +1,4 @@
-from uuid import UUID
+from uuid import UUID, uuid4
 from dataclasses import dataclass
 from collections import defaultdict
 from collections.abc import Iterable
@@ -7,8 +7,10 @@ from gl.models import GLSegmentDefaults
 from registry.models import GLSegmentType
 
 from break_analysis.models import (
-    BreakTopology,
+    BreakCase,
     BreakRecord, 
+    BreakTopology,
+    BreakCaseEvidence,
     BreakPartitionKey,
 )
 
@@ -262,3 +264,90 @@ class BreakCaseBuilder:
             deduplicated.append(candidate)
 
         return tuple(deduplicated)
+
+
+    def _resolve_candidates(
+        self,
+        candidates: Iterable[_BreakCaseCandidate],
+    ) -> tuple[_ResolvedCandidate, ...]:
+        remaining = list(candidates)
+        resolved: list[_ResolvedCandidate] = []
+
+        while remaining:
+            current = remaining.pop(0)
+
+            component = [current]
+            component_ids = {
+                record.recon_result_id
+                for record in current.records
+            }
+
+            changed = True
+
+            while changed:
+                changed = False
+
+                for candidate in remaining[:]:
+                    candidate_ids = {
+                        record.recon_result_id
+                        for record in candidate.records
+                    }
+
+                    if component_ids & candidate_ids:
+                        component.append(candidate)
+                        component_ids.update(candidate_ids)
+                        remaining.remove(candidate)
+                        changed = True
+
+            if len(component) == 1:
+                resolved.append(
+                    _ResolvedCandidate(
+                        records=current.records,
+                        topology=current.topology,
+                        relaxed_segments=current.relaxed_segments,
+                    )
+                )
+                continue
+
+            records_by_id = {
+                record.recon_result_id: record
+                for candidate in component
+                for record in candidate.records
+            }
+
+            resolved.append(
+                _ResolvedCandidate(
+                    records=tuple(records_by_id.values()),
+                    topology=BreakTopology.AMBIGUOUS,
+                    relaxed_segments=None,
+                )
+            )
+
+        return tuple(resolved)
+
+
+    def _to_break_cases(
+        self,
+        candidates: Iterable[_ResolvedCandidate],
+    ) -> tuple[BreakCase, ...]:
+        cases: list[BreakCase] = []
+
+        for candidate in candidates:
+            evidence = (
+                BreakCaseEvidence(
+                    relaxed_segments=candidate.relaxed_segments,
+                )
+                if candidate.relaxed_segments is not None
+                else None
+            )
+
+            cases.append(
+                BreakCase(
+                    case_id=uuid4(),
+                    topology=candidate.topology,
+                    records=candidate.records,
+                    evidence=evidence,
+                )
+            )
+
+        return tuple(cases)
