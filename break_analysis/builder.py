@@ -7,7 +7,6 @@ from gl.models import GLSegmentDefaults
 from registry.models import GLSegmentType
 
 from break_analysis.models import (
-    GLSegmentType,
     BreakTopology,
     BreakRecord, 
     BreakPartitionKey,
@@ -36,6 +35,13 @@ class _BreakCaseCandidate:
     records: tuple[BreakRecord, ...]
     topology: BreakTopology
     relaxed_segments: tuple[GLSegmentType, ...]
+
+
+@dataclass(frozen=True)
+class _ResolvedCandidate:
+    records: tuple[BreakRecord, ...]
+    topology: BreakTopology
+    relaxed_segments: tuple[GLSegmentType, ...] | None
 
 
 class BreakCaseBuilder:
@@ -95,7 +101,7 @@ class BreakCaseBuilder:
             partition_key=partition_key,
         )
 
-        pivots: list[BreakRecord] = []
+        pivots: list[_PivotCandidate] = []
 
         for record in records:
             relaxed_segments = tuple(
@@ -122,6 +128,7 @@ class BreakCaseBuilder:
         self,
         pivot: _PivotCandidate,
         records: Iterable[BreakRecord],
+        pivot_ids: frozenset[UUID],
     ) -> tuple[BreakRecord, ...]:
         effective_anchors = tuple(
             segment_type
@@ -137,8 +144,15 @@ class BreakCaseBuilder:
         neighborhood = tuple(
             record
             for record in records
-            if tuple(
-                getattr(record.segments, segment_type.field_name)
+            if (
+                record.recon_result_id == pivot.record.recon_result_id
+                or record.recon_result_id not in pivot_ids
+            )
+            and tuple(
+                getattr(
+                    record.segments,
+                    segment_type.field_name,
+                )
                 for segment_type in effective_anchors
             ) == pivot_signature
         )
@@ -160,10 +174,12 @@ class BreakCaseBuilder:
         self,
         pivot: _PivotCandidate,
         records: Iterable[BreakRecord],
+        pivot_ids: frozenset[UUID],
     ) -> _BreakCaseCandidate | None:
         neighborhood = self._find_neighborhood(
             pivot,
             records,
+            pivot_ids,
         )
 
         if len(neighborhood) < 2:
@@ -195,12 +211,18 @@ class BreakCaseBuilder:
             records,
         )
 
+        pivot_ids = frozenset(
+            pivot.record.recon_result_id
+            for pivot in pivots
+        )
+
         candidates: list[_BreakCaseCandidate] = []
 
         for pivot in pivots:
             candidate = self._build_candidate(
                 pivot,
                 records,
+                pivot_ids,
             )
 
             if candidate is not None:

@@ -320,7 +320,7 @@ def test_one_relaxed_segment_requires_remaining_segments_to_match():
     # transformable segment matches the pivot.
     compatible = _record(segments=_segments(dept_cd='4000'))
 
-    neighborhood = _builder()._find_neighborhood(pivot, [pivot_record, compatible])
+    neighborhood = _builder()._find_neighborhood(pivot, [pivot_record, compatible], frozenset())
 
     assert set(neighborhood) == {pivot_record, compatible}
 
@@ -335,7 +335,7 @@ def test_multiple_relaxed_segments_require_all_other_segments_to_match():
     # transformable segment matches the pivot.
     compatible = _record(segments=_segments(dept_cd='4000', sub_account='001'))
 
-    neighborhood = _builder()._find_neighborhood(pivot, [pivot_record, compatible])
+    neighborhood = _builder()._find_neighborhood(pivot, [pivot_record, compatible], frozenset())
 
     assert set(neighborhood) == {pivot_record, compatible}
 
@@ -347,9 +347,86 @@ def test_difference_on_any_effective_anchor_excludes_the_record():
     # be excluded even though DEPARTMENT differs too.
     unrelated = _record(segments=_segments(dept_cd='9999', branch_cd='200'))
 
-    neighborhood = _builder()._find_neighborhood(pivot, [pivot_record, unrelated])
+    neighborhood = _builder()._find_neighborhood(pivot, [pivot_record, unrelated], frozenset())
 
     assert neighborhood == (pivot_record,)
+
+
+def test_another_pivot_matching_effective_anchors_is_excluded_from_neighborhood():
+    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
+    # Matches the pivot's effective anchors, but is itself another pivot,
+    # so it must not be absorbed into this pivot's neighborhood.
+    other_pivot_record = _record(difference_amount=Decimal('-50.00'))
+    pivot_ids = frozenset({
+        pivot_record.recon_result_id,
+        other_pivot_record.recon_result_id,
+    })
+
+    neighborhood = _builder()._find_neighborhood(
+        pivot,
+        [pivot_record, other_pivot_record],
+        pivot_ids,
+    )
+
+    assert neighborhood == (pivot_record,)
+
+
+def test_current_pivot_record_remains_included_in_its_own_neighborhood():
+    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
+    pivot_ids = frozenset({pivot_record.recon_result_id})
+
+    neighborhood = _builder()._find_neighborhood(pivot, [pivot_record], pivot_ids)
+
+    assert neighborhood == (pivot_record,)
+
+
+def test_non_pivot_matching_effective_anchors_remains_included():
+    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
+    # Matches the pivot's effective anchors and is not itself a pivot, so
+    # it must remain in the neighborhood.
+    compatible = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
+    pivot_ids = frozenset({pivot_record.recon_result_id})
+
+    neighborhood = _builder()._find_neighborhood(
+        pivot,
+        [pivot_record, compatible],
+        pivot_ids,
+    )
+
+    assert set(neighborhood) == {pivot_record, compatible}
+
+
+def test_pivot_with_narrower_relaxed_segments_cannot_absorb_pivot_with_wider_relaxed_segments():
+    account_pivot_record = _record(
+        segments=_segments(gl_account='999999'),
+        difference_amount=Decimal('50.00'),
+    )
+    account_pivot = _PivotCandidate(
+        record=account_pivot_record,
+        relaxed_segments=(GLSegmentType.ACCOUNT,),
+    )
+    # Would match the ACCOUNT-only pivot's effective anchors (SUB_ACCOUNT
+    # included), but is itself a pivot with a wider set of relaxed
+    # segments, so it must not be absorbed.
+    account_and_sub_account_pivot_record = _record(
+        segments=_segments(gl_account='999999', sub_account='001'),
+        difference_amount=Decimal('-50.00'),
+    )
+    pivot_ids = frozenset({
+        account_pivot_record.recon_result_id,
+        account_and_sub_account_pivot_record.recon_result_id,
+    })
+
+    neighborhood = _builder()._find_neighborhood(
+        account_pivot,
+        [account_pivot_record, account_and_sub_account_pivot_record],
+        pivot_ids,
+    )
+
+    assert neighborhood == (account_pivot_record,)
 
 
 # -- _is_closed -------------------------------------------------------------
@@ -379,7 +456,7 @@ def test_closed_two_record_neighborhood_yields_one_to_one():
     pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
     offsetting = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
 
-    candidate = _builder()._build_candidate(pivot, [pivot_record, offsetting])
+    candidate = _builder()._build_candidate(pivot, [pivot_record, offsetting], frozenset())
 
     assert candidate is not None
     assert candidate.topology == BreakTopology.ONE_TO_ONE
@@ -392,7 +469,7 @@ def test_closed_three_or_more_record_neighborhood_yields_many_to_one():
     first = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-20.00'))
     second = _record(segments=_segments(dept_cd='0001'), difference_amount=Decimal('-30.00'))
 
-    candidate = _builder()._build_candidate(pivot, [pivot_record, first, second])
+    candidate = _builder()._build_candidate(pivot, [pivot_record, first, second], frozenset())
 
     assert candidate is not None
     assert candidate.topology == BreakTopology.MANY_TO_ONE
@@ -404,7 +481,7 @@ def test_non_closing_neighborhood_yields_no_candidate():
     pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
     non_offsetting = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-30.00'))
 
-    candidate = _builder()._build_candidate(pivot, [pivot_record, non_offsetting])
+    candidate = _builder()._build_candidate(pivot, [pivot_record, non_offsetting], frozenset())
 
     assert candidate is None
 
@@ -413,7 +490,7 @@ def test_neighborhood_containing_only_the_pivot_yields_no_candidate():
     pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
     pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
 
-    candidate = _builder()._build_candidate(pivot, [pivot_record])
+    candidate = _builder()._build_candidate(pivot, [pivot_record], frozenset())
 
     assert candidate is None
 
@@ -432,7 +509,7 @@ def test_candidate_preserves_pivot_relaxed_segments():
         difference_amount=Decimal('-50.00'),
     )
 
-    candidate = _builder()._build_candidate(pivot, [pivot_record, offsetting])
+    candidate = _builder()._build_candidate(pivot, [pivot_record, offsetting], frozenset())
 
     assert candidate is not None
     assert candidate.relaxed_segments == (GLSegmentType.DEPARTMENT, GLSegmentType.SUB_ACCOUNT)
@@ -461,6 +538,32 @@ def test_multiple_valid_pivots_each_build_a_candidate():
         frozenset({pivot_a, partner_a}),
         frozenset({pivot_b, partner_b}),
     }
+
+
+def test_multiple_pivots_with_identical_anchors_independently_build_their_own_neighborhoods():
+    segment_defaults = _segment_defaults(
+        _entity_default(GLSegmentType.ACCOUNT, 'USM', '999999'),
+    )
+    builder = _builder(segment_defaults)
+    # Both pivots relax ACCOUNT and are otherwise identical, so they share
+    # the same effective-anchor signature and each also matches the
+    # other's signature. Without pivot exclusion, pivot_b would be
+    # absorbed into pivot_a's neighborhood (and vice versa); each pivot
+    # must instead build its own neighborhood from non-pivot records only.
+    pivot_a = _record(segments=_segments(gl_account='999999'), difference_amount=Decimal('50.00'))
+    partner_a = _record(segments=_segments(gl_account='111111'), difference_amount=Decimal('-50.00'))
+    pivot_b = _record(segments=_segments(gl_account='999999'), difference_amount=Decimal('999.00'))
+
+    candidates = builder._find_candidates(
+        _partition_key(),
+        (pivot_a, partner_a, pivot_b),
+    )
+
+    # pivot_a closes independently with partner_a; pivot_b's own
+    # neighborhood (partner_a, since pivot_a is excluded as another pivot)
+    # does not close, so it yields no candidate of its own.
+    assert len(candidates) == 1
+    assert set(candidates[0].records) == {pivot_a, partner_a}
 
 
 def test_non_closing_pivot_is_excluded():
