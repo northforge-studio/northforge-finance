@@ -54,7 +54,9 @@ class BreakAnalysisAgent:
         ]
 
         response = self._llm_with_tools.invoke(messages)
+
         tool_round = 0
+        tool_cache: dict[tuple, object] = {}
 
         while response.tool_calls:
             if tool_round >= self._max_tool_rounds:
@@ -67,8 +69,13 @@ class BreakAnalysisAgent:
             messages.append(response)
 
             for tool_call in response.tool_calls:
-                tool = self._tool_registry[tool_call['name']]
-                result = tool.invoke(tool_call['args'])
+                key = self._tool_call_key(tool_call)
+                if key in tool_cache:
+                    result = tool_cache[key]
+                else:
+                    tool = self._tool_registry[tool_call['name']]
+                    result = tool.invoke(tool_call['args'])
+                    tool_cache[key] = result
 
                 messages.append(
                     ToolMessage(
@@ -88,4 +95,11 @@ class BreakAnalysisAgent:
             status=conclusion.status,
             root_cause=conclusion.root_cause,
             explanation=conclusion.explanation,
+        )
+
+
+    def _tool_call_key(self, tool_call: dict) -> tuple:
+        return (
+            tool_call['name'], 
+            tuple(sorted(tool_call['args'].items()))
         )
