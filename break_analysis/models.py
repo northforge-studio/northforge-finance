@@ -72,8 +72,9 @@ class BreakCase:
     topology: BreakTopology
 
     investigation_records: tuple[BreakRecord, ...]
-    pivot: BreakRecord | None = None 
+    pivot: BreakRecord | None = None
     evidence: BreakCaseEvidence | None = None
+
 
     def __post_init__(self):
         if not self.investigation_records:
@@ -83,7 +84,7 @@ class BreakCase:
 
         pivot_topologies = {
             BreakTopology.ONE_TO_ONE,
-            BreakTopology.MANY_TO_ONE,
+            BreakTopology.MANY_TO_ONE
         }
 
         if self.topology in pivot_topologies and self.pivot is None:
@@ -123,6 +124,7 @@ class BreakCase:
                 'Pivot cannot also be an investigation record.'
             )
 
+
     @property
     def all_records(self) -> tuple[BreakRecord, ...]:
         if self.pivot is None:
@@ -130,7 +132,7 @@ class BreakCase:
 
         return (
             self.pivot,
-            *self.investigation_records,
+            *self.investigation_records
         )
 
 

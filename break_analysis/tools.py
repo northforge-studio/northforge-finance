@@ -22,7 +22,7 @@ class SegmentValidationResult:
 
 class RegistryTools:
     def __init__(
-        self, 
+        self,
         registry_client: RegistryClient
     ):
         self._registry = registry_client
@@ -32,16 +32,16 @@ class RegistryTools:
         self,
         segment_type: GLSegmentType,
         segment_value: str,
-        business_dt: date,
+        business_dt: date
     ) -> SegmentValidationResult:
         is_valid = self._registry.validate_segment(
             segment_type,
             business_dt,
-            segment_value,
+            segment_value
         )
 
         return SegmentValidationResult(
             segment_type=segment_type,
             segment_value=segment_value,
-            is_valid=is_valid,
+            is_valid=is_valid
         )

@@ -1,12 +1,12 @@
 from langchain_core.tools import StructuredTool
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
+from langchain_core.messages import ToolMessage, HumanMessage, SystemMessage
 
 from break_analysis.prompts import SYSTEM_PROMPT
 from break_analysis.tools import RegistryTools, ValidateSegmentInput
 from break_analysis.models import (
-    BreakCase, 
-    BreakAnalysisResult, 
+    BreakCase,
+    BreakAnalysisResult,
     BreakAnalysisConclusion
 )
 
@@ -16,12 +16,11 @@ class BreakAnalysisAgent:
         self,
         llm: BaseChatModel,
         registry_tools: RegistryTools,
-        max_tool_rounds: int = 10,
+        max_tool_rounds: int = 10
     ):
         if max_tool_rounds < 1:
             raise ValueError('max_tool_rounds must be at least 1.')
 
-        
         self._llm = llm
         self._registry_tools = registry_tools
         self._max_tool_rounds = max_tool_rounds
@@ -34,7 +33,7 @@ class BreakAnalysisAgent:
                     'Validate whether a GL segment value is active '
                     'and valid in Registry.'
                 ),
-                args_schema=ValidateSegmentInput,
+                args_schema=ValidateSegmentInput
             )
         ]
 
@@ -46,11 +45,11 @@ class BreakAnalysisAgent:
 
     def analyze(
         self,
-        break_case: BreakCase,
+        break_case: BreakCase
     ) -> BreakAnalysisResult:
         messages = [
             SystemMessage(content=SYSTEM_PROMPT),
-            HumanMessage(content=str(break_case)),
+            HumanMessage(content=str(break_case))
         ]
 
         response = self._llm_with_tools.invoke(messages)
@@ -78,15 +77,15 @@ class BreakAnalysisAgent:
 
                     if tool is None:
                         raise RuntimeError(
-                            f"Unknown tool requested by agent: {tool_name}"
+                            f'Unknown tool requested by agent: {tool_name}'
                         )
 
                     try:
                         result = tool.invoke(tool_call['args'])
                     except Exception as exc:
                         raise RuntimeError(
-                            f"Tool '{tool_name}' failed for case "
-                            f"{break_case.case_id}"
+                            f'Tool \'{tool_name}\' failed for case '
+                            f'{break_case.case_id}'
                         ) from exc
 
                     tool_cache[key] = result
@@ -94,7 +93,7 @@ class BreakAnalysisAgent:
                 messages.append(
                     ToolMessage(
                         content=str(result),
-                        tool_call_id=tool_call['id'],
+                        tool_call_id=tool_call['id']
                     )
                 )
 
@@ -108,12 +107,12 @@ class BreakAnalysisAgent:
             recon_result_ids=tuple(record.recon_result_id for record in break_case.all_records),
             status=conclusion.status,
             root_cause=conclusion.root_cause,
-            explanation=conclusion.explanation,
+            explanation=conclusion.explanation
         )
 
 
     def _tool_call_key(self, tool_call: dict) -> tuple:
         return (
-            tool_call['name'], 
+            tool_call['name'],
             tuple(sorted(tool_call['args'].items()))
         )
