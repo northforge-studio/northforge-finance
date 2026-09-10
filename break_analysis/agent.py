@@ -16,9 +16,15 @@ class BreakAnalysisAgent:
         self,
         llm: BaseChatModel,
         registry_tools: RegistryTools,
+        max_tool_rounds: int = 10,
     ):
+        if max_tool_rounds < 1:
+            raise ValueError('max_tool_rounds must be at least 1.')
+
+        
         self._llm = llm
         self._registry_tools = registry_tools
+        self._max_tool_rounds = max_tool_rounds
 
         self._tools = [
             StructuredTool.from_function(
@@ -48,8 +54,16 @@ class BreakAnalysisAgent:
         ]
 
         response = self._llm_with_tools.invoke(messages)
+        tool_round = 0
 
         while response.tool_calls:
+            if tool_round >= self._max_tool_rounds:
+                raise RuntimeError(
+                    f'Maximum tool rounds exceeded for case '
+                    f'{break_case.case_id}: {self._max_tool_rounds}'
+                )
+
+            tool_round += 1
             messages.append(response)
 
             for tool_call in response.tool_calls:
