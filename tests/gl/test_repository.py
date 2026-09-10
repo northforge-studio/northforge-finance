@@ -661,7 +661,7 @@ def test_resolve_prefers_entity_default():
         values=(
             GLSegmentDefault(
                 GLSegmentType.ACCOUNT,
-                'GLOBAL',
+                '*',
                 '*',
                 '999999',
             ),
@@ -685,7 +685,7 @@ def test_resolve_falls_back_to_global():
         values=(
             GLSegmentDefault(
                 GLSegmentType.ACCOUNT,
-                'GLOBAL',
+                '*',
                 '*',
                 '999999',
             ),

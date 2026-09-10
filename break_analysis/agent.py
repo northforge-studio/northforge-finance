@@ -1,8 +1,8 @@
 from break_analysis.prompts import SYSTEM_PROMPT
 from break_analysis.tools import RegistryTools, ValidateSegmentInput
 from break_analysis.models import (
+    BreakCase, 
     BreakAnalysisResult, 
-    BreakRecord, 
     BreakAnalysisConclusion
 )
 
@@ -40,11 +40,11 @@ class BreakAnalysisAgent:
 
     def analyze(
         self,
-        break_record: BreakRecord,
+        break_case: BreakCase,
     ) -> BreakAnalysisResult:
         messages = [
             SystemMessage(content=SYSTEM_PROMPT),
-            HumanMessage(content=str(break_record)),
+            HumanMessage(content=str(break_case)),
         ]
 
         response = self._llm_with_tools.invoke(messages)
@@ -69,7 +69,8 @@ class BreakAnalysisAgent:
         conclusion = BreakAnalysisConclusion.model_validate(conclusion_raw)
 
         return BreakAnalysisResult(
-            recon_result_id=break_record.recon_result_id,
+            case_id=break_case.case_id,
+            recon_result_ids=tuple(record.recon_result_id for record in break_case.records),
             status=conclusion.status,
             root_cause=conclusion.root_cause,
             explanation=conclusion.explanation,

@@ -57,7 +57,7 @@ class GLSegmentDefaults:
                 item.default_value
                 for item in self.values
                 if item.segment_type == segment_type
-                and item.context_type == 'GLOBAL'
+                and item.context_type == '*'
             ),
             None,
         )

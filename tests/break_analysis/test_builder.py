@@ -69,7 +69,7 @@ def _entity_default(segment_type: GLSegmentType, entity_cd: str, value: str) -> 
 def _global_default(segment_type: GLSegmentType, value: str) -> GLSegmentDefault:
     return GLSegmentDefault(
         segment_type=segment_type,
-        context_type='GLOBAL',
+        context_type='*',
         context_value='*',
         default_value=value,
     )

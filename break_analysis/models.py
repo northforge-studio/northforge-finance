@@ -42,7 +42,8 @@ class BreakAnalysisConclusion(BaseModel):
 
 
 class BreakAnalysisResult(BaseModel):
-    recon_result_id: UUID
+    case_id: UUID
+    recon_result_ids: tuple[UUID, ...]
 
     status: BreakAnalysisStatus
     root_cause: RootCause | None
