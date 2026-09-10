@@ -1,3 +1,7 @@
+from langchain_core.tools import StructuredTool
+from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
+
 from break_analysis.prompts import SYSTEM_PROMPT
 from break_analysis.tools import RegistryTools, ValidateSegmentInput
 from break_analysis.models import (
@@ -5,10 +9,6 @@ from break_analysis.models import (
     BreakAnalysisResult, 
     BreakAnalysisConclusion
 )
-
-from langchain_core.tools import StructuredTool
-from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage
 
 
 class BreakAnalysisAgent:
@@ -73,8 +73,22 @@ class BreakAnalysisAgent:
                 if key in tool_cache:
                     result = tool_cache[key]
                 else:
-                    tool = self._tool_registry[tool_call['name']]
-                    result = tool.invoke(tool_call['args'])
+                    tool_name = tool_call['name']
+                    tool = self._tool_registry.get(tool_name)
+
+                    if tool is None:
+                        raise RuntimeError(
+                            f"Unknown tool requested by agent: {tool_name}"
+                        )
+
+                    try:
+                        result = tool.invoke(tool_call['args'])
+                    except Exception as exc:
+                        raise RuntimeError(
+                            f"Tool '{tool_name}' failed for case "
+                            f"{break_case.case_id}"
+                        ) from exc
+
                     tool_cache[key] = result
 
                 messages.append(
