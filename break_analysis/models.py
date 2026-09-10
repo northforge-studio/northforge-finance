@@ -70,8 +70,68 @@ class BreakCaseEvidence:
 class BreakCase:
     case_id: UUID
     topology: BreakTopology
-    records: tuple[BreakRecord, ...]
+
+    investigation_records: tuple[BreakRecord, ...]
+    pivot: BreakRecord | None = None 
     evidence: BreakCaseEvidence | None = None
+
+    def __post_init__(self):
+        if not self.investigation_records:
+            raise ValueError(
+                'BreakCase must contain at least one investigation record.'
+            )
+
+        pivot_topologies = {
+            BreakTopology.ONE_TO_ONE,
+            BreakTopology.MANY_TO_ONE,
+        }
+
+        if self.topology in pivot_topologies and self.pivot is None:
+            raise ValueError(
+                f'{self.topology} requires a pivot.'
+            )
+
+        if self.topology not in pivot_topologies and self.pivot is not None:
+            raise ValueError(
+                f'{self.topology} must not have a pivot.'
+            )
+
+        if (
+            self.topology == BreakTopology.ONE_TO_ONE
+            and len(self.investigation_records) != 1
+        ):
+            raise ValueError(
+                'ONE_TO_ONE requires exactly one investigation record.'
+            )
+
+        if (
+            self.topology == BreakTopology.MANY_TO_ONE
+            and len(self.investigation_records) < 2
+        ):
+            raise ValueError(
+                'MANY_TO_ONE requires at least two investigation records.'
+            )
+
+        if (
+            self.pivot is not None
+            and any(
+                record.recon_result_id == self.pivot.recon_result_id
+                for record in self.investigation_records
+            )
+        ):
+            raise ValueError(
+                'Pivot cannot also be an investigation record.'
+            )
+
+    @property
+    def all_records(self) -> tuple[BreakRecord, ...]:
+        if self.pivot is None:
+            return self.investigation_records
+
+        return (
+            self.pivot,
+            *self.investigation_records,
+        )
 
 
 @dataclass(frozen=True)

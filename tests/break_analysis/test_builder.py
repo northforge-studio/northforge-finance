@@ -465,7 +465,7 @@ def test_closed_two_record_neighborhood_yields_one_to_one():
 
     assert candidate is not None
     assert candidate.topology == BreakTopology.ONE_TO_ONE
-    assert set(candidate.records) == {pivot_record, offsetting}
+    assert set(candidate.all_records) == {pivot_record, offsetting}
 
 
 def test_closed_three_or_more_record_neighborhood_yields_many_to_one():
@@ -478,7 +478,7 @@ def test_closed_three_or_more_record_neighborhood_yields_many_to_one():
 
     assert candidate is not None
     assert candidate.topology == BreakTopology.MANY_TO_ONE
-    assert set(candidate.records) == {pivot_record, first, second}
+    assert set(candidate.all_records) == {pivot_record, first, second}
 
 
 def test_non_closing_neighborhood_yields_no_candidate():
@@ -539,7 +539,7 @@ def test_multiple_valid_pivots_each_build_a_candidate():
     )
 
     assert len(candidates) == 2
-    assert {frozenset(c.records) for c in candidates} == {
+    assert {frozenset(c.all_records) for c in candidates} == {
         frozenset({pivot_a, partner_a}),
         frozenset({pivot_b, partner_b}),
     }
@@ -568,7 +568,7 @@ def test_multiple_pivots_with_identical_anchors_independently_build_their_own_ne
     # neighborhood (partner_a, since pivot_a is excluded as another pivot)
     # does not close, so it yields no candidate of its own.
     assert len(candidates) == 1
-    assert set(candidates[0].records) == {pivot_a, partner_a}
+    assert set(candidates[0].all_records) == {pivot_a, partner_a}
 
 
 def test_non_closing_pivot_is_excluded():
@@ -610,22 +610,24 @@ def test_mix_of_valid_and_invalid_pivots_returns_only_valid_candidates():
     )
 
     assert len(candidates) == 1
-    assert set(candidates[0].records) == {closing_pivot, closing_partner}
+    assert set(candidates[0].all_records) == {closing_pivot, closing_partner}
 
 
 # -- _deduplicate_candidates -----------------------------------------------
 
 def test_exact_duplicate_candidates_collapse_to_one():
-    first = _record()
-    second = _record()
+    pivot = _record()
+    investigation = _record()
     candidate = _BreakCaseCandidate(
-        records=(first, second),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=pivot,
+        investigation_records=(investigation,),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
     duplicate = _BreakCaseCandidate(
-        records=(first, second),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=pivot,
+        investigation_records=(investigation,),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
 
@@ -635,17 +637,20 @@ def test_exact_duplicate_candidates_collapse_to_one():
     assert result[0] == candidate
 
 
-def test_same_records_in_different_order_are_still_duplicates():
+def test_same_investigation_records_in_different_order_are_still_duplicates():
+    pivot = _record()
     first = _record()
     second = _record()
     candidate = _BreakCaseCandidate(
-        records=(first, second),
-        topology=BreakTopology.ONE_TO_ONE,
+        topology=BreakTopology.MANY_TO_ONE,
+        pivot=pivot,
+        investigation_records=(first, second),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
     reordered = _BreakCaseCandidate(
-        records=(second, first),
-        topology=BreakTopology.ONE_TO_ONE,
+        topology=BreakTopology.MANY_TO_ONE,
+        pivot=pivot,
+        investigation_records=(second, first),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
 
@@ -655,16 +660,18 @@ def test_same_records_in_different_order_are_still_duplicates():
 
 
 def test_same_records_with_different_relaxed_segments_remain_separate():
-    first = _record()
-    second = _record()
+    pivot = _record()
+    investigation = _record()
     department_relaxed = _BreakCaseCandidate(
-        records=(first, second),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=pivot,
+        investigation_records=(investigation,),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
     sub_account_relaxed = _BreakCaseCandidate(
-        records=(first, second),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=pivot,
+        investigation_records=(investigation,),
         relaxed_segments=(GLSegmentType.SUB_ACCOUNT,),
     )
 
@@ -675,13 +682,15 @@ def test_same_records_with_different_relaxed_segments_remain_separate():
 
 def test_different_record_sets_remain_separate():
     first = _BreakCaseCandidate(
-        records=(_record(), _record()),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=_record(),
+        investigation_records=(_record(),),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
     second = _BreakCaseCandidate(
-        records=(_record(), _record()),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=_record(),
+        investigation_records=(_record(),),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
 
@@ -699,11 +708,12 @@ def test_empty_candidates_returns_empty_tuple():
 # -- _resolve_candidates -----------------------------------------------------
 
 def test_single_candidate_is_accepted_unchanged():
-    first = _record()
-    second = _record()
+    pivot = _record()
+    investigation = _record()
     candidate = _BreakCaseCandidate(
-        records=(first, second),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=pivot,
+        investigation_records=(investigation,),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
 
@@ -711,24 +721,27 @@ def test_single_candidate_is_accepted_unchanged():
 
     assert resolved == (
         _ResolvedCandidate(
-            records=(first, second),
             topology=BreakTopology.ONE_TO_ONE,
+            pivot=pivot,
+            investigation_records=(investigation,),
             relaxed_segments=(GLSegmentType.DEPARTMENT,),
         ),
     )
 
 
 def test_multiple_non_overlapping_candidates_are_accepted_independently():
-    first, second = _record(), _record()
-    third, fourth = _record(), _record()
+    pivot_a, first = _record(), _record()
+    pivot_b, second = _record(), _record()
     candidate_a = _BreakCaseCandidate(
-        records=(first, second),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=pivot_a,
+        investigation_records=(first,),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
     candidate_b = _BreakCaseCandidate(
-        records=(third, fourth),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=pivot_b,
+        investigation_records=(second,),
         relaxed_segments=(GLSegmentType.SUB_ACCOUNT,),
     )
 
@@ -737,30 +750,34 @@ def test_multiple_non_overlapping_candidates_are_accepted_independently():
     assert len(resolved) == 2
     assert set(resolved) == {
         _ResolvedCandidate(
-            records=(first, second),
             topology=BreakTopology.ONE_TO_ONE,
+            pivot=pivot_a,
+            investigation_records=(first,),
             relaxed_segments=(GLSegmentType.DEPARTMENT,),
         ),
         _ResolvedCandidate(
-            records=(third, fourth),
             topology=BreakTopology.ONE_TO_ONE,
+            pivot=pivot_b,
+            investigation_records=(second,),
             relaxed_segments=(GLSegmentType.SUB_ACCOUNT,),
         ),
     }
 
 
 def test_two_overlapping_candidates_yield_one_ambiguous_result():
-    shared = _record()
+    shared_pivot = _record()
     only_in_a = _record()
     only_in_b = _record()
     candidate_a = _BreakCaseCandidate(
-        records=(shared, only_in_a),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=shared_pivot,
+        investigation_records=(only_in_a,),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
     candidate_b = _BreakCaseCandidate(
-        records=(shared, only_in_b),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=shared_pivot,
+        investigation_records=(only_in_b,),
         relaxed_segments=(GLSegmentType.SUB_ACCOUNT,),
     )
 
@@ -772,25 +789,28 @@ def test_two_overlapping_candidates_yield_one_ambiguous_result():
 
 
 def test_transitively_overlapping_candidates_yield_one_ambiguous_result():
+    only_in_a = _record()
     shared_ab = _record()
     shared_bc = _record()
-    only_in_a = _record()
     only_in_c = _record()
     # candidate_a and candidate_c share no record directly, but both
     # overlap with candidate_b, so all three must merge transitively.
     candidate_a = _BreakCaseCandidate(
-        records=(only_in_a, shared_ab),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=shared_ab,
+        investigation_records=(only_in_a,),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
     candidate_b = _BreakCaseCandidate(
-        records=(shared_ab, shared_bc),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=shared_ab,
+        investigation_records=(shared_bc,),
         relaxed_segments=(GLSegmentType.SUB_ACCOUNT,),
     )
     candidate_c = _BreakCaseCandidate(
-        records=(shared_bc, only_in_c),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=shared_bc,
+        investigation_records=(only_in_c,),
         relaxed_segments=(GLSegmentType.BRANCH,),
     )
 
@@ -798,29 +818,31 @@ def test_transitively_overlapping_candidates_yield_one_ambiguous_result():
 
     assert len(resolved) == 1
     assert resolved[0].topology == BreakTopology.AMBIGUOUS
-    assert set(resolved[0].records) == {only_in_a, shared_ab, shared_bc, only_in_c}
+    assert set(resolved[0].all_records) == {only_in_a, shared_ab, shared_bc, only_in_c}
 
 
 def test_ambiguous_result_contains_union_of_records_without_duplicates():
-    shared = _record()
+    shared_pivot = _record()
     only_in_a = _record()
     only_in_b = _record()
     candidate_a = _BreakCaseCandidate(
-        records=(shared, only_in_a),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=shared_pivot,
+        investigation_records=(only_in_a,),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
     candidate_b = _BreakCaseCandidate(
-        records=(shared, only_in_b),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=shared_pivot,
+        investigation_records=(only_in_b,),
         relaxed_segments=(GLSegmentType.SUB_ACCOUNT,),
     )
 
     resolved = _builder()._resolve_candidates([candidate_a, candidate_b])
 
     assert len(resolved) == 1
-    assert len(resolved[0].records) == 3
-    assert set(resolved[0].records) == {shared, only_in_a, only_in_b}
+    assert len(resolved[0].all_records) == 3
+    assert set(resolved[0].all_records) == {shared_pivot, only_in_a, only_in_b}
 
 
 def test_empty_candidates_returns_empty_tuple_for_resolve():
@@ -832,10 +854,11 @@ def test_empty_candidates_returns_empty_tuple_for_resolve():
 # -- _to_break_cases ----------------------------------------------------------
 
 def test_resolved_normal_candidate_becomes_break_case_with_evidence():
-    first, second = _record(), _record()
+    pivot, investigation = _record(), _record()
     resolved = _ResolvedCandidate(
-        records=(first, second),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=pivot,
+        investigation_records=(investigation,),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
 
@@ -843,7 +866,8 @@ def test_resolved_normal_candidate_becomes_break_case_with_evidence():
 
     assert isinstance(case, BreakCase)
     assert case.topology == BreakTopology.ONE_TO_ONE
-    assert case.records == (first, second)
+    assert case.pivot == pivot
+    assert case.investigation_records == (investigation,)
     assert case.evidence is not None
     assert case.evidence.relaxed_segments == (GLSegmentType.DEPARTMENT,)
 
@@ -851,8 +875,9 @@ def test_resolved_normal_candidate_becomes_break_case_with_evidence():
 def test_ambiguous_candidate_becomes_break_case_with_no_evidence():
     first, second = _record(), _record()
     resolved = _ResolvedCandidate(
-        records=(first, second),
         topology=BreakTopology.AMBIGUOUS,
+        pivot=None,
+        investigation_records=(first, second),
         relaxed_segments=None,
     )
 
@@ -864,13 +889,15 @@ def test_ambiguous_candidate_becomes_break_case_with_no_evidence():
 
 def test_each_case_gets_a_case_id():
     first_resolved = _ResolvedCandidate(
-        records=(_record(), _record()),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=_record(),
+        investigation_records=(_record(),),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
     second_resolved = _ResolvedCandidate(
-        records=(_record(), _record()),
         topology=BreakTopology.ONE_TO_ONE,
+        pivot=_record(),
+        investigation_records=(_record(),),
         relaxed_segments=(GLSegmentType.SUB_ACCOUNT,),
     )
 
@@ -895,7 +922,7 @@ def test_classify_leftovers_interface_balance_only_yields_interface_only():
     [case] = _builder()._classify_leftovers([record])
 
     assert case.topology == BreakTopology.INTERFACE_ONLY
-    assert case.records == (record,)
+    assert case.investigation_records == (record,)
     assert case.evidence is None
 
 
@@ -909,7 +936,7 @@ def test_classify_leftovers_gl_balance_only_yields_gl_only():
     [case] = _builder()._classify_leftovers([record])
 
     assert case.topology == BreakTopology.GL_ONLY
-    assert case.records == (record,)
+    assert case.investigation_records == (record,)
 
 
 def test_classify_leftovers_both_sides_populated_yields_unmatched():
@@ -922,7 +949,7 @@ def test_classify_leftovers_both_sides_populated_yields_unmatched():
     [case] = _builder()._classify_leftovers([record])
 
     assert case.topology == BreakTopology.UNMATCHED
-    assert case.records == (record,)
+    assert case.investigation_records == (record,)
 
 
 # -- build ------------------------------------------------------------------
@@ -940,7 +967,7 @@ def test_build_known_one_to_one_scenario_yields_one_case():
     assert len(cases) == 1
     [case] = cases
     assert case.topology == BreakTopology.ONE_TO_ONE
-    assert set(case.records) == {pivot_record, partner_record}
+    assert set(case.all_records) == {pivot_record, partner_record}
 
 
 def test_build_known_many_to_one_scenario_yields_one_case():
@@ -957,7 +984,7 @@ def test_build_known_many_to_one_scenario_yields_one_case():
     assert len(cases) == 1
     [case] = cases
     assert case.topology == BreakTopology.MANY_TO_ONE
-    assert set(case.records) == {pivot_record, first, second}
+    assert set(case.all_records) == {pivot_record, first, second}
 
 
 def test_build_multiple_independent_cases_in_same_partition_remain_separate():
@@ -974,7 +1001,7 @@ def test_build_multiple_independent_cases_in_same_partition_remain_separate():
 
     assert len(cases) == 2
     assert all(case.topology == BreakTopology.ONE_TO_ONE for case in cases)
-    assert {frozenset(case.records) for case in cases} == {
+    assert {frozenset(case.all_records) for case in cases} == {
         frozenset({pivot_a, partner_a}),
         frozenset({pivot_b, partner_b}),
     }
@@ -1000,7 +1027,7 @@ def test_build_cases_across_different_partitions_remain_separate():
     cases = builder.build([pivot_usm, partner_usm, pivot_cam, partner_cam])
 
     assert len(cases) == 2
-    assert {frozenset(case.records) for case in cases} == {
+    assert {frozenset(case.all_records) for case in cases} == {
         frozenset({pivot_usm, partner_usm}),
         frozenset({pivot_cam, partner_cam}),
     }
@@ -1024,7 +1051,7 @@ def test_build_overlapping_candidates_yield_ambiguous_case():
     [case] = cases
     assert case.topology == BreakTopology.AMBIGUOUS
     assert case.evidence is None
-    assert set(case.records) == {pivot_a, pivot_b, shared_partner}
+    assert set(case.all_records) == {pivot_a, pivot_b, shared_partner}
 
 
 def test_build_classifies_unconsumed_records_as_leftovers():
@@ -1040,7 +1067,7 @@ def test_build_classifies_unconsumed_records_as_leftovers():
     assert len(cases) == 1
     [case] = cases
     assert case.topology == BreakTopology.INTERFACE_ONLY
-    assert case.records == (interface_only,)
+    assert case.investigation_records == (interface_only,)
     assert case.evidence is None
 
 
@@ -1062,7 +1089,7 @@ def test_build_every_input_record_appears_in_exactly_one_case():
     all_case_record_ids = [
         record.recon_result_id
         for case in cases
-        for record in case.records
+        for record in case.all_records
     ]
 
     assert len(all_case_record_ids) == len(set(all_case_record_ids))

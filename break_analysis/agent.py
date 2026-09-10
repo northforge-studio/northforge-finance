@@ -105,7 +105,7 @@ class BreakAnalysisAgent:
 
         return BreakAnalysisResult(
             case_id=break_case.case_id,
-            recon_result_ids=tuple(record.recon_result_id for record in break_case.records),
+            recon_result_ids=tuple(record.recon_result_id for record in break_case.all_records),
             status=conclusion.status,
             root_cause=conclusion.root_cause,
             explanation=conclusion.explanation,
