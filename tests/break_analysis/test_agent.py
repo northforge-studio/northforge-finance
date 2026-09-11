@@ -69,8 +69,9 @@ def _tool_call(name='validate_segment', call_id='call_1', **arg_overrides) -> di
 
 
 class _FakeMessage:
-    def __init__(self, tool_calls=()):
+    def __init__(self, tool_calls=(), usage_metadata=None):
         self.tool_calls = list(tool_calls)
+        self.usage_metadata = usage_metadata
 
 
 class _FakeBoundLLM:
@@ -151,8 +152,13 @@ def test_analyze_logs_start_line_with_case_context(caplog):
 def test_analyze_logs_end_summary_with_status_and_counts(caplog):
     break_case = _break_case()
     agent = _agent(responses=[
-        _FakeMessage(tool_calls=[_tool_call()]),
-        _FakeMessage(),
+        _FakeMessage(
+            tool_calls=[_tool_call()],
+            usage_metadata={'input_tokens': 100, 'output_tokens': 20, 'total_tokens': 120},
+        ),
+        _FakeMessage(
+            usage_metadata={'input_tokens': 150, 'output_tokens': 10, 'total_tokens': 160},
+        ),
     ])
 
     with caplog.at_level('INFO', logger='break_analysis.agent'):
@@ -168,7 +174,91 @@ def test_analyze_logs_end_summary_with_status_and_counts(caplog):
     assert 'tool_rounds=1' in message
     assert 'tool_calls=1' in message
     assert 'unique_tool_calls=1' in message
+    assert 'llm_calls=2' in message
+    assert 'llm_input_tokens=250' in message
+    assert 'llm_output_tokens=30' in message
     assert 'duration_ms=' in message
+
+
+def test_analyze_logs_each_llm_invocation_with_usage_and_duration(caplog):
+    break_case = _break_case()
+    agent = _agent(responses=[
+        _FakeMessage(
+            tool_calls=[_tool_call()],
+            usage_metadata={'input_tokens': 100, 'output_tokens': 20, 'total_tokens': 120},
+        ),
+        _FakeMessage(
+            usage_metadata={'input_tokens': 150, 'output_tokens': 10, 'total_tokens': 160},
+        ),
+    ])
+
+    with caplog.at_level('INFO', logger='break_analysis.agent'):
+        agent.analyze(break_case)
+
+    llm_records = [
+        r for r in caplog.records
+        if r.levelname == 'INFO' and 'LLM invoked' in r.message
+    ]
+    # Fires once per LLM turn: the initial decision and the final,
+    # tool-call-free turn that ends the loop.
+    assert len(llm_records) == 2
+
+    first_message = llm_records[0].message
+    assert 'round=1' in first_message
+    assert 'tool_calls=1' in first_message
+    assert 'input_tokens=100' in first_message
+    assert 'output_tokens=20' in first_message
+    assert 'total_tokens=120' in first_message
+    assert 'duration_ms=' in first_message
+
+    second_message = llm_records[1].message
+    assert 'round=2' in second_message
+    assert 'tool_calls=0' in second_message
+    assert 'input_tokens=150' in second_message
+    assert 'output_tokens=10' in second_message
+    assert 'total_tokens=160' in second_message
+
+
+def test_analyze_logs_invoking_llm_before_each_llm_invocation_with_matching_round(caplog):
+    break_case = _break_case()
+    agent = _agent(responses=[
+        _FakeMessage(tool_calls=[_tool_call()]),
+        _FakeMessage(),
+    ])
+
+    with caplog.at_level('INFO', logger='break_analysis.agent'):
+        agent.analyze(break_case)
+
+    relevant_records = [
+        r for r in caplog.records
+        if r.levelname == 'INFO' and r.message.startswith(('Invoking LLM', 'LLM invoked'))
+    ]
+
+    assert [r.message.split(' | ')[0] for r in relevant_records] == [
+        'Invoking LLM', 'LLM invoked', 'Invoking LLM', 'LLM invoked',
+    ]
+    assert 'round=1' in relevant_records[0].message
+    assert 'round=1' in relevant_records[1].message
+    assert 'round=2' in relevant_records[2].message
+    assert 'round=2' in relevant_records[3].message
+
+
+def test_analyze_logs_llm_invocation_with_none_when_usage_metadata_unavailable(caplog):
+    break_case = _break_case()
+    agent = _agent(responses=[_FakeMessage(usage_metadata=None)])
+
+    with caplog.at_level('INFO', logger='break_analysis.agent'):
+        agent.analyze(break_case)
+
+    llm_records = [
+        r for r in caplog.records
+        if r.levelname == 'INFO' and 'LLM invoked' in r.message
+    ]
+    assert len(llm_records) == 1
+    message = llm_records[0].message
+    assert 'input_tokens=None' in message
+    assert 'output_tokens=None' in message
+    assert 'total_tokens=None' in message
 
 
 def test_analyze_logs_each_tool_invocation_with_duration(caplog):

@@ -78,7 +78,16 @@ class BreakAnalysisAgent:
             HumanMessage(content=str(break_case))
         ]
 
-        response = self._llm_with_tools.invoke(messages)
+        llm_round = 0
+        llm_input_tokens = 0
+        llm_output_tokens = 0
+
+        llm_round += 1
+        response, input_tokens, output_tokens = self._invoke_with_tools(
+            messages, break_case.case_id, llm_round
+        )
+        llm_input_tokens += input_tokens or 0
+        llm_output_tokens += output_tokens or 0
 
         tool_round = 0
         tool_calls_total = 0
@@ -156,7 +165,12 @@ class BreakAnalysisAgent:
                     )
                 )
 
-            response = self._llm_with_tools.invoke(messages)
+            llm_round += 1
+            response, input_tokens, output_tokens = self._invoke_with_tools(
+                messages, break_case.case_id, llm_round
+            )
+            llm_input_tokens += input_tokens or 0
+            llm_output_tokens += output_tokens or 0
 
         conclusion_raw = self._llm_with_structure.invoke(messages)
         conclusion = BreakAnalysisConclusion.model_validate(conclusion_raw)
@@ -166,9 +180,11 @@ class BreakAnalysisAgent:
         logger.info(
             'Break case analyzed | case_id=%s | status=%s | root_cause=%s | '
             'tool_rounds=%s | tool_calls=%s | unique_tool_calls=%s | '
+            'llm_calls=%s | llm_input_tokens=%s | llm_output_tokens=%s | '
             'duration_ms=%s',
             break_case.case_id, conclusion.status, conclusion.root_cause,
-            tool_round, tool_calls_total, len(tool_cache), duration_ms
+            tool_round, tool_calls_total, len(tool_cache),
+            llm_round, llm_input_tokens, llm_output_tokens, duration_ms
         )
 
         return BreakAnalysisResult(
@@ -185,3 +201,29 @@ class BreakAnalysisAgent:
             tool_call['name'],
             tuple(sorted(tool_call['args'].items()))
         )
+
+
+    def _invoke_with_tools(self, messages: list, case_id, llm_round: int) -> tuple:
+        logger.info(
+            'Invoking LLM | case_id=%s | round=%s',
+            case_id, llm_round
+        )
+
+        start = time.monotonic()
+        response = self._llm_with_tools.invoke(messages)
+        duration_ms = round((time.monotonic() - start) * 1000)
+
+        usage = getattr(response, 'usage_metadata', None) or {}
+        input_tokens = usage.get('input_tokens')
+        output_tokens = usage.get('output_tokens')
+        total_tokens = usage.get('total_tokens')
+
+        logger.info(
+            'LLM invoked | case_id=%s | round=%s | tool_calls=%s | '
+            'input_tokens=%s | output_tokens=%s | total_tokens=%s | '
+            'duration_ms=%s',
+            case_id, llm_round, len(response.tool_calls), input_tokens,
+            output_tokens, total_tokens, duration_ms
+        )
+
+        return response, input_tokens, output_tokens
