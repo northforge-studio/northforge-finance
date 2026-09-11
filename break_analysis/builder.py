@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from collections.abc import Iterable
 from collections import defaultdict, Counter
 
-from core.logging import get_logger
+from core.logging import get_logger, short_id
 
 from gl.models import GLSegmentDefaults
 from registry.models import GLSegmentType
@@ -116,7 +116,7 @@ class BreakCaseBuilder:
                 if case.topology == BreakTopology.AMBIGUOUS:
                     logger.warning(
                         'Ambiguous break case | case_id=%s | records=%s',
-                        case.case_id, len(case.all_records)
+                        short_id(case.case_id), len(case.all_records)
                     )
 
             cases.extend(candidate_cases)

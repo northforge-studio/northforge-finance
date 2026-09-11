@@ -2,6 +2,7 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID, uuid4
 
+from core.logging import short_id
 from registry.models import GLSegmentType
 
 from break_analysis.builder import (
@@ -1157,4 +1158,5 @@ def test_build_logs_ambiguous_case_as_warning(caplog):
         if r.levelname == 'WARNING' and 'Ambiguous break case' in r.message
     ]
     assert len(warning_records) == 1
-    assert str(case.case_id) in warning_records[0].message
+    assert f'case_id={short_id(case.case_id)}' in warning_records[0].message
+    assert str(case.case_id) not in warning_records[0].message

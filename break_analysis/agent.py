@@ -1,10 +1,11 @@
+import json
 import time
 
 from langchain_core.tools import StructuredTool
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import ToolMessage, HumanMessage, SystemMessage
 
-from core.logging import get_logger
+from core.logging import get_logger, short_id
 
 from break_analysis.prompts import SYSTEM_PROMPT
 from break_analysis.tools import RegistryTools, ValidateSegmentInput
@@ -67,12 +68,13 @@ class BreakAnalysisAgent:
         break_case: BreakCase
     ) -> BreakAnalysisResult:
         start = time.monotonic()
-        workflow_run_id = break_case.all_records[0].workflow_run_id
+        case_id = short_id(break_case.case_id)
+        workflow_run_id = short_id(break_case.all_records[0].workflow_run_id)
 
         logger.info(
             'Analyzing break case | case_id=%s | workflow_run_id=%s | '
             'topology=%s | records=%s',
-            break_case.case_id, workflow_run_id,
+            case_id, workflow_run_id,
             break_case.topology, len(break_case.all_records)
         )
 
@@ -87,7 +89,7 @@ class BreakAnalysisAgent:
 
         llm_round += 1
         response, input_tokens, output_tokens = self._invoke_with_tools(
-            messages, break_case.case_id, llm_round
+            messages, case_id, llm_round
         )
         llm_input_tokens += input_tokens or 0
         llm_output_tokens += output_tokens or 0
@@ -100,7 +102,7 @@ class BreakAnalysisAgent:
             if tool_round >= self._max_tool_rounds:
                 logger.error(
                     'Max tool rounds exceeded | case_id=%s | max_rounds=%s',
-                    break_case.case_id, self._max_tool_rounds
+                    case_id, self._max_tool_rounds
                 )
                 raise RuntimeError(
                     f'Maximum tool rounds exceeded for case '
@@ -112,7 +114,7 @@ class BreakAnalysisAgent:
 
             logger.info(
                 'Tool round | case_id=%s | round=%s | tool_calls=%s',
-                break_case.case_id, tool_round, len(response.tool_calls)
+                case_id, tool_round, len(response.tool_calls)
             )
 
             for tool_call in response.tool_calls:
@@ -124,7 +126,8 @@ class BreakAnalysisAgent:
                     result = tool_cache[key]
                     logger.debug(
                         'Tool cache hit | case_id=%s | tool=%s | args=%s',
-                        break_case.case_id, tool_name, tool_call['args']
+                        case_id, tool_name,
+                        json.dumps(tool_call['args'], default=str)
                     )
                 else:
                     tool = self._tool_registry.get(tool_name)
@@ -132,7 +135,7 @@ class BreakAnalysisAgent:
                     if tool is None:
                         logger.error(
                             'Unknown tool requested | case_id=%s | tool=%s',
-                            break_case.case_id, tool_name
+                            case_id, tool_name
                         )
                         raise RuntimeError(
                             f'Unknown tool requested by agent: {tool_name}'
@@ -144,7 +147,7 @@ class BreakAnalysisAgent:
                     except Exception as exc:
                         logger.exception(
                             'Tool failed | case_id=%s | tool=%s',
-                            break_case.case_id, tool_name
+                            case_id, tool_name
                         )
                         raise RuntimeError(
                             f'Tool \'{tool_name}\' failed for case '
@@ -155,7 +158,8 @@ class BreakAnalysisAgent:
                     logger.info(
                         'Tool invoked | case_id=%s | tool=%s | args=%s | '
                         'duration_ms=%s',
-                        break_case.case_id, tool_name, tool_call['args'],
+                        case_id, tool_name,
+                        json.dumps(tool_call['args'], default=str),
                         tool_duration_ms
                     )
 
@@ -170,14 +174,14 @@ class BreakAnalysisAgent:
 
             llm_round += 1
             response, input_tokens, output_tokens = self._invoke_with_tools(
-                messages, break_case.case_id, llm_round
+                messages, case_id, llm_round
             )
             llm_input_tokens += input_tokens or 0
             llm_output_tokens += output_tokens or 0
 
         llm_round += 1
         structured_result, input_tokens, output_tokens = self._invoke_structured(
-            messages, break_case.case_id, llm_round
+            messages, case_id, llm_round
         )
         llm_input_tokens += input_tokens or 0
         llm_output_tokens += output_tokens or 0
@@ -185,7 +189,7 @@ class BreakAnalysisAgent:
         if structured_result['parsing_error'] is not None:
             logger.error(
                 'Structured output parsing failed | case_id=%s',
-                break_case.case_id
+                case_id
             )
             raise RuntimeError(
                 f'Failed to parse structured output for case '
@@ -201,7 +205,7 @@ class BreakAnalysisAgent:
             'tool_rounds=%s | tool_calls=%s | unique_tool_calls=%s | '
             'llm_calls=%s | llm_input_tokens=%s | llm_output_tokens=%s | '
             'duration_ms=%s',
-            break_case.case_id, conclusion.status, conclusion.root_cause,
+            case_id, conclusion.status, conclusion.root_cause,
             tool_round, tool_calls_total, len(tool_cache),
             llm_round, llm_input_tokens, llm_output_tokens, duration_ms
         )

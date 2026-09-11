@@ -19,3 +19,8 @@ def get_logger(name: str, level: str = 'INFO') -> logging.Logger:
     logger = logging.getLogger(name)
     logger.setLevel(level)
     return logger
+
+
+def short_id(value) -> str:
+    '''Truncate a UUID (or any stringable id) to an 8-char display form, git-short-sha style.'''
+    return str(value)[:8]

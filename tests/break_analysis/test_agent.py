@@ -4,6 +4,7 @@ from decimal import Decimal
 
 import pytest
 
+from core.logging import short_id
 from registry.models import GLSegmentType
 
 from break_analysis.agent import BreakAnalysisAgent
@@ -170,7 +171,8 @@ def test_analyze_logs_start_line_with_case_context(caplog):
     ]
     assert len(start_records) == 1
     message = start_records[0].message
-    assert str(break_case.case_id) in message
+    assert f'case_id={short_id(break_case.case_id)}' in message
+    assert str(break_case.case_id) not in message
     assert 'topology=AMBIGUOUS' in message
     assert 'records=2' in message
 
@@ -331,6 +333,10 @@ def test_analyze_logs_each_tool_invocation_with_duration(caplog):
     message = tool_records[0].message
     assert 'tool=validate_segment' in message
     assert 'duration_ms=' in message
+    # Args are rendered as JSON, not a Python dict repr: dates come out as
+    # plain ISO strings instead of datetime.date(...) reprs.
+    assert '"business_dt": "2026-01-01"' in message
+    assert 'datetime.date' not in message
 
 
 def test_analyze_logs_cache_hit_at_debug_level_for_repeated_tool_call(caplog):
@@ -434,4 +440,5 @@ def test_analyze_logs_and_raises_on_structured_output_parsing_error(caplog):
         if r.levelname == 'ERROR' and 'Structured output parsing failed' in r.message
     ]
     assert len(error_records) == 1
-    assert str(break_case.case_id) in error_records[0].message
+    assert f'case_id={short_id(break_case.case_id)}' in error_records[0].message
+    assert str(break_case.case_id) not in error_records[0].message
