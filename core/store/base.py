@@ -1,7 +1,20 @@
 from typing import Any, Protocol
 
 from pyspark.sql import DataFrame
-from pyspark.sql.types import StructType
+from pyspark.sql.types import StringType, StructType
+
+
+def fill_null_strings(df: DataFrame) -> DataFrame:
+    string_columns = [
+        field.name
+        for field in df.schema.fields
+        if isinstance(field.dataType, StringType)
+    ]
+
+    if not string_columns:
+        return df
+
+    return df.fillna('', subset=string_columns)
 
 
 class Store(Protocol):

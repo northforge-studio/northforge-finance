@@ -6,6 +6,8 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructType, StringType
 
+from core.store.base import fill_null_strings
+
 
 class CsvStore:
     def __init__(
@@ -70,6 +72,8 @@ class CsvStore:
         mode: str = 'append',
     ) -> None:
         path = self._resolve(table_name)
+
+        df = fill_null_strings(df)
 
         (
             df.write

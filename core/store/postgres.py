@@ -1,10 +1,11 @@
 from typing import Any
 
 from pyspark.sql import functions as F
-from pyspark.sql.types import StringType, StructType
+from pyspark.sql.types import StructType
 from pyspark.sql import DataFrame, SparkSession
 
 from core.db import PostgresConfig, PostgresExecutor
+from core.store.base import fill_null_strings
 
 
 class PostgresStore:
@@ -57,7 +58,7 @@ class PostgresStore:
         physical_table = self._resolve(table_name)
 
         df = self._to_physical_columns(df)
-        df = self._fill_null_strings(df)
+        df = fill_null_strings(df)
 
         (
             df.write
@@ -141,16 +142,3 @@ class PostgresStore:
             column.lower()
             for column in df.columns
         ])
-
-
-    def _fill_null_strings(self, df: DataFrame) -> DataFrame:
-        string_columns = [
-            field.name
-            for field in df.schema.fields
-            if isinstance(field.dataType, StringType)
-        ]
-
-        if not string_columns:
-            return df
-
-        return df.fillna('', subset=string_columns)

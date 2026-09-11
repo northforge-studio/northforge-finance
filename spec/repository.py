@@ -26,13 +26,13 @@ class SpecRepository:
         rows = (
             config_df
             .filter(
-                (F.col('dataclass') == dataclass)
-                & (F.col('zone') == zone)
-                & (F.col('stage') == stage)
-                & (F.coalesce(F.col('sub_stage'), F.lit('')) == sub_stage)
-                & (F.col('status') == 'A')
+                (F.col('DATACLASS') == dataclass)
+                & (F.col('ZONE') == zone)
+                & (F.col('STAGE') == stage)
+                & (F.coalesce(F.col('SUB_STAGE'), F.lit('')) == sub_stage)
+                & (F.col('STATUS') == 'A')
             )
-            .orderBy('seq')
+            .orderBy('SEQ')
             .collect()
         )
 
@@ -51,9 +51,9 @@ class SpecRepository:
         rows = (
             layout_df
             .filter(
-                F.col('dataclass') == dataclass
+                F.col('DATACLASS') == dataclass
             )
-            .orderBy('seq')
+            .orderBy('SEQ')
             .collect()
         )
 

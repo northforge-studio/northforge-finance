@@ -4,8 +4,9 @@ jupyter
 ipykernel
 pandas<3.0.0
 pyarrow>=18.0.0
-dotenv
+python-dotenv
 alembic
 sqlalchemy
 psycopg[binary]
 langchain-ollama
+pydantic
