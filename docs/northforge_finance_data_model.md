@@ -84,7 +84,7 @@ Business / Source Data
   Reconciliation (Recon)
         |
         v
-  Break Analysis        [planned]
+  Break Analysis
 ```
 
 Supporting domains:
@@ -788,8 +788,7 @@ instruction.
 
 ## 18. Interface
 
-Interface is the clean system boundary between Foundry and the future
-Mock GL.
+Interface is the clean system boundary between Foundry and GL.
 
 The simplified Trial Balance Interface contains 28 fields covering three
 concerns.
@@ -891,27 +890,26 @@ Position
 The Registry already reserves account concepts needed for this future
 behavior.
 
-## 20. Planned Mock GL
+## 20. GL
 
-The Mock GL has not yet been finalized.
+GL is implemented. Its input is the generic Interface contract
+(`interface.trial_balance`) rather than Foundry's internal zone schemas.
 
-Its intended input is the generic Interface contract rather than
-Foundry's internal zone schemas.
+It:
 
-At minimum it is expected to:
-
-- ingest Interface accounting instructions
-- validate GL segments against Registry
-- apply only explicitly GL-owned defaults
-- reject invalid rows
-- persist accepted accounting postings
-- preserve enough Foundry lineage for reconciliation
+- ingests Interface accounting instructions, scoped by `WORKFLOW_RUN_ID`
+- validates GL segments against Registry, applying only explicitly
+  GL-owned defaults
+- rejects invalid rows, recording why
+- persists accepted rows as accounting postings (`gl.posting`)
+- preserves Foundry lineage (`WORKFLOW_RUN_ID` / `PRODUCER_RUN_ID`) for
+  reconciliation
 
 Foundry-owned mapping/default behavior and GL-owned default behavior
-should remain conceptually distinct so future break-analysis scenarios
-can identify which system changed a value.
+remain conceptually distinct so break-analysis scenarios can identify
+which system changed a value.
 
-## 21. Recon (v1) and Planned Break Analysis
+## 21. Recon (v1) and Break Analysis
 
 Recon is implemented for v1 with the following scope:
 
@@ -943,7 +941,15 @@ scope: once further dataclasses exist and need to net together, recon
 may need to leave the accounting `WORKFLOW_RUN_ID` grain for its own
 grouping/scope concept. That evolution is intentionally deferred.
 
-Break Analysis remains planned. The eventual flow is:
+Break Analysis is implemented for v1. `BreakCaseBuilder` first groups
+related recon breaks (by as-of date, entity, source, and accounted
+currency) into `BreakCase`s using a pivot/neighborhood matching
+heuristic driven by GL segment defaults, classifying each case's
+topology (`ONE_TO_ONE`, `MANY_TO_ONE`, `AMBIGUOUS`, `INTERFACE_ONLY`,
+`GL_ONLY`, or `UNMATCHED`). `BreakAnalysisAgent` then investigates each
+case with an LLM, using Registry segment-validation lookups as tools,
+and produces a result (`EXPLAINED` / `UNEXPLAINED`, root cause,
+explanation). The flow:
 
 ```text
 Foundry Posting / Interface
@@ -956,8 +962,12 @@ Foundry Posting / Interface
        Reconciliation [aka Recon Report]
              |
              v
-      Break Analysis Agent  [planned]
+      Break Analysis Agent
 ```
+
+v1's root-cause coverage is narrow (`REGISTRY_INVALID_SEGMENT` only);
+the remaining scenarios below stay on the roadmap as topics for the
+agent/tools to grow into, not as unimplemented flow stages.
 
 The synthetic universe should evolve by adding deliberate
 accounting/system scenarios rather than arbitrary rows.
@@ -966,7 +976,6 @@ Examples of future break scenarios include:
 
 - wrong GL department default
 - missing/incorrect affiliate
-- invalid GL segment
 - suspense-account substitution
 - FX mismatch
 - missing posting
