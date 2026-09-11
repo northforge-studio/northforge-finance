@@ -34,6 +34,15 @@ class BreakAnalysisAgent:
                     'and valid in Registry.'
                 ),
                 args_schema=ValidateSegmentInput
+            ),
+            StructuredTool.from_function(
+                func=self._registry_tools.get_segment_details,
+                name='get_segment_details',
+                description=(
+                    'Retrieve the details of a GL segment value from the Registry, '
+                    'including its existence and status.'
+                ),
+                args_schema=ValidateSegmentInput
             )
         ]
 
