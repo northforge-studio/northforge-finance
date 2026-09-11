@@ -1,0 +1,273 @@
+from uuid import uuid4
+from datetime import date
+from decimal import Decimal
+
+import pytest
+
+from registry.models import GLSegmentType
+
+from break_analysis.agent import BreakAnalysisAgent
+from break_analysis.tools import RegistryTools
+from break_analysis.models import BreakCase, BreakRecord, BreakTopology
+from gl.models import GLSegments
+
+
+AS_OF_DATE = date(2026, 1, 1)
+
+
+def _segments(**overrides) -> GLSegments:
+    defaults = dict(
+        entity_cd='USM',
+        branch_cd='100',
+        dept_cd='4000',
+        gl_account='123456',
+        sub_account='001',
+        affiliate_cd='AFF1',
+        product_cd='PRD1',
+        book_cd='BK1',
+        source_cd='SRC1',
+    )
+    defaults.update(overrides)
+    return GLSegments(**defaults)
+
+
+def _record(**overrides) -> BreakRecord:
+    defaults = dict(
+        recon_result_id=uuid4(),
+        workflow_run_id=uuid4(),
+        as_of_date=AS_OF_DATE,
+        segments=_segments(),
+        accounted_currency='USD',
+        interface_balance=Decimal('100.00'),
+        gl_balance=Decimal('100.00'),
+        difference_amount=Decimal('0.00'),
+    )
+    defaults.update(overrides)
+    return BreakRecord(**defaults)
+
+
+def _break_case(**overrides) -> BreakCase:
+    defaults = dict(
+        case_id=uuid4(),
+        topology=BreakTopology.AMBIGUOUS,
+        investigation_records=(_record(), _record()),
+        pivot=None,
+        evidence=None,
+    )
+    defaults.update(overrides)
+    return BreakCase(**defaults)
+
+
+def _tool_call(name='validate_segment', call_id='call_1', **arg_overrides) -> dict:
+    args = dict(
+        segment_type=GLSegmentType.ACCOUNT,
+        segment_value='123456',
+        business_dt=AS_OF_DATE,
+    )
+    args.update(arg_overrides)
+    return {'name': name, 'args': args, 'id': call_id}
+
+
+class _FakeMessage:
+    def __init__(self, tool_calls=()):
+        self.tool_calls = list(tool_calls)
+
+
+class _FakeBoundLLM:
+    def __init__(self, responses):
+        self._responses = list(responses)
+
+    def invoke(self, messages):
+        return self._responses.pop(0)
+
+
+class _FakeStructuredLLM:
+    def __init__(self, conclusion):
+        self._conclusion = conclusion
+
+    def invoke(self, messages):
+        return self._conclusion
+
+
+class _FakeLLM:
+    def __init__(self, responses, conclusion):
+        self._bound = _FakeBoundLLM(responses)
+        self._structured = _FakeStructuredLLM(conclusion)
+
+    def bind_tools(self, tools):
+        return self._bound
+
+    def with_structured_output(self, schema):
+        return self._structured
+
+
+class _FakeRegistryClient:
+    def __init__(self, is_valid=True, raise_error=False):
+        self._is_valid = is_valid
+        self._raise_error = raise_error
+        self.calls = []
+
+    def validate_segment(self, segment_type, business_dt, segment_value):
+        if self._raise_error:
+            raise RuntimeError('registry unavailable')
+
+        self.calls.append((segment_type, business_dt, segment_value))
+        return self._is_valid
+
+
+_CONCLUSION = {
+    'status': 'EXPLAINED',
+    'root_cause': None,
+    'explanation': 'Segment is valid; break explained by timing.',
+}
+
+
+def _agent(responses, registry_client=None, conclusion=None, **kwargs) -> BreakAnalysisAgent:
+    registry_tools = RegistryTools(registry_client=registry_client or _FakeRegistryClient())
+    llm = _FakeLLM(responses, conclusion if conclusion is not None else _CONCLUSION)
+    return BreakAnalysisAgent(llm=llm, registry_tools=registry_tools, **kwargs)
+
+
+# -- logging --------------------------------------------------------------
+
+def test_analyze_logs_start_line_with_case_context(caplog):
+    break_case = _break_case()
+    agent = _agent(responses=[_FakeMessage()])
+
+    with caplog.at_level('INFO', logger='break_analysis.agent'):
+        agent.analyze(break_case)
+
+    start_records = [
+        r for r in caplog.records
+        if r.levelname == 'INFO' and 'Analyzing break case' in r.message
+    ]
+    assert len(start_records) == 1
+    message = start_records[0].message
+    assert str(break_case.case_id) in message
+    assert 'topology=AMBIGUOUS' in message
+    assert 'records=2' in message
+
+
+def test_analyze_logs_end_summary_with_status_and_counts(caplog):
+    break_case = _break_case()
+    agent = _agent(responses=[
+        _FakeMessage(tool_calls=[_tool_call()]),
+        _FakeMessage(),
+    ])
+
+    with caplog.at_level('INFO', logger='break_analysis.agent'):
+        result = agent.analyze(break_case)
+
+    summary_records = [
+        r for r in caplog.records
+        if r.levelname == 'INFO' and 'Break case analyzed' in r.message
+    ]
+    assert len(summary_records) == 1
+    message = summary_records[0].message
+    assert f'status={result.status}' in message
+    assert 'tool_rounds=1' in message
+    assert 'tool_calls=1' in message
+    assert 'unique_tool_calls=1' in message
+    assert 'duration_ms=' in message
+
+
+def test_analyze_logs_each_tool_invocation_with_duration(caplog):
+    break_case = _break_case()
+    agent = _agent(responses=[
+        _FakeMessage(tool_calls=[_tool_call()]),
+        _FakeMessage(),
+    ])
+
+    with caplog.at_level('INFO', logger='break_analysis.agent'):
+        agent.analyze(break_case)
+
+    tool_records = [
+        r for r in caplog.records
+        if r.levelname == 'INFO' and 'Tool invoked' in r.message
+    ]
+    assert len(tool_records) == 1
+    message = tool_records[0].message
+    assert 'tool=validate_segment' in message
+    assert 'duration_ms=' in message
+
+
+def test_analyze_logs_cache_hit_at_debug_level_for_repeated_tool_call(caplog):
+    break_case = _break_case()
+    repeated_call = [_tool_call(call_id='call_1'), _tool_call(call_id='call_2')]
+    agent = _agent(responses=[
+        _FakeMessage(tool_calls=repeated_call),
+        _FakeMessage(),
+    ])
+
+    with caplog.at_level('DEBUG', logger='break_analysis.agent'):
+        agent.analyze(break_case)
+
+    invoked_records = [
+        r for r in caplog.records
+        if r.levelname == 'INFO' and 'Tool invoked' in r.message
+    ]
+    cache_hit_records = [
+        r for r in caplog.records
+        if r.levelname == 'DEBUG' and 'Tool cache hit' in r.message
+    ]
+    assert len(invoked_records) == 1
+    assert len(cache_hit_records) == 1
+
+
+def test_analyze_logs_and_raises_on_unknown_tool(caplog):
+    break_case = _break_case()
+    agent = _agent(responses=[
+        _FakeMessage(tool_calls=[_tool_call(name='not_a_real_tool')]),
+    ])
+
+    with caplog.at_level('INFO', logger='break_analysis.agent'):
+        with pytest.raises(RuntimeError, match='Unknown tool requested by agent'):
+            agent.analyze(break_case)
+
+    error_records = [
+        r for r in caplog.records
+        if r.levelname == 'ERROR' and 'Unknown tool requested' in r.message
+    ]
+    assert len(error_records) == 1
+    assert 'tool=not_a_real_tool' in error_records[0].message
+
+
+def test_analyze_logs_exception_and_raises_on_tool_failure(caplog):
+    break_case = _break_case()
+    agent = _agent(
+        responses=[_FakeMessage(tool_calls=[_tool_call()])],
+        registry_client=_FakeRegistryClient(raise_error=True),
+    )
+
+    with caplog.at_level('INFO', logger='break_analysis.agent'):
+        with pytest.raises(RuntimeError, match='validate_segment.*failed'):
+            agent.analyze(break_case)
+
+    exception_records = [
+        r for r in caplog.records
+        if r.levelname == 'ERROR' and 'Tool failed' in r.message and r.exc_info
+    ]
+    assert len(exception_records) == 1
+    assert 'tool=validate_segment' in exception_records[0].message
+
+
+def test_analyze_logs_and_raises_on_max_tool_rounds_exceeded(caplog):
+    break_case = _break_case()
+    agent = _agent(
+        responses=[
+            _FakeMessage(tool_calls=[_tool_call(call_id='call_1')]),
+            _FakeMessage(tool_calls=[_tool_call(call_id='call_2')]),
+        ],
+        max_tool_rounds=1,
+    )
+
+    with caplog.at_level('INFO', logger='break_analysis.agent'):
+        with pytest.raises(RuntimeError, match='Maximum tool rounds exceeded'):
+            agent.analyze(break_case)
+
+    error_records = [
+        r for r in caplog.records
+        if r.levelname == 'ERROR' and 'Max tool rounds exceeded' in r.message
+    ]
+    assert len(error_records) == 1
+    assert 'max_rounds=1' in error_records[0].message
