@@ -46,7 +46,7 @@ def test_validate_segment_is_false_for_unmatched_business_dt(registry):
     ) is False
 
 
-def test_get_segment_details_returns_matching_record(registry):
+def test_get_segment_details_returns_active_record(registry):
     result = registry.get_segment_details(
         GLSegmentType.BRANCH,
         date(2026, 3, 31),
@@ -55,12 +55,33 @@ def test_get_segment_details_returns_matching_record(registry):
 
     assert result.count() == 1
     assert result.first()['BCH_DS'] == 'New York'
+    assert result.first()['STATUS'] == 'A'
 
 
-def test_get_segment_details_raises_when_not_found(registry):
-    with pytest.raises(KeyError):
-        registry.get_segment_details(
-            GLSegmentType.BRANCH,
-            date(2026, 3, 31),
-            'UNKNOWN',
-        )
+def test_get_segment_details_returns_inactive_record(registry):
+    result = registry.get_segment_details(
+        GLSegmentType.BRANCH,
+        date(2026, 3, 31),
+        'USCH01',
+    )
+
+    assert result.count() == 1
+    assert result.first()['STATUS'] == 'I'
+
+
+def test_validate_segment_is_false_for_inactive_record(registry):
+    assert registry.validate_segment(
+        GLSegmentType.BRANCH,
+        date(2026, 3, 31),
+        'USCH01',
+    ) is False
+
+
+def test_get_segment_details_returns_empty_when_not_found(registry):
+    result = registry.get_segment_details(
+        GLSegmentType.BRANCH,
+        date(2026, 3, 31),
+        'UNKNOWN',
+    )
+
+    assert result.count() == 0

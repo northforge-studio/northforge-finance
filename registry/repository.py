@@ -17,7 +17,7 @@ class RegistryRepository:
         self._store = store
 
 
-    def get_segment(
+    def _segment_records(
         self,
         segment: GLSegmentType,
         business_dt: date,
@@ -37,5 +37,26 @@ class RegistryRepository:
         return df.filter(
             (F.col('BUSINESS_DT') == business_dt)
             & (F.col(code_column) == segment_cd)
-            & (F.col('STATUS') == 'A')
         )
+
+
+    def get_active_segment(
+        self,
+        segment: GLSegmentType,
+        business_dt: date,
+        segment_cd: str,
+    ) -> DataFrame:
+        """Registry record for this segment value, restricted to STATUS == 'A'."""
+        return self._segment_records(segment, business_dt, segment_cd).filter(
+            F.col('STATUS') == 'A'
+        )
+
+
+    def get_segment_details(
+        self,
+        segment: GLSegmentType,
+        business_dt: date,
+        segment_cd: str,
+    ) -> DataFrame:
+        """Registry record for this segment value regardless of STATUS."""
+        return self._segment_records(segment, business_dt, segment_cd)
