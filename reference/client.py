@@ -6,7 +6,6 @@ from core.store import (
     CsvStore,
     PostgresStore
 )
-from core.db import PostgresConfig
 
 from reference.models import ReferenceData
 from reference.manager import ReferenceManager

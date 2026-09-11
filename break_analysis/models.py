@@ -53,8 +53,6 @@ class BreakAnalysisResult(BaseModel):
 class BreakTopology(StrEnum):
     ONE_TO_ONE = 'ONE_TO_ONE'
     MANY_TO_ONE = 'MANY_TO_ONE'
-    ONE_TO_MANY = 'ONE_TO_MANY'
-    MANY_TO_MANY = 'MANY_TO_MANY'
     INTERFACE_ONLY = 'INTERFACE_ONLY'
     GL_ONLY = 'GL_ONLY'
     AMBIGUOUS = 'AMBIGUOUS'

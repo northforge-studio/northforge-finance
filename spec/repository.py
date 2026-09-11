@@ -76,11 +76,3 @@ class SpecRepository:
             expressions.append(expression)
 
         return expressions
-            
-        # return [
-        #     f'{
-        #         row["EXPRESSION"] 
-        #         if row["EXPRESSION"] != ''
-        #         else row["POSTING_ATTRIBUTE_NAME"]} AS {row["GL_ATTRIBUTE_NAME"]}' 
-        #     for row in rows
-        # ]

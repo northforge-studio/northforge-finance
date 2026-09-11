@@ -47,10 +47,7 @@ class TrialBalancePipeline(BasePipeline):
             reference = reference,
             spec = spec,
         )
-        self._atlas = atlas
         self._repository = repository
-        self._reference = reference
-        self._spec = spec
 
 
     def pre_staging(self) -> DataFrame:
