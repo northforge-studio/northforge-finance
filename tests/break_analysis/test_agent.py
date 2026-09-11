@@ -83,22 +83,27 @@ class _FakeBoundLLM:
 
 
 class _FakeStructuredLLM:
-    def __init__(self, conclusion):
-        self._conclusion = conclusion
+    def __init__(self, parsed=None, parsing_error=None):
+        self._parsed = parsed
+        self._parsing_error = parsing_error
 
     def invoke(self, messages):
-        return self._conclusion
+        return {
+            'raw': _FakeMessage(),
+            'parsed': self._parsed,
+            'parsing_error': self._parsing_error,
+        }
 
 
 class _FakeLLM:
-    def __init__(self, responses, conclusion):
+    def __init__(self, responses, parsed=None, parsing_error=None):
         self._bound = _FakeBoundLLM(responses)
-        self._structured = _FakeStructuredLLM(conclusion)
+        self._structured = _FakeStructuredLLM(parsed=parsed, parsing_error=parsing_error)
 
     def bind_tools(self, tools):
         return self._bound
 
-    def with_structured_output(self, schema):
+    def with_structured_output(self, schema, include_raw=False):
         return self._structured
 
 
@@ -123,9 +128,19 @@ _CONCLUSION = {
 }
 
 
-def _agent(responses, registry_client=None, conclusion=None, **kwargs) -> BreakAnalysisAgent:
+def _agent(
+    responses,
+    registry_client=None,
+    conclusion=None,
+    parsing_error=None,
+    **kwargs
+) -> BreakAnalysisAgent:
     registry_tools = RegistryTools(registry_client=registry_client or _FakeRegistryClient())
-    llm = _FakeLLM(responses, conclusion if conclusion is not None else _CONCLUSION)
+    parsed = (
+        None if parsing_error is not None
+        else (conclusion if conclusion is not None else _CONCLUSION)
+    )
+    llm = _FakeLLM(responses, parsed=parsed, parsing_error=parsing_error)
     return BreakAnalysisAgent(llm=llm, registry_tools=registry_tools, **kwargs)
 
 
@@ -361,3 +376,17 @@ def test_analyze_logs_and_raises_on_max_tool_rounds_exceeded(caplog):
     ]
     assert len(error_records) == 1
     assert 'max_rounds=1' in error_records[0].message
+
+
+def test_analyze_raises_on_structured_output_parsing_error():
+    break_case = _break_case()
+    original_error = ValueError('model did not return valid JSON')
+    agent = _agent(
+        responses=[_FakeMessage()],
+        parsing_error=original_error,
+    )
+
+    with pytest.raises(RuntimeError, match='Failed to parse structured output') as exc_info:
+        agent.analyze(break_case)
+
+    assert exc_info.value.__cause__ is original_error

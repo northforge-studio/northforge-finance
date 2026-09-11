@@ -56,7 +56,10 @@ class BreakAnalysisAgent:
         self._llm_with_tools = llm.bind_tools(self._tools)
         self._tool_registry = {tool.name: tool for tool in self._tools}
 
-        self._llm_with_structure = llm.with_structured_output(BreakAnalysisConclusion.model_json_schema())
+        self._llm_with_structure = llm.with_structured_output(
+            BreakAnalysisConclusion.model_json_schema(),
+            include_raw=True
+        )
 
 
     def analyze(
@@ -172,8 +175,15 @@ class BreakAnalysisAgent:
             llm_input_tokens += input_tokens or 0
             llm_output_tokens += output_tokens or 0
 
-        conclusion_raw = self._llm_with_structure.invoke(messages)
-        conclusion = BreakAnalysisConclusion.model_validate(conclusion_raw)
+        structured_result = self._llm_with_structure.invoke(messages)
+
+        if structured_result['parsing_error'] is not None:
+            raise RuntimeError(
+                f'Failed to parse structured output for case '
+                f'{break_case.case_id}'
+            ) from structured_result['parsing_error']
+
+        conclusion = BreakAnalysisConclusion.model_validate(structured_result['parsed'])
 
         duration_ms = round((time.monotonic() - start) * 1000)
 
