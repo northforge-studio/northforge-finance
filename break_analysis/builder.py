@@ -1,11 +1,13 @@
+import time
 from uuid import UUID, uuid4
 from dataclasses import dataclass
-from collections import defaultdict
 from collections.abc import Iterable
+from collections import defaultdict, Counter
+
+from core.logging import get_logger
 
 from gl.models import GLSegmentDefaults
 from registry.models import GLSegmentType
-
 from break_analysis.models import (
     BreakCase,
     BreakRecord,
@@ -13,6 +15,9 @@ from break_analysis.models import (
     BreakCaseEvidence,
     BreakPartitionKey
 )
+
+
+logger = get_logger(__name__)
 
 
 _TRANSFORMABLE_SEGMENTS = (
@@ -80,11 +85,22 @@ class BreakCaseBuilder:
         self,
         records: Iterable[BreakRecord]
     ) -> tuple[BreakCase, ...]:
+        start = time.monotonic()
         records = tuple(records)
+
+        logger.info('Building break cases | records=%s', len(records))
 
         cases: list[BreakCase] = []
 
         for partition_key, partition_records in self._partition(records).items():
+            logger.debug(
+                'Partitioned records | as_of_date=%s | entity_cd=%s | '
+                'source_cd=%s | accounted_currency=%s | records=%s',
+                partition_key.as_of_date, partition_key.entity_cd,
+                partition_key.source_cd, partition_key.accounted_currency,
+                len(partition_records)
+            )
+
             candidates = self._find_candidates(
                 partition_key,
                 partition_records
@@ -95,6 +111,13 @@ class BreakCaseBuilder:
             resolved = self._resolve_candidates(candidates)
 
             candidate_cases = self._to_break_cases(resolved)
+
+            for case in candidate_cases:
+                if case.topology == BreakTopology.AMBIGUOUS:
+                    logger.warning(
+                        'Ambiguous break case | case_id=%s | records=%s',
+                        case.case_id, len(case.all_records)
+                    )
 
             cases.extend(candidate_cases)
 
@@ -113,6 +136,23 @@ class BreakCaseBuilder:
             cases.extend(
                 self._classify_leftovers(leftovers)
             )
+
+        duration_ms = round((time.monotonic() - start) * 1000)
+        topology_counts = Counter(case.topology for case in cases)
+
+        logger.info(
+            'Break cases built | total=%s | one_to_one=%s | many_to_one=%s | '
+            'ambiguous=%s | interface_only=%s | gl_only=%s | unmatched=%s | '
+            'duration_ms=%s',
+            len(cases),
+            topology_counts[BreakTopology.ONE_TO_ONE],
+            topology_counts[BreakTopology.MANY_TO_ONE],
+            topology_counts[BreakTopology.AMBIGUOUS],
+            topology_counts[BreakTopology.INTERFACE_ONLY],
+            topology_counts[BreakTopology.GL_ONLY],
+            topology_counts[BreakTopology.UNMATCHED],
+            duration_ms
+        )
 
         return tuple(cases)
 

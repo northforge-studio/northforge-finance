@@ -1104,3 +1104,57 @@ def test_build_empty_input_returns_empty_tuple():
     cases = _builder().build([])
 
     assert cases == ()
+
+
+# -- logging ------------------------------------------------------------
+
+def test_build_logs_topology_breakdown_and_duration(caplog):
+    segment_defaults = _segment_defaults(
+        _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
+    )
+    builder = _builder(segment_defaults)
+    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    partner_record = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
+    # Distinct branch_cd keeps this outside the pivot/partner neighborhood
+    # (effective anchors), so it surfaces as an unconsumed leftover.
+    leftover = _record(
+        segments=_segments(branch_cd='999'),
+        interface_balance=Decimal('20.00'),
+        gl_balance=Decimal('0.00'),
+        difference_amount=Decimal('20.00'),
+    )
+
+    with caplog.at_level('INFO', logger='break_analysis.builder'):
+        builder.build([pivot_record, partner_record, leftover])
+
+    summary_records = [
+        r for r in caplog.records
+        if r.levelname == 'INFO' and 'Break cases built' in r.message
+    ]
+    assert len(summary_records) == 1
+    message = summary_records[0].message
+    assert 'total=2' in message
+    assert 'one_to_one=1' in message
+    assert 'interface_only=1' in message
+    assert 'duration_ms=' in message
+
+
+def test_build_logs_ambiguous_case_as_warning(caplog):
+    segment_defaults = _segment_defaults(
+        _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
+        _entity_default(GLSegmentType.SUB_ACCOUNT, 'USM', 'UNASSIGNED'),
+    )
+    builder = _builder(segment_defaults)
+    pivot_a = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    pivot_b = _record(segments=_segments(sub_account='UNASSIGNED'), difference_amount=Decimal('50.00'))
+    shared_partner = _record(difference_amount=Decimal('-50.00'))
+
+    with caplog.at_level('INFO', logger='break_analysis.builder'):
+        [case] = builder.build([pivot_a, pivot_b, shared_partner])
+
+    warning_records = [
+        r for r in caplog.records
+        if r.levelname == 'WARNING' and 'Ambiguous break case' in r.message
+    ]
+    assert len(warning_records) == 1
+    assert str(case.case_id) in warning_records[0].message
