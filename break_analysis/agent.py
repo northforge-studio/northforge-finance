@@ -175,9 +175,18 @@ class BreakAnalysisAgent:
             llm_input_tokens += input_tokens or 0
             llm_output_tokens += output_tokens or 0
 
-        structured_result = self._llm_with_structure.invoke(messages)
+        llm_round += 1
+        structured_result, input_tokens, output_tokens = self._invoke_structured(
+            messages, break_case.case_id, llm_round
+        )
+        llm_input_tokens += input_tokens or 0
+        llm_output_tokens += output_tokens or 0
 
         if structured_result['parsing_error'] is not None:
+            logger.error(
+                'Structured output parsing failed | case_id=%s',
+                break_case.case_id
+            )
             raise RuntimeError(
                 f'Failed to parse structured output for case '
                 f'{break_case.case_id}'
@@ -237,3 +246,28 @@ class BreakAnalysisAgent:
         )
 
         return response, input_tokens, output_tokens
+
+
+    def _invoke_structured(self, messages: list, case_id, llm_round: int) -> tuple:
+        logger.info(
+            'Invoking LLM | case_id=%s | round=%s',
+            case_id, llm_round
+        )
+
+        start = time.monotonic()
+        structured_result = self._llm_with_structure.invoke(messages)
+        duration_ms = round((time.monotonic() - start) * 1000)
+
+        usage = getattr(structured_result['raw'], 'usage_metadata', None) or {}
+        input_tokens = usage.get('input_tokens')
+        output_tokens = usage.get('output_tokens')
+        total_tokens = usage.get('total_tokens')
+
+        logger.info(
+            'LLM invoked | case_id=%s | round=%s | input_tokens=%s | '
+            'output_tokens=%s | total_tokens=%s | duration_ms=%s',
+            case_id, llm_round, input_tokens, output_tokens,
+            total_tokens, duration_ms
+        )
+
+        return structured_result, input_tokens, output_tokens
