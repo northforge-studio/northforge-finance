@@ -3,7 +3,7 @@ import time
 
 from langchain_core.tools import StructuredTool
 from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import ToolMessage, HumanMessage, SystemMessage
+from langchain_core.messages import BaseMessage, ToolMessage, HumanMessage, SystemMessage
 
 from core.logging import get_logger, short_id
 
@@ -12,7 +12,8 @@ from break_analysis.tools import RegistryTools, ValidateSegmentInput
 from break_analysis.models import (
     BreakCase,
     BreakAnalysisResult,
-    BreakAnalysisConclusion
+    BreakAnalysisConclusion,
+    BreakInvestigationContext
 )
 
 
@@ -79,9 +80,14 @@ class BreakAnalysisAgent:
             break_case.topology, len(break_case.all_records)
         )
 
-        messages = [
-            HumanMessage(content=str(break_case))
-        ]
+        break_context = BreakInvestigationContext(
+            case_id=break_case.case_id,
+            topology=break_case.topology,
+            investigation_records=break_case.investigation_records,
+            relaxed_segments=break_case.evidence.relaxed_segments if break_case.evidence else None
+        )
+
+        messages: list[BaseMessage] = []
 
         llm_round = 0
         llm_input_tokens = 0
@@ -91,6 +97,7 @@ class BreakAnalysisAgent:
         response, input_tokens, output_tokens = self._invoke_with_tools(
             [
                 SystemMessage(content=TOOL_SYSTEM_PROMPT),
+                HumanMessage(content=str(break_context)),
                 *messages
             ],
             case_id,
@@ -181,6 +188,7 @@ class BreakAnalysisAgent:
             response, input_tokens, output_tokens = self._invoke_with_tools(
                 [
                     SystemMessage(content=TOOL_SYSTEM_PROMPT),
+                    HumanMessage(content=str(break_context)),
                     *messages
                 ],
                 case_id,
@@ -193,6 +201,7 @@ class BreakAnalysisAgent:
         structured_result, input_tokens, output_tokens = self._invoke_structured(
             [
                 SystemMessage(content=FINAL_SYSTEM_PROMPT),
+                HumanMessage(content=str(break_case)),
                 *messages
             ],
             case_id,

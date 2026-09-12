@@ -60,6 +60,14 @@ class BreakTopology(StrEnum):
 
 
 @dataclass(frozen=True)
+class BreakInvestigationContext:
+    case_id: UUID
+    topology: BreakTopology
+    investigation_records: tuple[BreakRecord, ...]
+    relaxed_segments: tuple[GLSegmentType, ...] | None
+
+
+@dataclass(frozen=True)
 class BreakCaseEvidence:
     relaxed_segments: tuple[GLSegmentType, ...]
 
