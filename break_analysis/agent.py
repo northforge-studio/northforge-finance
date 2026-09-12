@@ -262,6 +262,7 @@ class BreakAnalysisAgent:
             response_metadata.get('prompt_eval_duration', 0) / 1_000_000
         )
         eval_ms = round(response_metadata.get('eval_duration', 0) / 1_000_000)
+        total_ms = round(response_metadata.get('total_duration', 0) / 1_000_000)
         prompt_eval_count = response_metadata.get('prompt_eval_count')
         eval_count = response_metadata.get('eval_count')
 
@@ -269,10 +270,10 @@ class BreakAnalysisAgent:
             'LLM invoked | case_id=%s | round=%s | tool_calls=%s | '
             'input_tokens=%s | output_tokens=%s | total_tokens=%s | '
             'prompt_eval_count=%s | eval_count=%s | load_ms=%s | '
-            'prompt_eval_ms=%s | eval_ms=%s | duration_ms=%s',
+            'prompt_eval_ms=%s | eval_ms=%s | total_ms=%s | duration_ms=%s',
             case_id, llm_round, len(response.tool_calls), input_tokens,
             output_tokens, total_tokens, prompt_eval_count, eval_count,
-            load_ms, prompt_eval_ms, eval_ms, duration_ms
+            load_ms, prompt_eval_ms, eval_ms, total_ms, duration_ms
         )
 
         return response, input_tokens, output_tokens
@@ -300,6 +301,7 @@ class BreakAnalysisAgent:
             response_metadata.get('prompt_eval_duration', 0) / 1_000_000
         )
         eval_ms = round(response_metadata.get('eval_duration', 0) / 1_000_000)
+        total_ms = round(response_metadata.get('total_duration', 0) / 1_000_000)
         prompt_eval_count = response_metadata.get('prompt_eval_count')
         eval_count = response_metadata.get('eval_count')
 
@@ -307,10 +309,10 @@ class BreakAnalysisAgent:
             'LLM invoked | case_id=%s | round=%s | input_tokens=%s | '
             'output_tokens=%s | total_tokens=%s | prompt_eval_count=%s | '
             'eval_count=%s | load_ms=%s | prompt_eval_ms=%s | eval_ms=%s | '
-            'duration_ms=%s',
+            'total_ms=%s | duration_ms=%s',
             case_id, llm_round, input_tokens, output_tokens, total_tokens,
             prompt_eval_count, eval_count, load_ms, prompt_eval_ms, eval_ms,
-            duration_ms
+            total_ms, duration_ms
         )
 
         return structured_result, input_tokens, output_tokens
