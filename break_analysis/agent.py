@@ -7,7 +7,7 @@ from langchain_core.messages import ToolMessage, HumanMessage, SystemMessage
 
 from core.logging import get_logger, short_id
 
-from break_analysis.prompts import SYSTEM_PROMPT
+from break_analysis.prompts import TOOL_SYSTEM_PROMPT, FINAL_SYSTEM_PROMPT
 from break_analysis.tools import RegistryTools, ValidateSegmentInput
 from break_analysis.models import (
     BreakCase,
@@ -79,7 +79,6 @@ class BreakAnalysisAgent:
         )
 
         messages = [
-            SystemMessage(content=SYSTEM_PROMPT),
             HumanMessage(content=str(break_case))
         ]
 
@@ -89,7 +88,12 @@ class BreakAnalysisAgent:
 
         llm_round += 1
         response, input_tokens, output_tokens = self._invoke_with_tools(
-            messages, case_id, llm_round
+            [
+                SystemMessage(content=TOOL_SYSTEM_PROMPT),
+                *messages
+            ],
+            case_id,
+            llm_round
         )
         llm_input_tokens += input_tokens or 0
         llm_output_tokens += output_tokens or 0
@@ -174,14 +178,24 @@ class BreakAnalysisAgent:
 
             llm_round += 1
             response, input_tokens, output_tokens = self._invoke_with_tools(
-                messages, case_id, llm_round
+                [
+                    SystemMessage(content=TOOL_SYSTEM_PROMPT),
+                    *messages
+                ],
+                case_id,
+                llm_round
             )
             llm_input_tokens += input_tokens or 0
             llm_output_tokens += output_tokens or 0
 
         llm_round += 1
         structured_result, input_tokens, output_tokens = self._invoke_structured(
-            messages, case_id, llm_round
+            [
+                SystemMessage(content=FINAL_SYSTEM_PROMPT),
+                *messages
+            ],
+            case_id,
+            llm_round
         )
         llm_input_tokens += input_tokens or 0
         llm_output_tokens += output_tokens or 0
