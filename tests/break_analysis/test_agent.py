@@ -9,7 +9,12 @@ from registry.models import GLSegmentType
 
 from break_analysis.agent import BreakAnalysisAgent
 from break_analysis.tools import RegistryTools
-from break_analysis.models import BreakCase, BreakRecord, BreakTopology
+from break_analysis.models import (
+    BreakAnalysisConclusion,
+    BreakCase,
+    BreakRecord,
+    BreakTopology,
+)
 from gl.models import GLSegments
 
 
@@ -106,10 +111,10 @@ class _FakeLLM:
             usage_metadata=conclusion_usage_metadata,
         )
 
-    def bind_tools(self, tools):
+    def bind_tools(self, tools, reasoning=None):
         return self._bound
 
-    def with_structured_output(self, schema, include_raw=False):
+    def with_structured_output(self, schema, method=None, include_raw=False):
         return self._structured
 
 
@@ -127,11 +132,11 @@ class _FakeRegistryClient:
         return self._is_valid
 
 
-_CONCLUSION = {
-    'status': 'EXPLAINED',
-    'root_cause': None,
-    'explanation': 'Segment is valid; break explained by timing.',
-}
+_CONCLUSION = BreakAnalysisConclusion(
+    status='EXPLAINED',
+    root_cause=None,
+    explanation='Segment is valid; break explained by timing.',
+)
 
 
 def _agent(
