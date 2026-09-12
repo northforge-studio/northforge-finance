@@ -58,7 +58,8 @@ class BreakAnalysisAgent:
         self._tool_registry = {tool.name: tool for tool in self._tools}
 
         self._llm_with_structure = llm.with_structured_output(
-            BreakAnalysisConclusion.model_json_schema(),
+            BreakAnalysisConclusion,
+            method='json_schema',
             include_raw=True
         )
 
@@ -210,7 +211,7 @@ class BreakAnalysisAgent:
                 f'{break_case.case_id}'
             ) from structured_result['parsing_error']
 
-        conclusion = BreakAnalysisConclusion.model_validate(structured_result['parsed'])
+        conclusion = structured_result['parsed']
 
         duration_ms = round((time.monotonic() - start) * 1000)
 
