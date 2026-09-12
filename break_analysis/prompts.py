@@ -8,9 +8,8 @@ A nonblank segment value was invalid in Registry.
 Rules:
 - If relaxed_segments is present and non-empty, ONLY investigate those segment types.
 - For those segment types, use values only from investigation_records.
-- NEVER use pivot values for Registry tool calls.
-- Do not investigate blank, null, or whitespace-only values.
-- If all candidate values are blank/null, no Registry tool calls are required.
+- If a candidate value is blank, null, or whitespace-only, only flag it as such and do not call any Registry tools.
+- If all candidate values are blank/null, no Registry tool calls are required, only flag them as such.
 - Validate each distinct nonblank candidate once per segment type, value, and business date.
 - Batch independent tool calls when possible.
 - If validate_segment reports an invalid value, you MUST call
@@ -67,4 +66,6 @@ Otherwise:
 
 Use only the supplied evidence.
 Do not speculate about other root causes.
+When a relevant value is blank/null, describe it as blank or unresolved.
+Do not call it an invalid Registry segment.
 '''
