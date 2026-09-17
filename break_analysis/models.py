@@ -151,6 +151,6 @@ class BreakPartitionKey:
 
 
 @dataclass(frozen=True)
-class AtlasInputValues:
+class FoundryMappingInputValues:
     values: dict[str, str]
     source_record_count: int

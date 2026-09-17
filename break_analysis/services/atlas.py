@@ -11,7 +11,7 @@ from atlas.models import MappingDefinition
 from foundry.contracts import TRIAL_BALANCE_POSTING_SEGMENT_COLUMNS
 from foundry.repository import TrialBalanceRepository
 
-from break_analysis.models import AtlasInputValues, BreakRecord
+from break_analysis.models import FoundryMappingInputValues, BreakRecord
 
 
 logger = get_logger(__name__)
@@ -31,11 +31,11 @@ class AtlasEvidenceService:
         self._foundry = foundry_repository
 
 
-    def get_mapping_input_values(
+    def get_foundry_mapping_input_values(
         self,
         break_record: BreakRecord,
         mapping_name: str,
-    ) -> tuple[AtlasInputValues, ...]:
+    ) -> tuple[FoundryMappingInputValues, ...]:
         case_id = short_id(break_record.recon_result_id)
 
         definition = self._atlas.get_definition(mapping_name)
@@ -75,7 +75,7 @@ class AtlasEvidenceService:
         )
 
         return tuple(
-            AtlasInputValues(
+            FoundryMappingInputValues(
                 values={column: row[column] for column in input_columns},
                 source_record_count=row['count'],
             )

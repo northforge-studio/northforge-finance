@@ -161,7 +161,7 @@ def test_input_field_discovery_uses_exact_canonical_names(spark):
     df = _postings_df(spark, [_posting_row()])
     service = _service(definition, df)
 
-    result = service.get_mapping_input_values(
+    result = service.get_foundry_mapping_input_values(
         _break_record(), mapping_name='TEST_MAPPING',
     )
 
@@ -174,7 +174,7 @@ def test_single_foundry_match_returns_one_evidence_result(spark):
     df = _postings_df(spark, [_posting_row()])
     service = _service(definition, df)
 
-    result = service.get_mapping_input_values(
+    result = service.get_foundry_mapping_input_values(
         _break_record(), mapping_name='TEST_MAPPING',
     )
 
@@ -196,7 +196,7 @@ def test_duplicate_input_combinations_are_collapsed_with_count(spark):
     )
     service = _service(definition, df)
 
-    result = service.get_mapping_input_values(
+    result = service.get_foundry_mapping_input_values(
         _break_record(), mapping_name='TEST_MAPPING',
     )
 
@@ -217,7 +217,7 @@ def test_multiple_distinct_input_combinations_produce_multiple_results(spark):
     )
     service = _service(definition, df)
 
-    result = service.get_mapping_input_values(
+    result = service.get_foundry_mapping_input_values(
         _break_record(), mapping_name='TEST_MAPPING',
     )
 
@@ -236,7 +236,7 @@ def test_blank_gl_segment_matches_empty_string_in_foundry(spark):
     )
     service = _service(definition, df)
 
-    result = service.get_mapping_input_values(
+    result = service.get_foundry_mapping_input_values(
         break_record, mapping_name='TEST_MAPPING',
     )
 
@@ -256,7 +256,7 @@ def test_nonmatching_segments_are_excluded(spark):
     )
     service = _service(definition, df)
 
-    result = service.get_mapping_input_values(
+    result = service.get_foundry_mapping_input_values(
         _break_record(), mapping_name='TEST_MAPPING',
     )
 
@@ -273,7 +273,7 @@ def test_no_matching_foundry_rows_raises(spark):
     service = _service(definition, df)
 
     with pytest.raises(ValueError):
-        service.get_mapping_input_values(
+        service.get_foundry_mapping_input_values(
             _break_record(), mapping_name='TEST_MAPPING',
         )
 
@@ -286,7 +286,7 @@ def test_missing_required_atlas_input_column_raises(spark):
     service = _service(definition, df)
 
     with pytest.raises(ValueError):
-        service.get_mapping_input_values(
+        service.get_foundry_mapping_input_values(
             _break_record(), mapping_name='TEST_MAPPING',
         )
 
@@ -297,6 +297,6 @@ def test_mapping_with_no_input_fields_raises(spark):
     service = _service(definition, df)
 
     with pytest.raises(ValueError):
-        service.get_mapping_input_values(
+        service.get_foundry_mapping_input_values(
             _break_record(), mapping_name='TEST_MAPPING',
         )
