@@ -22,26 +22,27 @@ class AtlasRepository:
         definition = self.get_definition(mapping_name)
         data = self._read_mapping_data(definition)
 
-        subset_cols = [
-            field.logical_name
-            for field in definition.lookup_fields
-        ]
+        return Mapping(
+            definition=definition,
+            data=self._fillna_mapping_columns(data, definition),
+        )
 
-        subset_cols.extend([
-            field.logical_name
-            for field in definition.output_fields
-        ])
 
-        subset_cols.extend([
-            field.logical_name
-            for field in definition.informational_fields
-        ])
-
-        data = data.fillna('', subset=subset_cols)
+    def get_mapping_details(self, mapping_name: str) -> Mapping:
+        """Diagnostic counterpart to get_mapping(): includes inactive rows
+        and each row's STATUS, so callers can explain how inputs would
+        resolve. Not used by MappingManager.apply(), which stays
+        active-only via get_mapping()."""
+        definition = self.get_definition(mapping_name)
+        data = self._read_mapping_data(
+            definition,
+            include_inactive=True,
+            include_status=True,
+        )
 
         return Mapping(
             definition=definition,
-            data=data,
+            data=self._fillna_mapping_columns(data, definition),
         )
 
 
@@ -102,18 +103,49 @@ class AtlasRepository:
     def _read_mapping_data(
         self,
         definition: MappingDefinition,
+        *,
+        include_inactive: bool = False,
+        include_status: bool = False,
     ) -> DataFrame:
         df = (
             self._store.read('MAPPING_DATA', schema=MAPPING_DATA_SCHEMA)
             .filter(
-                (F.upper(F.col('MAPPING_NAME')) == definition.mapping_name.upper())
-                & (F.upper(F.col('STATUS')) == 'A')
+                F.upper(F.col('MAPPING_NAME')) == definition.mapping_name.upper()
             )
         )
+
+        if not include_inactive:
+            df = df.filter(F.upper(F.col('STATUS')) == 'A')
 
         columns = [
             F.col(field.physical_name).alias(field.logical_name)
             for field in definition.fields
         ]
 
+        if include_status:
+            columns.append(F.col('STATUS'))
+
         return df.select(*columns)
+
+
+    def _fillna_mapping_columns(
+        self,
+        data: DataFrame,
+        definition: MappingDefinition,
+    ) -> DataFrame:
+        subset_cols = [
+            field.logical_name
+            for field in definition.lookup_fields
+        ]
+
+        subset_cols.extend([
+            field.logical_name
+            for field in definition.output_fields
+        ])
+
+        subset_cols.extend([
+            field.logical_name
+            for field in definition.informational_fields
+        ])
+
+        return data.fillna('', subset=subset_cols)

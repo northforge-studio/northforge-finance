@@ -6,6 +6,9 @@ from pyspark.sql import Column, DataFrame, Window
 from atlas.repository import AtlasRepository
 from atlas.models import (
     Mapping,
+    MappingCandidateEvidence,
+    MappingCandidateType,
+    MappingResolutionEvidence,
     PostingRule,
     GatewayRule
 )
@@ -127,6 +130,181 @@ class MappingManager:
             for gateway_rule_id, gateway_cfg
             in rule_cfg.items()
         ]
+
+
+    def explain_resolution(
+        self,
+        mapping_name: str,
+        input_values: dict[str, str],
+    ) -> MappingResolutionEvidence:
+        mapping = self._repository.get_mapping_details(mapping_name)
+
+        self._validate_input_values(mapping, input_values)
+
+        source_alias = 'source'
+        mapping_alias = 'mapping'
+
+        source_df = self._build_diagnostic_source_row(
+            mapping=mapping,
+            input_values=input_values,
+        ).alias(source_alias)
+
+        mapping_df = mapping.data.alias(mapping_alias)
+
+        join_condition = self._build_join_condition(
+            source_alias=source_alias,
+            mapping_alias=mapping_alias,
+            mapping=mapping,
+        )
+
+        candidate_df = source_df.join(
+            mapping_df,
+            on=join_condition,
+            how='inner',
+        )
+
+        candidates = self._collect_candidate_evidence(
+            candidate_df=candidate_df,
+            mapping_alias=mapping_alias,
+            mapping=mapping,
+        )
+
+        active_candidate_df = candidate_df.filter(
+            F.upper(F.col(f'{mapping_alias}.STATUS')) == 'A'
+        )
+
+        # Reuses the same weightage-ranking/tie logic apply() uses, so a
+        # tie among active candidates raises the same ValueError here.
+        resolved_df = self._resolve_candidates(
+            candidate_df=active_candidate_df,
+            source_alias=source_alias,
+            mapping_alias=mapping_alias,
+        )
+
+        resolved_rows = resolved_df.select(
+            *[
+                F.col(f'{mapping_alias}.{field.logical_name}').alias(field.logical_name)
+                for field in mapping.definition.output_fields
+            ]
+        ).collect()
+
+        resolved_output = (
+            {
+                field.logical_name: resolved_rows[0][field.logical_name]
+                for field in mapping.definition.output_fields
+            }
+            if resolved_rows
+            else None
+        )
+
+        return MappingResolutionEvidence(
+            mapping_name=mapping.definition.mapping_name,
+            input_values=dict(input_values),
+            candidates=candidates,
+            active_candidate_found=any(
+                candidate.status.upper() == 'A'
+                for candidate in candidates
+            ),
+            resolved=bool(resolved_rows),
+            mapping_output=resolved_output,
+        )
+
+
+    def _validate_input_values(
+        self,
+        mapping: Mapping,
+        input_values: dict[str, str],
+    ) -> None:
+        required_columns = {
+            field.src_field_name
+            for field in mapping.definition.lookup_fields
+            if field.src_field_name is not None
+        }
+
+        missing_columns = required_columns - set(input_values)
+
+        if missing_columns:
+            raise ValueError(
+                f'Mapping {mapping.definition.mapping_name!r} '
+                f'requires source columns {sorted(missing_columns)}'
+            )
+
+
+    def _build_diagnostic_source_row(
+        self,
+        mapping: Mapping,
+        input_values: dict[str, str],
+    ) -> DataFrame:
+        source_columns = [
+            field.src_field_name
+            for field in mapping.definition.lookup_fields
+        ]
+
+        spark = mapping.data.sparkSession
+
+        return (
+            spark
+            .createDataFrame(
+                [tuple(input_values[column] for column in source_columns)],
+                schema=source_columns,
+            )
+            .withColumn(self._ROW_ID, F.lit(0))
+        )
+
+
+    def _collect_candidate_evidence(
+        self,
+        candidate_df: DataFrame,
+        mapping_alias: str,
+        mapping: Mapping,
+    ) -> tuple[MappingCandidateEvidence, ...]:
+        lookup_fields = mapping.definition.lookup_fields
+        output_fields = mapping.definition.output_fields
+
+        selected_df = candidate_df.select(
+            F.col(f'{mapping_alias}.STATUS').alias('STATUS'),
+            F.col(f'{mapping_alias}.WEIGHTAGE').alias('WEIGHTAGE'),
+            *[
+                F.col(f'{mapping_alias}.{field.logical_name}').alias(field.logical_name)
+                for field in lookup_fields
+            ],
+            *[
+                F.col(f'{mapping_alias}.{field.logical_name}').alias(field.logical_name)
+                for field in output_fields
+            ],
+        )
+
+        candidates = []
+
+        for row in selected_df.collect():
+            wildcard_fields = tuple(
+                field.logical_name
+                for field in lookup_fields
+                if row[field.logical_name] == '*'
+            )
+
+            candidates.append(
+                MappingCandidateEvidence(
+                    status=row['STATUS'],
+                    weightage=row['WEIGHTAGE'],
+                    candidate_type=(
+                        MappingCandidateType.WILDCARD
+                        if wildcard_fields
+                        else MappingCandidateType.SPECIFIC
+                    ),
+                    wildcard_fields=wildcard_fields,
+                    lookup_values={
+                        field.logical_name: row[field.logical_name]
+                        for field in lookup_fields
+                    },
+                    output_values={
+                        field.logical_name: row[field.logical_name]
+                        for field in output_fields
+                    },
+                )
+            )
+
+        return tuple(candidates)
 
 
     def _validate(

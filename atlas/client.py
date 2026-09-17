@@ -8,7 +8,12 @@ from core.store import (
 )
 
 from atlas.manager import MappingManager
-from atlas.models import Mapping, MappingDefinition, GatewayRule
+from atlas.models import (
+    GatewayRule,
+    Mapping,
+    MappingDefinition,
+    MappingResolutionEvidence,
+)
 from atlas.repository import AtlasRepository
 
 
@@ -89,4 +94,15 @@ class AtlasClient:
     ) -> list[GatewayRule]:
         return self._manager.get_rule_config(
             dataclass
+        )
+
+
+    def explain_resolution(
+        self,
+        mapping_name: str,
+        input_values: dict[str, str],
+    ) -> MappingResolutionEvidence:
+        return self._manager.explain_resolution(
+            mapping_name,
+            input_values=input_values,
         )

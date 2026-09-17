@@ -1,0 +1,267 @@
+import pytest
+
+from atlas.manager import MappingManager
+from atlas.models import MappingCandidateType
+from atlas.repository import AtlasRepository
+
+
+class _FakeStore:
+    """A minimal Store stand-in with full control over STATUS/WEIGHTAGE,
+    so diagnostic scenarios don't depend on data/atlas/*.csv fixtures."""
+
+    def __init__(self, tables):
+        self._tables = tables
+
+    def read(self, table_name, schema=None):
+        return self._tables[table_name]
+
+
+_MAPPING_NAME = 'TEST_MAPPING'
+
+_META_COLUMNS = [
+    'MAPPING_NAME',
+    'MAPPING_DATA_NAME',
+    'METADATA_FIELD_NAME',
+    'LOGICAL_FIELD_NAME',
+    'FIELD_TYPE',
+    'LOOKUP_TYPE',
+    'SRC_FIELD_NAME',
+    'DATATYPE',
+    'UI_FIELD_ORDER',
+]
+
+_META_ROWS = [
+    (_MAPPING_NAME, 'TEST_DATA', 'INPUT_COL1', 'FIELD_A', 'INPUT', 'VALUE', 'FIELD_A', 'STRING', 1),
+    (_MAPPING_NAME, 'TEST_DATA', 'INPUT_COL2', 'FIELD_B', 'INPUT', 'VALUE', 'FIELD_B', 'STRING', 2),
+    (_MAPPING_NAME, 'TEST_DATA', 'OUTPUT_COL1', 'OUTPUT_VAL', 'OUTPUT', 'VALUE', None, 'STRING', 3),
+    (_MAPPING_NAME, 'TEST_DATA', 'WEIGHTAGE', 'WEIGHTAGE', 'LOGICAL', 'VALUE', None, 'STRING', 4),
+]
+
+_DATA_COLUMNS = [
+    'MAPPING_NAME',
+    'INPUT_COL1',
+    'INPUT_COL2',
+    'OUTPUT_COL1',
+    'WEIGHTAGE',
+    'STATUS',
+]
+
+
+def _manager(spark, data_rows: list[tuple]) -> MappingManager:
+    meta_df = spark.createDataFrame(_META_ROWS, _META_COLUMNS)
+    data_df = spark.createDataFrame(data_rows, _DATA_COLUMNS)
+
+    store = _FakeStore({
+        'MAPPING_META': meta_df,
+        'MAPPING_DATA': data_df,
+    })
+
+    return MappingManager(AtlasRepository(store))
+
+
+def test_specific_candidate_has_no_wildcard_fields(spark):
+    manager = _manager(spark, [
+        (_MAPPING_NAME, 'US', 'TRD', 'OUT1', '1', 'A'),
+    ])
+
+    evidence = manager.explain_resolution(
+        _MAPPING_NAME,
+        input_values={'FIELD_A': 'US', 'FIELD_B': 'TRD'},
+    )
+
+    assert len(evidence.candidates) == 1
+    candidate = evidence.candidates[0]
+    assert candidate.candidate_type == MappingCandidateType.SPECIFIC
+    assert candidate.wildcard_fields == ()
+    assert evidence.resolved is True
+    assert evidence.mapping_output == {'OUTPUT_VAL': 'OUT1'}
+
+
+def test_wildcard_candidate_reports_wildcarded_field(spark):
+    manager = _manager(spark, [
+        (_MAPPING_NAME, 'US', '*', 'OUT2', '1', 'A'),
+    ])
+
+    evidence = manager.explain_resolution(
+        _MAPPING_NAME,
+        input_values={'FIELD_A': 'US', 'FIELD_B': 'ANYTHING'},
+    )
+
+    assert len(evidence.candidates) == 1
+    candidate = evidence.candidates[0]
+    assert candidate.candidate_type == MappingCandidateType.WILDCARD
+    assert candidate.wildcard_fields == ('FIELD_B',)
+
+
+def test_multiple_wildcard_fields_are_all_reported(spark):
+    manager = _manager(spark, [
+        (_MAPPING_NAME, '*', '*', 'OUT3', '1', 'A'),
+    ])
+
+    evidence = manager.explain_resolution(
+        _MAPPING_NAME,
+        input_values={'FIELD_A': 'US', 'FIELD_B': 'TRD'},
+    )
+
+    assert len(evidence.candidates) == 1
+    candidate = evidence.candidates[0]
+    assert candidate.candidate_type == MappingCandidateType.WILDCARD
+    assert candidate.wildcard_fields == ('FIELD_A', 'FIELD_B')
+
+
+def test_active_specific_and_active_wildcard_both_appear_highest_weightage_wins(spark):
+    manager = _manager(spark, [
+        (_MAPPING_NAME, 'US', 'TRD', 'SPECIFIC_OUT', '9', 'A'),
+        (_MAPPING_NAME, 'US', '*', 'WILDCARD_OUT', '1', 'A'),
+    ])
+
+    evidence = manager.explain_resolution(
+        _MAPPING_NAME,
+        input_values={'FIELD_A': 'US', 'FIELD_B': 'TRD'},
+    )
+
+    assert len(evidence.candidates) == 2
+    assert evidence.resolved is True
+    assert evidence.mapping_output == {'OUTPUT_VAL': 'SPECIFIC_OUT'}
+
+
+def test_inactive_specific_and_active_wildcard_resolves_through_wildcard(spark):
+    manager = _manager(spark, [
+        (_MAPPING_NAME, 'US', 'TRD', 'SPECIFIC_OUT', '9', 'I'),
+        (_MAPPING_NAME, 'US', '*', 'WILDCARD_OUT', '1', 'A'),
+    ])
+
+    evidence = manager.explain_resolution(
+        _MAPPING_NAME,
+        input_values={'FIELD_A': 'US', 'FIELD_B': 'TRD'},
+    )
+
+    assert len(evidence.candidates) == 2
+    assert evidence.active_candidate_found is True
+    assert evidence.resolved is True
+    assert evidence.mapping_output == {'OUTPUT_VAL': 'WILDCARD_OUT'}
+
+
+def test_all_matching_candidates_inactive_yields_no_active_candidate(spark):
+    manager = _manager(spark, [
+        (_MAPPING_NAME, 'US', 'TRD', 'OUT_A', '9', 'I'),
+        (_MAPPING_NAME, 'US', '*', 'OUT_B', '1', 'I'),
+    ])
+
+    evidence = manager.explain_resolution(
+        _MAPPING_NAME,
+        input_values={'FIELD_A': 'US', 'FIELD_B': 'TRD'},
+    )
+
+    assert len(evidence.candidates) == 2
+    assert evidence.active_candidate_found is False
+    assert evidence.resolved is False
+    assert evidence.mapping_output is None
+
+
+def test_no_matching_candidates_at_all(spark):
+    manager = _manager(spark, [
+        (_MAPPING_NAME, 'GB', 'TRD', 'OUT', '1', 'A'),
+    ])
+
+    evidence = manager.explain_resolution(
+        _MAPPING_NAME,
+        input_values={'FIELD_A': 'US', 'FIELD_B': 'TRD'},
+    )
+
+    assert evidence.candidates == ()
+    assert evidence.active_candidate_found is False
+    assert evidence.resolved is False
+    assert evidence.mapping_output is None
+
+
+def test_wildcard_accidentally_outranks_specific_by_weightage(spark):
+    # Configuration bug: the wildcard row was accidentally given a higher
+    # WEIGHTAGE than the specific row. Atlas's configured rule (highest
+    # lexicographic WEIGHTAGE among active candidates) is authoritative,
+    # so the wildcard must win even though the specific candidate is
+    # "more specific".
+    manager = _manager(spark, [
+        (_MAPPING_NAME, 'US', 'TRD', 'SPECIFIC_OUT', '8', 'A'),
+        (_MAPPING_NAME, 'US', '*', 'WILDCARD_OUT', '9', 'A'),
+    ])
+
+    evidence = manager.explain_resolution(
+        _MAPPING_NAME,
+        input_values={'FIELD_A': 'US', 'FIELD_B': 'TRD'},
+    )
+
+    assert evidence.resolved is True
+    assert evidence.mapping_output == {'OUTPUT_VAL': 'WILDCARD_OUT'}
+
+
+def test_highest_weightage_tie_raises_like_production_apply(spark):
+    manager = _manager(spark, [
+        (_MAPPING_NAME, 'US', 'TRD', 'OUT_A', '9', 'A'),
+        (_MAPPING_NAME, 'US', '*', 'OUT_B', '9', 'A'),
+    ])
+
+    with pytest.raises(ValueError, match='WEIGHTAGE'):
+        manager.explain_resolution(
+            _MAPPING_NAME,
+            input_values={'FIELD_A': 'US', 'FIELD_B': 'TRD'},
+        )
+
+
+def test_case_insensitive_exact_matching(spark):
+    manager = _manager(spark, [
+        (_MAPPING_NAME, 'us', 'trd', 'OUT', '1', 'A'),
+    ])
+
+    evidence = manager.explain_resolution(
+        _MAPPING_NAME,
+        input_values={'FIELD_A': 'US', 'FIELD_B': 'TRD'},
+    )
+
+    assert len(evidence.candidates) == 1
+    assert evidence.candidates[0].candidate_type == MappingCandidateType.SPECIFIC
+    assert evidence.resolved is True
+
+
+def test_missing_required_input_raises(spark):
+    manager = _manager(spark, [
+        (_MAPPING_NAME, 'US', 'TRD', 'OUT', '1', 'A'),
+    ])
+
+    with pytest.raises(ValueError, match='FIELD_B'):
+        manager.explain_resolution(
+            _MAPPING_NAME,
+            input_values={'FIELD_A': 'US'},
+        )
+
+
+def test_extra_input_values_are_ignored(spark):
+    manager = _manager(spark, [
+        (_MAPPING_NAME, 'US', 'TRD', 'OUT', '1', 'A'),
+    ])
+
+    evidence = manager.explain_resolution(
+        _MAPPING_NAME,
+        input_values={'FIELD_A': 'US', 'FIELD_B': 'TRD', 'UNRELATED': 'ignored'},
+    )
+
+    assert evidence.resolved is True
+
+
+def test_apply_still_ignores_inactive_rows_after_diagnostics_refactor(spark):
+    # Guards against the get_mapping()/get_mapping_details() refactor
+    # (shared _read_mapping_data/_fillna_mapping_columns helpers)
+    # accidentally letting inactive rows into production apply().
+    manager = _manager(spark, [
+        (_MAPPING_NAME, 'US', 'TRD', 'OUT_A', '9', 'I'),
+        (_MAPPING_NAME, 'US', '*', 'OUT_B', '1', 'I'),
+    ])
+
+    df = spark.createDataFrame(
+        [('US', 'TRD')],
+        ['FIELD_A', 'FIELD_B'],
+    )
+
+    result = manager.apply(df, _MAPPING_NAME)
+
+    assert result.first()['OUTPUT_VAL'] is None

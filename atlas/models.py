@@ -101,6 +101,36 @@ class MappingDefinition:
         )
 
 
+class MappingCandidateType(StrEnum):
+    SPECIFIC = 'SPECIFIC'
+    WILDCARD = 'WILDCARD'
+
+
+@dataclass(frozen=True)
+class MappingCandidateEvidence:
+    status: str
+    weightage: str
+
+    candidate_type: MappingCandidateType
+    wildcard_fields: tuple[str, ...]
+
+    lookup_values: dict[str, str]
+    output_values: dict[str, str]
+
+
+@dataclass(frozen=True)
+class MappingResolutionEvidence:
+    mapping_name: str
+    input_values: dict[str, str]
+
+    candidates: tuple[MappingCandidateEvidence, ...]
+
+    active_candidate_found: bool
+    resolved: bool
+
+    mapping_output: dict[str, str] | None
+
+
 @dataclass(frozen=True)
 class Mapping:
     definition: MappingDefinition
