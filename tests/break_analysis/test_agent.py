@@ -8,7 +8,7 @@ from core.logging import short_id
 from registry.models import GLSegmentType
 
 from break_analysis.agent import BreakAnalysisAgent
-from break_analysis.tools import RegistryTools
+from break_analysis.tools.registry import RegistryTools
 from break_analysis.models import (
     BreakAnalysisConclusion,
     BreakCase,

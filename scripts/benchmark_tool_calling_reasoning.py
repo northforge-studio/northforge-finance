@@ -39,7 +39,7 @@ from break_analysis.models import (
     BreakTopology,
 )
 from break_analysis.prompts import TOOL_SYSTEM_PROMPT
-from break_analysis.tools import RegistryTools, ValidateSegmentInput
+from break_analysis.tools.registry import RegistryTools, ValidateSegmentInput
 from gl.models import GLSegments
 from registry.models import GLSegmentType
 

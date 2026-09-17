@@ -5,7 +5,7 @@ from langchain_core.messages import HumanMessage
 
 from registry import RegistryClient
 
-from break_analysis.tools import RegistryTools
+from break_analysis.tools.registry import RegistryTools
 from break_analysis import BreakAnalysisAgent
 
 

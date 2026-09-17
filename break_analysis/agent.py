@@ -8,7 +8,7 @@ from langchain_core.messages import BaseMessage, ToolMessage, HumanMessage, Syst
 from core.logging import get_logger, short_id
 
 from break_analysis.prompts import TOOL_SYSTEM_PROMPT, FINAL_SYSTEM_PROMPT
-from break_analysis.tools import RegistryTools, ValidateSegmentInput
+from break_analysis.tools.registry import RegistryTools, ValidateSegmentInput
 from break_analysis.models import (
     BreakCase,
     BreakAnalysisResult,
