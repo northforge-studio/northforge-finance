@@ -341,10 +341,12 @@ def test_mapping_with_no_input_fields_raises(spark):
 
 
 def test_investigate_resolution_wraps_single_foundry_input_with_its_resolution(spark):
-    definition = _mapping_definition()
+    # investigate_resolution() derives the mapping name from segment_type
+    # (SEGMENT_MAPPING_NAMES); GLSegmentType.ENTITY maps to ENTITY_MAPPING.
+    definition = _mapping_definition(mapping_name='ENTITY_MAPPING')
     df = _postings_df(spark, [_posting_row()])
     values = {'COUNTRY_CD': 'US', 'COUNTERPARTY_CD': '1000'}
-    resolution = _resolution('TEST_MAPPING', values, output='RESOLVED_A')
+    resolution = _resolution('ENTITY_MAPPING', values, output='RESOLVED_A')
     service = _service(
         definition, df,
         resolutions={tuple(sorted(values.items())): resolution},
@@ -354,19 +356,18 @@ def test_investigate_resolution_wraps_single_foundry_input_with_its_resolution(s
     evidence = service.investigate_resolution(
         break_record,
         segment_type=GLSegmentType.ENTITY,
-        mapping_name='TEST_MAPPING',
     )
 
     assert evidence.recon_result_id == break_record.recon_result_id
     assert evidence.segment_type == GLSegmentType.ENTITY
-    assert evidence.mapping_name == 'TEST_MAPPING'
+    assert evidence.mapping_name == 'ENTITY_MAPPING'
     assert len(evidence.input_resolutions) == 1
     assert evidence.input_resolutions[0].foundry_inputs.values == values
     assert evidence.input_resolutions[0].resolution is resolution
 
 
 def test_investigate_resolution_pairs_each_foundry_input_with_its_own_resolution(spark):
-    definition = _mapping_definition()
+    definition = _mapping_definition(mapping_name='ENTITY_MAPPING')
     df = _postings_df(
         spark,
         [
@@ -376,8 +377,8 @@ def test_investigate_resolution_pairs_each_foundry_input_with_its_own_resolution
     )
     values_a = {'COUNTRY_CD': 'US', 'COUNTERPARTY_CD': '1000'}
     values_b = {'COUNTRY_CD': 'US', 'COUNTERPARTY_CD': '2000'}
-    resolution_a = _resolution('TEST_MAPPING', values_a, output='RESOLVED_A')
-    resolution_b = _resolution('TEST_MAPPING', values_b, output='RESOLVED_B')
+    resolution_a = _resolution('ENTITY_MAPPING', values_a, output='RESOLVED_A')
+    resolution_b = _resolution('ENTITY_MAPPING', values_b, output='RESOLVED_B')
     service = _service(
         definition, df,
         resolutions={
@@ -389,7 +390,6 @@ def test_investigate_resolution_pairs_each_foundry_input_with_its_own_resolution
     evidence = service.investigate_resolution(
         _break_record(),
         segment_type=GLSegmentType.ENTITY,
-        mapping_name='TEST_MAPPING',
     )
 
     by_counterparty = {
@@ -402,7 +402,7 @@ def test_investigate_resolution_pairs_each_foundry_input_with_its_own_resolution
 
 
 def test_investigate_resolution_propagates_foundry_lookup_error(spark):
-    definition = _mapping_definition()
+    definition = _mapping_definition(mapping_name='ENTITY_MAPPING')
     df = _postings_df(
         spark,
         [_posting_row(GL_ENTITY_CD='UNRELATED')],
@@ -413,5 +413,4 @@ def test_investigate_resolution_propagates_foundry_lookup_error(spark):
         service.investigate_resolution(
             _break_record(),
             segment_type=GLSegmentType.ENTITY,
-            mapping_name='TEST_MAPPING',
         )

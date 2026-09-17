@@ -27,6 +27,18 @@ _AS_OF_DATE_COLUMN = 'AS_OF_DT'
 _ACCOUNTED_CURRENCY_COLUMN = 'POSTING_MEASURE_FUNC_CCY_CD'
 
 
+SEGMENT_MAPPING_NAMES = {
+    GLSegmentType.ENTITY: 'ENTITY_MAPPING',
+    GLSegmentType.BRANCH: 'BRANCH_MAPPING',
+    GLSegmentType.DEPARTMENT: 'DEPARTMENT_MAPPING',
+    GLSegmentType.ACCOUNT: 'ACCOUNT_TB_MAPPING',
+    GLSegmentType.SUB_ACCOUNT: 'ACCOUNT_TB_MAPPING',
+    GLSegmentType.AFFILIATE: 'AFFILIATE_CODE_MAPPING',
+    GLSegmentType.PRODUCT: 'ACCOUNT_TB_MAPPING',
+    GLSegmentType.BOOK: 'ACCOUNT_TB_MAPPING',
+}
+
+
 class AtlasEvidenceService:
     def __init__(
         self,
@@ -40,9 +52,15 @@ class AtlasEvidenceService:
     def investigate_resolution(
         self,
         break_record: BreakRecord,
-        segment_type: GLSegmentType,
-        mapping_name: str,
+        segment_type: GLSegmentType
     ) -> AtlasResolutionEvidence:
+        mapping_name = SEGMENT_MAPPING_NAMES.get(segment_type)
+
+        if mapping_name is None:
+            raise ValueError(
+                f'No Atlas mapping configured for segment {segment_type}.'
+            )
+        
         foundry_inputs = self.get_foundry_mapping_input_values(
             break_record=break_record,
             mapping_name=mapping_name,
