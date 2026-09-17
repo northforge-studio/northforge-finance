@@ -6,6 +6,8 @@ from pyspark.sql.types import (
     StructType,
 )
 
+from registry.models import GLSegmentType
+
 
 TRIAL_BALANCE_SOURCE_SCHEMA = StructType(
     [
@@ -263,6 +265,26 @@ TRIAL_BALANCE_POSTING_SCHEMA = StructType(
         StructField('PRODUCER_RUN_ID', StringType(), False),
     ]
 )
+
+
+# Physical TRIAL_BALANCE_POSTING_SCHEMA / TRIAL_BALANCE_ENRICHMENT_SCHEMA
+# column carrying each GL segment. GLSegmentType itself only carries the
+# Registry segment code and the GLSegments/Interface attribute name
+# (registry.models.GLSegmentType), neither of which is the foundry_posting
+# column name, so that correspondence is kept here. It is cross-checked
+# against data/spec/file_layout.csv, which independently confirms the same
+# posting-column -> interface-column pairing.
+TRIAL_BALANCE_POSTING_SEGMENT_COLUMNS: dict[GLSegmentType, str] = {
+    GLSegmentType.ENTITY: 'GL_ENTITY_CD',
+    GLSegmentType.BRANCH: 'GL_BRANCH_CD',
+    GLSegmentType.DEPARTMENT: 'GL_DEPT_CD',
+    GLSegmentType.ACCOUNT: 'GL_ACCOUNT',
+    GLSegmentType.SUB_ACCOUNT: 'GL_SUB_ACCOUNT',
+    GLSegmentType.AFFILIATE: 'GL_AFFILIATE_CD',
+    GLSegmentType.PRODUCT: 'GL_PRODUCT_CD',
+    GLSegmentType.BOOK: 'GL_BOOK_CD',
+    GLSegmentType.SOURCE: 'GL_COA_SRC_SEGMENT',
+}
 
 
 TRIAL_BALANCE_INTERFACE_SCHEMA = StructType(

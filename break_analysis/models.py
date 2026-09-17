@@ -148,3 +148,9 @@ class BreakPartitionKey:
     entity_cd: str
     source_cd: str
     accounted_currency: str
+
+
+@dataclass(frozen=True)
+class AtlasInputValues:
+    values: dict[str, str]
+    source_record_count: int
