@@ -8,11 +8,17 @@ from core.logging import get_logger, short_id
 from atlas import AtlasClient
 from atlas.models import MappingDefinition
 
+from registry.models import GLSegmentType
+
 from foundry.contracts import TRIAL_BALANCE_POSTING_SEGMENT_COLUMNS
 from foundry.repository import TrialBalanceRepository
 
-from break_analysis.models import FoundryMappingInputValues, BreakRecord
-
+from break_analysis.models import (
+    BreakRecord,
+    AtlasInputResolution,
+    AtlasResolutionEvidence,
+    FoundryMappingInputValues 
+)
 
 logger = get_logger(__name__)
 
@@ -29,6 +35,36 @@ class AtlasEvidenceService:
     ):
         self._atlas = atlas_client
         self._foundry = foundry_repository
+
+
+    def investigate_resolution(
+        self,
+        break_record: BreakRecord,
+        segment_type: GLSegmentType,
+        mapping_name: str,
+    ) -> AtlasResolutionEvidence:
+        foundry_inputs = self.get_foundry_mapping_input_values(
+            break_record=break_record,
+            mapping_name=mapping_name,
+        )
+
+        input_resolutions = tuple(
+            AtlasInputResolution(
+                foundry_inputs=input_values,
+                resolution=self._atlas.explain_resolution(
+                    mapping_name=mapping_name,
+                    input_values=input_values.values,
+                ),
+            )
+            for input_values in foundry_inputs
+        )
+
+        return AtlasResolutionEvidence(
+            recon_result_id=break_record.recon_result_id,
+            segment_type=segment_type,
+            mapping_name=mapping_name,
+            input_resolutions=input_resolutions,
+        )
 
 
     def get_foundry_mapping_input_values(

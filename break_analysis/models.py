@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from gl.models import GLSegments
 from registry.models import GLSegmentType
+from atlas.models import MappingResolutionEvidence
 
 
 class BreakAnalysisStatus(StrEnum):
@@ -154,3 +155,17 @@ class BreakPartitionKey:
 class FoundryMappingInputValues:
     values: dict[str, str]
     source_record_count: int
+
+
+@dataclass(frozen=True)
+class AtlasInputResolution:
+    foundry_inputs: FoundryMappingInputValues
+    resolution: MappingResolutionEvidence
+
+
+@dataclass(frozen=True)
+class AtlasResolutionEvidence:
+    recon_result_id: UUID
+    segment_type: GLSegmentType
+    mapping_name: str
+    input_resolutions: tuple[AtlasInputResolution, ...]

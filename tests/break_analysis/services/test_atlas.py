@@ -6,12 +6,19 @@ import pytest
 
 from pyspark.sql.types import DateType, StringType, StructField, StructType
 
-from atlas.models import FieldType, LookupType, MappingDefinition, MappingField
+from atlas.models import (
+    FieldType,
+    LookupType,
+    MappingDefinition,
+    MappingField,
+    MappingResolutionEvidence,
+)
 
 from break_analysis.services.atlas import AtlasEvidenceService
 from break_analysis.models import BreakRecord
 
 from gl.models import GLSegments
+from registry.models import GLSegmentType
 
 
 AS_OF_DATE = date(2026, 1, 1)
@@ -58,11 +65,27 @@ _POSTING_SCHEMA = StructType([
 
 
 class _FakeAtlasClient:
-    def __init__(self, definition: MappingDefinition):
+    def __init__(
+        self,
+        definition: MappingDefinition,
+        resolutions: dict[tuple, MappingResolutionEvidence] | None = None,
+    ):
         self._definition = definition
+        self._resolutions = resolutions or {}
+        self.explain_resolution_calls: list[dict] = []
 
     def get_definition(self, mapping_name: str) -> MappingDefinition:
         return self._definition
+
+    def explain_resolution(
+        self,
+        mapping_name: str,
+        input_values: dict[str, str],
+    ) -> MappingResolutionEvidence:
+        self.explain_resolution_calls.append(
+            dict(mapping_name=mapping_name, input_values=input_values)
+        )
+        return self._resolutions[tuple(sorted(input_values.items()))]
 
 
 class _FakeFoundryRepository:
@@ -147,10 +170,25 @@ def _postings_df(spark, rows: list[dict]):
     )
 
 
-def _service(definition: MappingDefinition, df) -> AtlasEvidenceService:
+def _service(
+    definition: MappingDefinition,
+    df,
+    resolutions: dict[tuple, MappingResolutionEvidence] | None = None,
+) -> AtlasEvidenceService:
     return AtlasEvidenceService(
-        atlas_client=_FakeAtlasClient(definition),
+        atlas_client=_FakeAtlasClient(definition, resolutions),
         foundry_repository=_FakeFoundryRepository(df),
+    )
+
+
+def _resolution(mapping_name: str, values: dict[str, str], output: str) -> MappingResolutionEvidence:
+    return MappingResolutionEvidence(
+        mapping_name=mapping_name,
+        input_values=values,
+        candidates=(),
+        active_candidate_found=True,
+        resolved=True,
+        mapping_output={'OUTPUT_VALUE': output},
     )
 
 
@@ -299,4 +337,81 @@ def test_mapping_with_no_input_fields_raises(spark):
     with pytest.raises(ValueError):
         service.get_foundry_mapping_input_values(
             _break_record(), mapping_name='TEST_MAPPING',
+        )
+
+
+def test_investigate_resolution_wraps_single_foundry_input_with_its_resolution(spark):
+    definition = _mapping_definition()
+    df = _postings_df(spark, [_posting_row()])
+    values = {'COUNTRY_CD': 'US', 'COUNTERPARTY_CD': '1000'}
+    resolution = _resolution('TEST_MAPPING', values, output='RESOLVED_A')
+    service = _service(
+        definition, df,
+        resolutions={tuple(sorted(values.items())): resolution},
+    )
+    break_record = _break_record()
+
+    evidence = service.investigate_resolution(
+        break_record,
+        segment_type=GLSegmentType.ENTITY,
+        mapping_name='TEST_MAPPING',
+    )
+
+    assert evidence.recon_result_id == break_record.recon_result_id
+    assert evidence.segment_type == GLSegmentType.ENTITY
+    assert evidence.mapping_name == 'TEST_MAPPING'
+    assert len(evidence.input_resolutions) == 1
+    assert evidence.input_resolutions[0].foundry_inputs.values == values
+    assert evidence.input_resolutions[0].resolution is resolution
+
+
+def test_investigate_resolution_pairs_each_foundry_input_with_its_own_resolution(spark):
+    definition = _mapping_definition()
+    df = _postings_df(
+        spark,
+        [
+            _posting_row(COUNTRY_CD='US', COUNTERPARTY_CD='1000'),
+            _posting_row(COUNTRY_CD='US', COUNTERPARTY_CD='2000'),
+        ],
+    )
+    values_a = {'COUNTRY_CD': 'US', 'COUNTERPARTY_CD': '1000'}
+    values_b = {'COUNTRY_CD': 'US', 'COUNTERPARTY_CD': '2000'}
+    resolution_a = _resolution('TEST_MAPPING', values_a, output='RESOLVED_A')
+    resolution_b = _resolution('TEST_MAPPING', values_b, output='RESOLVED_B')
+    service = _service(
+        definition, df,
+        resolutions={
+            tuple(sorted(values_a.items())): resolution_a,
+            tuple(sorted(values_b.items())): resolution_b,
+        },
+    )
+
+    evidence = service.investigate_resolution(
+        _break_record(),
+        segment_type=GLSegmentType.ENTITY,
+        mapping_name='TEST_MAPPING',
+    )
+
+    by_counterparty = {
+        input_resolution.foundry_inputs.values['COUNTERPARTY_CD']: input_resolution
+        for input_resolution in evidence.input_resolutions
+    }
+    assert len(by_counterparty) == 2
+    assert by_counterparty['1000'].resolution is resolution_a
+    assert by_counterparty['2000'].resolution is resolution_b
+
+
+def test_investigate_resolution_propagates_foundry_lookup_error(spark):
+    definition = _mapping_definition()
+    df = _postings_df(
+        spark,
+        [_posting_row(GL_ENTITY_CD='UNRELATED')],
+    )
+    service = _service(definition, df)
+
+    with pytest.raises(ValueError):
+        service.investigate_resolution(
+            _break_record(),
+            segment_type=GLSegmentType.ENTITY,
+            mapping_name='TEST_MAPPING',
         )
