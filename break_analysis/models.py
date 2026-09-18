@@ -13,11 +13,13 @@ from atlas.models import MappingResolutionEvidence
 
 class BreakAnalysisStatus(StrEnum):
     EXPLAINED = 'EXPLAINED'
+    PARTIALLY_EXPLAINED = 'PARTIALLY_EXPLAINED'
     UNEXPLAINED = 'UNEXPLAINED'
 
 
 class RootCause(StrEnum):
     REGISTRY_INVALID_SEGMENT = 'REGISTRY_INVALID_SEGMENT'
+    ATLAS_UNRESOLVED_SEGMENT = 'ATLAS_UNRESOLVED_SEGMENT'
 
 
 @dataclass(frozen=True)
@@ -36,9 +38,19 @@ class BreakRecord:
     difference_amount: Decimal
 
 
+class BreakFinding(BaseModel):
+    root_cause: RootCause
+
+    recon_result_id: UUID
+    segment_type: GLSegmentType
+    segment_value: str
+
+    explanation: str
+
+
 class BreakAnalysisConclusion(BaseModel):
     status: BreakAnalysisStatus
-    root_cause: RootCause | None
+    findings: tuple[BreakFinding, ...]
     explanation: str
 
 
@@ -47,7 +59,7 @@ class BreakAnalysisResult(BaseModel):
     recon_result_ids: tuple[UUID, ...]
 
     status: BreakAnalysisStatus
-    root_cause: RootCause | None
+    findings: tuple[BreakFinding, ...]
     explanation: str
 
 

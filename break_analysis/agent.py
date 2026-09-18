@@ -224,21 +224,33 @@ class BreakAnalysisAgent:
 
         duration_ms = round((time.monotonic() - start) * 1000)
 
+        finding_causes = [
+            finding.root_cause
+            for finding in conclusion.findings
+        ]
+
         logger.info(
-            'Break case analyzed | case_id=%s | status=%s | root_cause=%s | '
+            'Break case analyzed | case_id=%s | status=%s | findings=%s | '
             'tool_rounds=%s | tool_calls=%s | unique_tool_calls=%s | '
             'llm_calls=%s | llm_input_tokens=%s | llm_output_tokens=%s | '
             'duration_ms=%s',
-            case_id, conclusion.status, conclusion.root_cause,
-            tool_round, tool_calls_total, len(tool_cache),
-            llm_round, llm_input_tokens, llm_output_tokens, duration_ms
+            case_id,
+            conclusion.status,
+            finding_causes,
+            tool_round,
+            tool_calls_total,
+            len(tool_cache),
+            llm_round,
+            llm_input_tokens,
+            llm_output_tokens,
+            duration_ms,
         )
 
         return BreakAnalysisResult(
             case_id=break_case.case_id,
             recon_result_ids=tuple(record.recon_result_id for record in break_case.all_records),
             status=conclusion.status,
-            root_cause=conclusion.root_cause,
+            findings=conclusion.findings,
             explanation=conclusion.explanation
         )
 
