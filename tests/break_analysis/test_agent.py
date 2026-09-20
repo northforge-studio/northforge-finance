@@ -132,6 +132,16 @@ class _FakeRegistryClient:
         return self._is_valid
 
 
+class _FakeAtlasTools:
+    def __init__(self, evidence=None):
+        self._evidence = evidence
+        self.calls = []
+
+    def investigate_resolution(self, workflow_run_id, recon_result_id, segment_type):
+        self.calls.append((workflow_run_id, recon_result_id, segment_type))
+        return self._evidence
+
+
 _CONCLUSION = BreakAnalysisConclusion(
     status='EXPLAINED',
     findings=(),
@@ -142,6 +152,7 @@ _CONCLUSION = BreakAnalysisConclusion(
 def _agent(
     responses,
     registry_client=None,
+    atlas_tools=None,
     conclusion=None,
     parsing_error=None,
     conclusion_usage_metadata=None,
@@ -158,7 +169,12 @@ def _agent(
         parsing_error=parsing_error,
         conclusion_usage_metadata=conclusion_usage_metadata,
     )
-    return BreakAnalysisAgent(llm=llm, registry_tools=registry_tools, **kwargs)
+    return BreakAnalysisAgent(
+        llm=llm,
+        atlas_tools=atlas_tools or _FakeAtlasTools(),
+        registry_tools=registry_tools,
+        **kwargs
+    )
 
 
 # -- logging --------------------------------------------------------------
