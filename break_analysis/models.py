@@ -13,7 +13,6 @@ from atlas.models import MappingResolutionEvidence
 
 class BreakAnalysisStatus(StrEnum):
     EXPLAINED = 'EXPLAINED'
-    PARTIALLY_EXPLAINED = 'PARTIALLY_EXPLAINED'
     UNEXPLAINED = 'UNEXPLAINED'
 
 

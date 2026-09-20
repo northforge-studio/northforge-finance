@@ -7,8 +7,9 @@ from langchain_core.messages import BaseMessage, ToolMessage, HumanMessage, Syst
 
 from core.logging import get_logger, short_id
 
-from break_analysis.prompts import EVIDENCE_PROMPT, CONCLUSION_PROMPT
+from break_analysis.prompts import EVIDENCE_SYSTEM_PROMPT, CONCLUSION_SYSTEM_PROMPT
 from break_analysis.tools.registry import RegistryTools, ValidateSegmentInput
+from break_analysis.tools.atlas import AtlasTools, InvestigateAtlasResolutionInput
 from break_analysis.models import (
     BreakCase,
     BreakAnalysisResult,
@@ -24,6 +25,7 @@ class BreakAnalysisAgent:
     def __init__(
         self,
         llm: BaseChatModel,
+        atlas_tools: AtlasTools,
         registry_tools: RegistryTools,
         max_tool_rounds: int = 10
     ):
@@ -31,6 +33,7 @@ class BreakAnalysisAgent:
             raise ValueError('max_tool_rounds must be at least 1.')
 
         self._llm = llm
+        self._atlas_tools = atlas_tools
         self._registry_tools = registry_tools
         self._max_tool_rounds = max_tool_rounds
 
@@ -52,6 +55,15 @@ class BreakAnalysisAgent:
                     'including its existence and status.'
                 ),
                 args_schema=ValidateSegmentInput
+            ),
+            StructuredTool.from_function(
+                func=self._atlas_tools.investigate_resolution,
+                name='investigate_resolution',
+                description=(
+                    'Investigate why a blank or unresolved GL segment value '
+                    'failed to resolve through Atlas mapping.'
+                ),
+                args_schema=InvestigateAtlasResolutionInput
             )
         ]
 
@@ -96,7 +108,7 @@ class BreakAnalysisAgent:
         llm_round += 1
         response, input_tokens, output_tokens = self._invoke_with_tools(
             [
-                SystemMessage(content=EVIDENCE_PROMPT),
+                SystemMessage(content=EVIDENCE_SYSTEM_PROMPT),
                 HumanMessage(content=str(break_context)),
                 *messages
             ],
@@ -187,7 +199,7 @@ class BreakAnalysisAgent:
             llm_round += 1
             response, input_tokens, output_tokens = self._invoke_with_tools(
                 [
-                    SystemMessage(content=EVIDENCE_PROMPT),
+                    SystemMessage(content=EVIDENCE_SYSTEM_PROMPT),
                     HumanMessage(content=str(break_context)),
                     *messages
                 ],
@@ -200,7 +212,7 @@ class BreakAnalysisAgent:
         llm_round += 1
         structured_result, input_tokens, output_tokens = self._invoke_structured(
             [
-                SystemMessage(content=CONCLUSION_PROMPT),
+                SystemMessage(content=CONCLUSION_SYSTEM_PROMPT),
                 HumanMessage(content=str(break_case)),
                 *messages
             ],

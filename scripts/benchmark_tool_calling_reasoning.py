@@ -38,7 +38,7 @@ from break_analysis.models import (
     BreakRecord,
     BreakTopology,
 )
-from break_analysis.prompts import EVIDENCE_PROMPT
+from break_analysis.prompts import EVIDENCE_SYSTEM_PROMPT
 from break_analysis.tools.registry import RegistryTools, ValidateSegmentInput
 from gl.models import GLSegments
 from registry.models import GLSegmentType
@@ -368,7 +368,7 @@ def run_scenario(llm: ChatOllama, tools: list, scenario: Scenario) -> list[RunRe
         ('reasoning=False', {'reasoning': False}),
     ]:
         bound = llm.bind_tools(tools, **reasoning_kwargs)
-        messages = [SystemMessage(content=EVIDENCE_PROMPT), *scenario.messages]
+        messages = [SystemMessage(content=EVIDENCE_SYSTEM_PROMPT), *scenario.messages]
 
         for rep in range(1, REPS + 1):
             start = time.monotonic()

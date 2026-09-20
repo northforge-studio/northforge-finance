@@ -1,4 +1,8 @@
 from .registry import RegistryTools
+from .atlas import AtlasTools
 
 
-__all__ = ['RegistryTools']
+__all__ = [
+    'AtlasTools',
+    'RegistryTools',
+]
