@@ -248,7 +248,7 @@ class MappingManager:
                 [tuple(input_values[column] for column in source_columns)],
                 schema=source_columns,
             )
-            .withColumn(self._ROW_ID, F.lit(0))
+            .withColumn(self._ROW_ID, F.monotonically_increasing_id())
         )
 
 
