@@ -1,5 +1,6 @@
 import json
 import time
+from collections import Counter
 
 from langchain_core.tools import StructuredTool
 from langchain_core.language_models import BaseChatModel
@@ -236,19 +237,23 @@ class BreakAnalysisAgent:
 
         duration_ms = round((time.monotonic() - start) * 1000)
 
-        finding_causes = [
-            finding.root_cause
-            for finding in conclusion.findings
-        ]
+        finding_causes = Counter(
+            finding.root_cause for finding in conclusion.findings
+        )
+        finding_causes_summary = ', '.join(
+            f'{root_cause}:{count}'
+            for root_cause, count in finding_causes.items()
+        )
 
         logger.info(
             'Break case analyzed | case_id=%s | status=%s | findings=%s | '
-            'tool_rounds=%s | tool_calls=%s | unique_tool_calls=%s | '
-            'llm_calls=%s | llm_input_tokens=%s | llm_output_tokens=%s | '
-            'duration_ms=%s',
+            'findings_by_cause=%s | tool_rounds=%s | tool_calls=%s | '
+            'unique_tool_calls=%s | llm_calls=%s | llm_input_tokens=%s | '
+            'llm_output_tokens=%s | duration_ms=%s',
             case_id,
             conclusion.status,
-            finding_causes,
+            len(conclusion.findings),
+            finding_causes_summary,
             tool_round,
             tool_calls_total,
             len(tool_cache),
