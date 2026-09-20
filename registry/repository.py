@@ -24,7 +24,7 @@ class RegistryRepository:
         segment_cd: str,
     ) -> DataFrame:
         if segment not in SEGMENT_SCHEMAS:
-            raise ValueError(f"Unsupported segment: {segment}")
+            raise ValueError(f'Unsupported segment: {segment}')
 
         schema = SEGMENT_SCHEMAS[segment]
         code_column = SEGMENT_CODE_COLUMNS[segment]
@@ -46,7 +46,7 @@ class RegistryRepository:
         business_dt: date,
         segment_cd: str,
     ) -> DataFrame:
-        """Registry record for this segment value, restricted to STATUS == 'A'."""
+        '''Registry record for this segment value, restricted to STATUS == 'A'.'''
         return self._segment_records(segment, business_dt, segment_cd).filter(
             F.col('STATUS') == 'A'
         )
@@ -58,5 +58,5 @@ class RegistryRepository:
         business_dt: date,
         segment_cd: str,
     ) -> DataFrame:
-        """Registry record for this segment value regardless of STATUS."""
+        '''Registry record for this segment value regardless of STATUS.'''
         return self._segment_records(segment, business_dt, segment_cd)

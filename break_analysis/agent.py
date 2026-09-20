@@ -7,7 +7,7 @@ from langchain_core.messages import BaseMessage, ToolMessage, HumanMessage, Syst
 
 from core.logging import get_logger, short_id
 
-from break_analysis.prompts import TOOL_SYSTEM_PROMPT, FINAL_SYSTEM_PROMPT
+from break_analysis.prompts import EVIDENCE_PROMPT, CONCLUSION_PROMPT
 from break_analysis.tools.registry import RegistryTools, ValidateSegmentInput
 from break_analysis.models import (
     BreakCase,
@@ -96,7 +96,7 @@ class BreakAnalysisAgent:
         llm_round += 1
         response, input_tokens, output_tokens = self._invoke_with_tools(
             [
-                SystemMessage(content=TOOL_SYSTEM_PROMPT),
+                SystemMessage(content=EVIDENCE_PROMPT),
                 HumanMessage(content=str(break_context)),
                 *messages
             ],
@@ -187,7 +187,7 @@ class BreakAnalysisAgent:
             llm_round += 1
             response, input_tokens, output_tokens = self._invoke_with_tools(
                 [
-                    SystemMessage(content=TOOL_SYSTEM_PROMPT),
+                    SystemMessage(content=EVIDENCE_PROMPT),
                     HumanMessage(content=str(break_context)),
                     *messages
                 ],
@@ -200,7 +200,7 @@ class BreakAnalysisAgent:
         llm_round += 1
         structured_result, input_tokens, output_tokens = self._invoke_structured(
             [
-                SystemMessage(content=FINAL_SYSTEM_PROMPT),
+                SystemMessage(content=CONCLUSION_PROMPT),
                 HumanMessage(content=str(break_case)),
                 *messages
             ],

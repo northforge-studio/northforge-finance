@@ -23,7 +23,7 @@ class ReferenceRepository:
         elif reference_data == ReferenceData.COUNTERPARTY:
             schema = COUNTERPARTY_SCHEMA
         else:
-            raise ValueError(f"Unsupported reference data: {reference_data}")
+            raise ValueError(f'Unsupported reference data: {reference_data}')
 
         return self._store.read(
             table_name=reference_data,

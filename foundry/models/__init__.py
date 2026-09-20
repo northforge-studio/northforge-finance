@@ -1,4 +1,4 @@
 from .pipeline import PipelineConfig
 
 
-__all__ = ["PipelineConfig"]
+__all__ = ['PipelineConfig']

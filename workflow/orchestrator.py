@@ -21,13 +21,14 @@ logger = get_logger(__name__)
 
 
 class WorkflowOrchestrator:
-    """Owns execution/workflow lifecycle across Foundry and GL.
+    '''
+    Owns execution/workflow lifecycle across Foundry and GL.
 
     Foundry and GL each own their own domain processing and rollback
     mechanics; this class decides when to start/complete/fail executions,
     how the execution topology and RunDependency lineage are shaped, and
     when a failed execution's domain rollback should run.
-    """
+    '''
 
     def __init__(
         self,

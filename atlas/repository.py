@@ -29,10 +29,13 @@ class AtlasRepository:
 
 
     def get_mapping_details(self, mapping_name: str) -> Mapping:
-        """Diagnostic counterpart to get_mapping(): includes inactive rows
+        '''
+        Diagnostic counterpart to get_mapping(): includes inactive rows
         and each row's STATUS, so callers can explain how inputs would
         resolve. Not used by MappingManager.apply(), which stays
-        active-only via get_mapping()."""
+        active-only via get_mapping().
+        '''
+
         definition = self.get_definition(mapping_name)
         data = self._read_mapping_data(
             definition,

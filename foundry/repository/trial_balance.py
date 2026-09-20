@@ -28,7 +28,7 @@ class TrialBalanceRepository:
         ).filter(F.col('BUSINESS_DT') == business_dt)
 
         if source_df.isEmpty():
-            raise ValueError(f"No source data found for business date: {business_dt}")
+            raise ValueError(f'No source data found for business date: {business_dt}')
         
         return source_df
 
@@ -40,7 +40,7 @@ class TrialBalanceRepository:
         ).filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
 
         if staging_df.isEmpty():
-            raise ValueError(f"No staging data found for workflow run: {workflow_run_id}")
+            raise ValueError(f'No staging data found for workflow run: {workflow_run_id}')
 
         return staging_df
 
@@ -52,7 +52,7 @@ class TrialBalanceRepository:
         ).filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
 
         if enrichment_df.isEmpty():
-            raise ValueError(f"No enrichment data found for workflow run: {workflow_run_id}")
+            raise ValueError(f'No enrichment data found for workflow run: {workflow_run_id}')
 
         return enrichment_df
 
@@ -64,7 +64,7 @@ class TrialBalanceRepository:
         ).filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
 
         if reporting_df.isEmpty():
-            raise ValueError(f"No reporting data found for workflow run: {workflow_run_id}")
+            raise ValueError(f'No reporting data found for workflow run: {workflow_run_id}')
 
         return reporting_df
 
@@ -76,7 +76,7 @@ class TrialBalanceRepository:
         ).filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
 
         if posting_df.isEmpty():
-            raise ValueError(f"No posting data found for workflow run: {workflow_run_id}")
+            raise ValueError(f'No posting data found for workflow run: {workflow_run_id}')
 
         return posting_df
 
@@ -88,7 +88,7 @@ class TrialBalanceRepository:
         ).filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
 
         if interface_df.isEmpty():
-            raise ValueError(f"No interface data found for workflow run: {workflow_run_id}")
+            raise ValueError(f'No interface data found for workflow run: {workflow_run_id}')
 
         return interface_df
 

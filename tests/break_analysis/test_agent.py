@@ -134,7 +134,7 @@ class _FakeRegistryClient:
 
 _CONCLUSION = BreakAnalysisConclusion(
     status='EXPLAINED',
-    root_cause=None,
+    findings=(),
     explanation='Segment is valid; break explained by timing.',
 )
 

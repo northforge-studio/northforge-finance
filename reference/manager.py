@@ -16,7 +16,7 @@ class ReferenceManager:
         if reference_data == ReferenceData.COUNTERPARTY:
             return self._enrich_counterparty(df)
         else:
-            raise ValueError(f"Unsupported reference data: {reference_data}")
+            raise ValueError(f'Unsupported reference data: {reference_data}')
 
 
     def _enrich_fx_rate(self, df: DataFrame) -> DataFrame:
