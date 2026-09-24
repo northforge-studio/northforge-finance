@@ -45,3 +45,10 @@ class EvalScenario:
     tool_fixtures: tuple[ToolFixture, ...]
 
     expected: EvalExpectation
+
+
+@dataclass(frozen=True)
+class EvalGrade:
+    passed: bool
+    failures: tuple[str, ...]
+    

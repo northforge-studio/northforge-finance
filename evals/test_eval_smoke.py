@@ -32,6 +32,7 @@ from evals.models import (
     EvalExpectation,
     ExpectedFinding
 )
+from evals.graders import grade_scenario
 from evals.fixtures import ToolFixtureStore
 
 
@@ -154,9 +155,15 @@ def test_registry_inactive_account(llm):
     )
 
     result = agent.analyze(scenario.break_case)
+    grade = grade_scenario(
+        scenario=scenario,
+        result=result,
+        calls=store.calls,
+    )
 
     print(result)
     print(store.calls)
+    print(grade)
 
 
 if __name__ == "__main__":
