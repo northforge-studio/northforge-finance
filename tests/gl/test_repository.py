@@ -1,26 +1,25 @@
-from datetime import date, datetime, timezone
+from datetime import date
 from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
-
 from pyspark.sql import DataFrame
 
 from core.store import CsvStore
-
-from registry.models import GLSegmentType
-
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
 from gl.models import (
-    GLInstruction, 
-    GLPosting, 
-    GLRejection, 
-    GLSegmentDefault, 
-    GLSegmentDefaults
+    GLInstruction,
+    GLPosting,
+    GLRejection,
+    GLSegmentDefault,
+    GLSegmentDefaults,
 )
 from gl.repository import GLRepository
+from registry.models import GLSegmentType
 
+from tests.support.constants import PRODUCER_RUN_ID, TIMESTAMP, WORKFLOW_RUN_ID
 from tests.support.fakes import FakeStore
+from tests.support.paths import GL_SEGMENT_DEFAULT_PATH
 
 
 @pytest.fixture(scope='module')
@@ -28,7 +27,7 @@ def repository(spark):
     store = CsvStore(
         spark=spark,
         table_locations={
-            'SEGMENT_DEFAULT': 'data/gl/segment_default.csv',
+            'SEGMENT_DEFAULT': GL_SEGMENT_DEFAULT_PATH,
         },
     )
     return GLRepository(store, spark)
@@ -92,7 +91,7 @@ def test_get_segment_default_works_against_a_fake_store(spark):
         [
             ('DEPT_CD', 'ENTITY_CD', 'ZZZ', '0099'),
         ],
-        ['SEGMENT_TYPE', 'CONTEXT_TYPE', 'CONTEXT_VALUE', 'DEFAULT_VALUE'],
+        schema=['SEGMENT_TYPE', 'CONTEXT_TYPE', 'CONTEXT_VALUE', 'DEFAULT_VALUE'],
     )
 
     store = FakeStore({'SEGMENT_DEFAULT': df})
@@ -109,7 +108,7 @@ def test_get_segment_default_works_against_a_fake_store(spark):
 def _make_posting(**overrides) -> GLPosting:
     fields = dict(
         gl_posting_id=uuid4(),
-        posted_at=datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        posted_at=TIMESTAMP,
         workflow_run_id=uuid4(),
         producer_run_id=uuid4(),
         dataclass='TRIAL_BALANCE',
@@ -297,7 +296,7 @@ def test_write_posting_preserves_decimal_precision(posting_repository):
 def _make_rejection(**overrides) -> GLRejection:
     fields = dict(
         gl_rejection_id=uuid4(),
-        rejected_at=datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        rejected_at=TIMESTAMP,
         workflow_run_id=uuid4(),
         producer_run_id=uuid4(),
         dataclass='TRIAL_BALANCE',
@@ -401,10 +400,6 @@ def test_get_rejections_returns_rows_from_multiple_producer_runs(
 
 
 # -- get_instructions -------------------------------------------------------
-
-WORKFLOW_RUN_ID = uuid4()
-PRODUCER_RUN_ID = uuid4()
-
 
 def _make_instruction(**overrides) -> GLInstruction:
     fields = dict(

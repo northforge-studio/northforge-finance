@@ -29,7 +29,7 @@ class _EnrichmentPipeline(NoOpPipeline):
 
 
 def test_enrichment_returns_zone_result_for_supplied_identity(spark):
-    df = spark.createDataFrame([(1,), (2,), (3,)], ['ID'])
+    df = spark.createDataFrame([(1,), (2,), (3,)], schema=['ID'])
     pipeline = make_pipeline(_EnrichmentPipeline, enrichment_df=df)
 
     identity = RunIdentity(
@@ -51,7 +51,7 @@ def test_enrichment_returns_zone_result_for_supplied_identity(spark):
 
 
 def test_enrichment_passes_workflow_run_id_to_pre_enrichment(spark):
-    df = spark.createDataFrame([(1,)], ['ID'])
+    df = spark.createDataFrame([(1,)], schema=['ID'])
     pipeline = make_pipeline(_EnrichmentPipeline, enrichment_df=df)
 
     identity = RunIdentity(
@@ -66,7 +66,7 @@ def test_enrichment_passes_workflow_run_id_to_pre_enrichment(spark):
 
 
 def test_enrichment_stamps_supplied_workflow_and_producer_run_id(spark):
-    df = spark.createDataFrame([(1,)], ['ID'])
+    df = spark.createDataFrame([(1,)], schema=['ID'])
     pipeline = make_pipeline(_EnrichmentPipeline, enrichment_df=df)
 
     identity = RunIdentity(
@@ -88,7 +88,7 @@ def test_enrichment_overwrites_upstream_producer_run_id(spark):
 
     df = spark.createDataFrame(
         [(1, upstream_workflow_run_id, upstream_producer_run_id)],
-        ['ID', 'WORKFLOW_RUN_ID', 'PRODUCER_RUN_ID'],
+        schema=['ID', 'WORKFLOW_RUN_ID', 'PRODUCER_RUN_ID'],
     )
     pipeline = make_pipeline(_EnrichmentPipeline, enrichment_df=df)
 

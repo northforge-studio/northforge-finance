@@ -1,9 +1,7 @@
-import pytest
 from unittest.mock import MagicMock, patch
 
 from core.db import PostgresConfig
 from core.store import CsvStore, PostgresStore
-
 from spec.repository import SpecRepository
 
 
@@ -21,7 +19,7 @@ POSTGRES_TABLE_LOCATIONS = {
 }
 
 
-def _write_transformations_csv(path):
+def _write_transformations_csv(path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, 'w') as f:
         f.write(
@@ -97,10 +95,7 @@ def test_get_transformations_resolves_logical_table_against_postgres():
         }
         mock_df.collect.return_value = [row]
 
-        store = PostgresStore(
-            spark=spark,
-            table_names=POSTGRES_TABLE_LOCATIONS,
-        )
+        store = PostgresStore(spark=spark, table_names=POSTGRES_TABLE_LOCATIONS)
 
         repository = SpecRepository(store)
 

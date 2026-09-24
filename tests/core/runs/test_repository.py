@@ -13,6 +13,8 @@ from core.runs.models import (
     WorkflowRunSummary,
 )
 
+from tests.support.constants import TIMESTAMP
+
 
 @pytest.fixture(scope='module')
 def executor():
@@ -31,7 +33,7 @@ def workflow_run(repository, executor):
         dataclass='TRIAL_BALANCE',
         business_dt=date(2026, 8, 24),
         status=RunStatus.RUNNING,
-        started_at=datetime.now(timezone.utc),
+        started_at=TIMESTAMP,
         completed_at=None,
     )
     repository.create_workflow_run(run)
@@ -65,12 +67,12 @@ def test_create_and_get_workflow_run(repository, workflow_run):
 
 
 def test_get_workflow_run_unknown_id_raises(repository):
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError, match='Unknown workflow_run_id'):
         repository.get_workflow_run(uuid4())
 
 
 def test_update_workflow_status(repository, workflow_run):
-    completed_at = datetime.now(timezone.utc)
+    completed_at = TIMESTAMP
 
     repository.update_workflow_status(
         workflow_run.workflow_run_id,
@@ -92,7 +94,7 @@ def test_create_and_get_execution_run(repository, workflow_run):
         component='foundry',
         operation='enrich',
         status=RunStatus.RUNNING,
-        started_at=datetime.now(timezone.utc),
+        started_at=TIMESTAMP,
         completed_at=None,
         retry_of_run_id=None,
     )
@@ -111,8 +113,8 @@ def test_create_and_get_execution_run_links_to_parent_and_retry(repository, work
         component='foundry',
         operation='enrich',
         status=RunStatus.SUCCEEDED,
-        started_at=datetime.now(timezone.utc),
-        completed_at=datetime.now(timezone.utc),
+        started_at=TIMESTAMP,
+        completed_at=TIMESTAMP,
         retry_of_run_id=None,
     )
     repository.create_execution_run(parent)
@@ -124,8 +126,8 @@ def test_create_and_get_execution_run_links_to_parent_and_retry(repository, work
         component='foundry',
         operation='enrich',
         status=RunStatus.FAILED,
-        started_at=datetime.now(timezone.utc),
-        completed_at=datetime.now(timezone.utc),
+        started_at=TIMESTAMP,
+        completed_at=TIMESTAMP,
         retry_of_run_id=None,
     )
     repository.create_execution_run(retried)
@@ -137,7 +139,7 @@ def test_create_and_get_execution_run_links_to_parent_and_retry(repository, work
         component='foundry',
         operation='enrich',
         status=RunStatus.RUNNING,
-        started_at=datetime.now(timezone.utc),
+        started_at=TIMESTAMP,
         completed_at=None,
         retry_of_run_id=retried.run_id,
     )
@@ -150,11 +152,11 @@ def test_create_and_get_execution_run_links_to_parent_and_retry(repository, work
 
 
 def test_get_execution_run_unknown_id_raises(repository):
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError, match='Unknown run_id'):
         repository.get_execution_run(uuid4())
 
 
-def _make_execution_run(workflow_run_id, **overrides):
+def _make_execution_run(workflow_run_id, **overrides) -> ExecutionRun:
     defaults = dict(
         run_id=uuid4(),
         workflow_run_id=workflow_run_id,
@@ -162,8 +164,8 @@ def _make_execution_run(workflow_run_id, **overrides):
         component='foundry',
         operation='enrich',
         status=RunStatus.SUCCEEDED,
-        started_at=datetime.now(timezone.utc),
-        completed_at=datetime.now(timezone.utc),
+        started_at=TIMESTAMP,
+        completed_at=TIMESTAMP,
         retry_of_run_id=None,
     )
     defaults.update(overrides)
@@ -274,7 +276,7 @@ def test_get_execution_runs_excludes_other_workflows(repository, workflow_run, e
         dataclass='TRIAL_BALANCE',
         business_dt=date(2026, 8, 24),
         status=RunStatus.RUNNING,
-        started_at=datetime.now(timezone.utc),
+        started_at=TIMESTAMP,
         completed_at=None,
     )
     repository.create_workflow_run(other_workflow)
@@ -311,13 +313,13 @@ def test_update_execution_status(repository, workflow_run):
         component='foundry',
         operation='enrich',
         status=RunStatus.RUNNING,
-        started_at=datetime.now(timezone.utc),
+        started_at=TIMESTAMP,
         completed_at=None,
         retry_of_run_id=None,
     )
     repository.create_execution_run(run)
 
-    completed_at = datetime.now(timezone.utc)
+    completed_at = TIMESTAMP
 
     repository.update_execution_status(
         run.run_id,
@@ -359,7 +361,7 @@ def test_get_workflow_dependencies_excludes_other_workflows(
         dataclass='TRIAL_BALANCE',
         business_dt=date(2026, 8, 24),
         status=RunStatus.RUNNING,
-        started_at=datetime.now(timezone.utc),
+        started_at=TIMESTAMP,
         completed_at=None,
     )
     repository.create_workflow_run(other_workflow)
@@ -449,5 +451,5 @@ def test_get_workflow_summary_with_no_executions(repository, workflow_run):
 
 
 def test_get_workflow_summary_unknown_workflow_raises(repository):
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError, match='Unknown workflow_run_id'):
         repository.get_workflow_summary(uuid4())

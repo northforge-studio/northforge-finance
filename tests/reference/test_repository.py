@@ -1,11 +1,11 @@
 import pytest
 
 from core.store import CsvStore
-
 from reference.models import ReferenceData
 from reference.repository import ReferenceRepository
 
 from tests.support.fakes import FakeStore
+from tests.support.paths import REFERENCE_FX_RATE_PATH, REFERENCE_COUNTERPARTY_PATH
 
 
 @pytest.fixture(scope='module')
@@ -13,8 +13,8 @@ def repository(spark):
     store = CsvStore(
         spark=spark,
         table_locations={
-            'REF_FX_RATE': 'data/reference/fx_rate.csv',
-            'REF_COUNTERPARTY': 'data/reference/counterparty.csv',
+            'REF_FX_RATE': REFERENCE_FX_RATE_PATH,
+            'REF_COUNTERPARTY': REFERENCE_COUNTERPARTY_PATH,
         },
     )
     return ReferenceRepository(store)
@@ -48,7 +48,7 @@ def test_get_counterparty_reads_configured_columns(repository):
 def test_get_fx_rate_works_against_a_fake_store(spark):
     fx_rate_df = spark.createDataFrame(
         [('CAD', 'USD', 1.35)],
-        ['FROM_CURRENCY', 'TO_CURRENCY', 'FX_RATE'],
+        schema=['FROM_CURRENCY', 'TO_CURRENCY', 'FX_RATE'],
     )
 
     store = FakeStore({'REF_FX_RATE': fx_rate_df})
@@ -56,5 +56,6 @@ def test_get_fx_rate_works_against_a_fake_store(spark):
 
     df = repository.get_reference_data(ReferenceData.FX_RATE)
 
-    assert df.count() == 1
-    assert df.first()['FX_RATE'] == 1.35
+    rows = df.collect()
+    assert len(rows) == 1
+    assert rows[0]['FX_RATE'] == 1.35

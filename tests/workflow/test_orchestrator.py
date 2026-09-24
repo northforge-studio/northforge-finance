@@ -6,6 +6,7 @@ from core.runs.models import (
     RunIdentity,
     RunStatus,
     ZoneResult,
+    ExecutionRun,
 )
 from foundry.models import PipelineConfig
 from gl.models import GLImportResult
@@ -25,10 +26,7 @@ class _FakePipeline:
     involvement at all.'''
 
     def __init__(self, business_dt=BUSINESS_DT, raise_in=None):
-        self.config = PipelineConfig(
-            dataclass='TRIAL_BALANCE',
-            business_dt=business_dt,
-        )
+        self.config = PipelineConfig(dataclass='TRIAL_BALANCE', business_dt=business_dt)
         self._raise_in = raise_in
         self.rollback_calls: list[tuple[str, RunIdentity]] = []
         self.zone_calls: dict[str, RunIdentity] = {}
@@ -49,14 +47,18 @@ class _FakePipeline:
     def staging(self, identity):
         return self._zone('staging', identity)
 
+
     def enrichment(self, identity):
         return self._zone('enrichment', identity)
+
 
     def reporting(self, identity):
         return self._zone('reporting', identity)
 
+
     def posting(self, identity):
         return self._zone('posting', identity)
+
 
     def interface(self, identity):
         return self._zone('interface', identity)
@@ -67,6 +69,8 @@ class _FakePipeline:
 
 
 class _FakeGL:
+    '''A GLClient stand-in that records imports and rollbacks, optionally failing.'''
+
     def __init__(self, raise_error=False, rejected_count=0):
         self._raise_error = raise_error
         self._rejected_count = rejected_count
@@ -96,7 +100,9 @@ class _FakeGL:
         self.rollback_calls.append(identity)
 
 
-def _executions_by_operation(repository: FakeRunRepository, workflow_run_id: UUID):
+def _executions_by_operation(
+    repository: FakeRunRepository, workflow_run_id: UUID,
+) -> dict[str, ExecutionRun]:
     return {
         execution.operation: execution
         for execution in repository.get_execution_runs(workflow_run_id)
@@ -234,7 +240,7 @@ def test_run_gl_requires_an_existing_workflow():
     run_tracker = make_run_tracker()
     orchestrator = WorkflowOrchestrator(run_tracker, _FakePipeline(), gl=_FakeGL())
 
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError, match='Unknown workflow_run_id'):
         orchestrator.run_gl(uuid4())
 
 

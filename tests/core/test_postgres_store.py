@@ -1,6 +1,6 @@
-import pytest
 from unittest.mock import MagicMock, patch
 
+import pytest
 from pyspark.sql.types import (
     IntegerType,
     StringType,
@@ -35,10 +35,7 @@ def mock_executor():
 def test_read_resolves_logical_table_to_physical_table(mock_executor):
     spark = MagicMock()
 
-    store = PostgresStore(
-        spark=spark,
-        table_names=TABLE_LOCATIONS,
-    )
+    store = PostgresStore(spark=spark, table_names=TABLE_LOCATIONS)
 
     store.read('CFG_TRANSFORMATIONS')
 
@@ -54,10 +51,7 @@ def test_write_resolves_logical_table_to_physical_table(mock_executor):
     df = MagicMock()
     df.columns = ['SRC_APP_CD', 'DATACLASS']
 
-    store = PostgresStore(
-        spark=spark,
-        table_names=TABLE_LOCATIONS,
-    )
+    store = PostgresStore(spark=spark, table_names=TABLE_LOCATIONS)
 
     store.write(df, table_name='CFG_TRANSFORMATIONS')
 
@@ -96,10 +90,7 @@ def test_write_fills_null_string_columns_with_empty_string(spark):
 def test_delete_uses_resolved_physical_table(mock_executor):
     spark = MagicMock()
 
-    store = PostgresStore(
-        spark=spark,
-        table_names=TABLE_LOCATIONS,
-    )
+    store = PostgresStore(spark=spark, table_names=TABLE_LOCATIONS)
 
     store.delete(
         'CFG_TRANSFORMATIONS',
@@ -115,10 +106,7 @@ def test_delete_uses_resolved_physical_table(mock_executor):
 def test_delete_lowercases_filter_column_names_in_sql(mock_executor):
     spark = MagicMock()
 
-    store = PostgresStore(
-        spark=spark,
-        table_names=TABLE_LOCATIONS,
-    )
+    store = PostgresStore(spark=spark, table_names=TABLE_LOCATIONS)
 
     store.delete(
         'CFG_TRANSFORMATIONS',
@@ -136,22 +124,16 @@ def test_delete_lowercases_filter_column_names_in_sql(mock_executor):
 def test_delete_requires_at_least_one_filter(mock_executor):
     spark = MagicMock()
 
-    store = PostgresStore(
-        spark=spark,
-        table_names=TABLE_LOCATIONS,
-    )
+    store = PostgresStore(spark=spark, table_names=TABLE_LOCATIONS)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='at least one filter'):
         store.delete('CFG_TRANSFORMATIONS', filters={})
 
 
 def test_read_unknown_table_raises_key_error(mock_executor):
     spark = MagicMock()
 
-    store = PostgresStore(
-        spark=spark,
-        table_names=TABLE_LOCATIONS,
-    )
+    store = PostgresStore(spark=spark, table_names=TABLE_LOCATIONS)
 
     with pytest.raises(KeyError, match='UNKNOWN'):
         store.read('UNKNOWN')
@@ -160,10 +142,7 @@ def test_read_unknown_table_raises_key_error(mock_executor):
 def test_delete_unknown_table_raises_key_error(mock_executor):
     spark = MagicMock()
 
-    store = PostgresStore(
-        spark=spark,
-        table_names=TABLE_LOCATIONS,
-    )
+    store = PostgresStore(spark=spark, table_names=TABLE_LOCATIONS)
 
     with pytest.raises(KeyError, match='UNKNOWN'):
         store.delete('UNKNOWN', filters={'DATACLASS': 'TRIAL_BALANCE'})

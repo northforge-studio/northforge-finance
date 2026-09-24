@@ -1,13 +1,12 @@
-from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA, POSTING_SCHEMA
 
-from tests.support.constants import BUSINESS_DT
+from tests.support.constants import BUSINESS_DT, TIMESTAMP
 
 
-def make_interface_values(workflow_run_id, **overrides):
+def make_interface_values(workflow_run_id, **overrides) -> tuple:
     values = dict(
         WORKFLOW_RUN_ID=str(workflow_run_id),
         PRODUCER_RUN_ID=str(uuid4()),
@@ -41,10 +40,10 @@ def make_interface_values(workflow_run_id, **overrides):
     return tuple(values[name] for name in INTERFACE_TRIAL_BALANCE_SCHEMA.fieldNames())
 
 
-def make_posting_values(workflow_run_id, **overrides):
+def make_posting_values(workflow_run_id, **overrides) -> tuple:
     values = dict(
         GL_POSTING_ID=str(uuid4()),
-        POSTED_AT=datetime(2026, 1, 1, 12, 0, tzinfo=timezone.utc),
+        POSTED_AT=TIMESTAMP,
         WORKFLOW_RUN_ID=str(workflow_run_id),
         PRODUCER_RUN_ID=str(uuid4()),
         DATACLASS='TRIAL_BALANCE',

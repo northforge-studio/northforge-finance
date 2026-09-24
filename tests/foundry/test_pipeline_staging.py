@@ -28,7 +28,7 @@ class _StagingPipeline(NoOpPipeline):
 
 
 def test_staging_returns_zone_result_for_supplied_identity(spark):
-    df = spark.createDataFrame([(1,), (2,), (3,)], ['ID'])
+    df = spark.createDataFrame([(1,), (2,), (3,)], schema=['ID'])
     pipeline = make_pipeline(_StagingPipeline, staging_df=df)
 
     identity = RunIdentity(
@@ -50,7 +50,7 @@ def test_staging_returns_zone_result_for_supplied_identity(spark):
 
 
 def test_staging_stamps_supplied_workflow_and_producer_run_id(spark):
-    df = spark.createDataFrame([(1,)], ['ID'])
+    df = spark.createDataFrame([(1,)], schema=['ID'])
     pipeline = make_pipeline(_StagingPipeline, staging_df=df)
 
     identity = RunIdentity(
@@ -72,7 +72,7 @@ def test_staging_overwrites_any_preexisting_run_identity_columns(spark):
 
     df = spark.createDataFrame(
         [(1, upstream_workflow_run_id, upstream_producer_run_id)],
-        ['ID', 'WORKFLOW_RUN_ID', 'PRODUCER_RUN_ID'],
+        schema=['ID', 'WORKFLOW_RUN_ID', 'PRODUCER_RUN_ID'],
     )
     pipeline = make_pipeline(_StagingPipeline, staging_df=df)
 

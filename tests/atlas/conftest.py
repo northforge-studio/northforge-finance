@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.support.paths import ATLAS_META_PATH, ATLAS_DATA_PATH
+
 
 def _strip_id_column(source: Path, dest: Path) -> None:
     # data/atlas/{meta,data}.csv carry a leading surrogate `id` column
@@ -19,12 +21,12 @@ def _strip_id_column(source: Path, dest: Path) -> None:
 @pytest.fixture(scope='session')
 def atlas_meta_path(tmp_path_factory) -> str:
     dest = tmp_path_factory.mktemp('atlas') / 'meta.csv'
-    _strip_id_column(Path('data/atlas/meta.csv'), dest)
+    _strip_id_column(Path(ATLAS_META_PATH), dest)
     return str(dest)
 
 
 @pytest.fixture(scope='session')
 def atlas_data_path(tmp_path_factory) -> str:
     dest = tmp_path_factory.mktemp('atlas') / 'data.csv'
-    _strip_id_column(Path('data/atlas/data.csv'), dest)
+    _strip_id_column(Path(ATLAS_DATA_PATH), dest)
     return str(dest)

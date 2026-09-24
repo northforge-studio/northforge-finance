@@ -3,9 +3,7 @@ from decimal import Decimal
 import pytest
 
 from core.store import CsvStore
-
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA, POSTING_SCHEMA
-
 from recon import ReconClient
 from recon.models import ReconRunResult
 from recon.repository import ReconRepository

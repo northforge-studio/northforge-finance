@@ -11,7 +11,7 @@ SCHEMA = StructType([
 ])
 
 
-def _write_csv(path, rows):
+def _write_csv(path, rows) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, 'w') as f:
         f.write('BUSINESS_DT,BATCH_ID,NAME\n')
@@ -59,7 +59,7 @@ def test_write_default_mode_appends(spark, tmp_path):
 
     df = spark.createDataFrame(
         [('2025-03-31', '1', 'first')],
-        ['BUSINESS_DT', 'BATCH_ID', 'NAME'],
+        schema=['BUSINESS_DT', 'BATCH_ID', 'NAME'],
     )
 
     store.write(df, table_name='TABLE')
@@ -112,7 +112,7 @@ def test_delete_requires_at_least_one_filter(spark, tmp_path):
 
     store = CsvStore(spark, table_locations={'TABLE': csv_path})
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='at least one filter'):
         store.delete('TABLE', filters={}, schema=SCHEMA)
 
 

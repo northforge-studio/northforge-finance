@@ -4,20 +4,18 @@ from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
-
 from pyspark.sql import DataFrame
 
-from core.store import CsvStore
 from core.runs.models import RunIdentity
-
-from registry.models import GLSegmentType
-
+from core.store import CsvStore
 from gl import GLClient
-from gl.models import GLInstruction, GLSegments, GLSegmentResolution
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
+from gl.models import GLInstruction, GLSegments, GLSegmentResolution
+from registry.models import GLSegmentType
 
 from tests.support.constants import BUSINESS_DT
 from tests.support.fakes import FakeRegistryClient
+from tests.support.paths import GL_SEGMENT_DEFAULT_PATH
 
 
 @pytest.fixture(scope='module')
@@ -39,7 +37,7 @@ def registry():
 def gl(spark, registry):
     return GLClient.from_csv(
         spark=spark,
-        segment_default_path='data/gl/segment_default.csv',
+        segment_default_path=GL_SEGMENT_DEFAULT_PATH,
         registry=registry,
     )
 
@@ -183,7 +181,7 @@ def test_validate_instruction_delegates_to_manager_for_invalid_instruction(gl):
 def gl_with_posting_support(spark, registry, tmp_path):
     return GLClient.from_csv(
         spark=spark,
-        segment_default_path='data/gl/segment_default.csv',
+        segment_default_path=GL_SEGMENT_DEFAULT_PATH,
         registry=registry,
         posting_path=tmp_path / 'POSTING',
         rejection_path=tmp_path / 'REJECTION',

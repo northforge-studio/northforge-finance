@@ -1,5 +1,5 @@
 from dataclasses import FrozenInstanceError
-from datetime import date, datetime, timezone
+from datetime import date
 from uuid import uuid4
 
 import pytest
@@ -14,21 +14,23 @@ from core.runs.models import (
     PipelineResult,
 )
 
+from tests.support.constants import TIMESTAMP
 
-def _make_workflow_run(**overrides):
+
+def _make_workflow_run(**overrides) -> WorkflowRun:
     defaults = dict(
         workflow_run_id=uuid4(),
         dataclass='TRIAL_BALANCE',
         business_dt=date(2026, 8, 24),
         status=RunStatus.RUNNING,
-        started_at=datetime.now(timezone.utc),
+        started_at=TIMESTAMP,
         completed_at=None,
     )
     defaults.update(overrides)
     return WorkflowRun(**defaults)
 
 
-def _make_execution_run(**overrides):
+def _make_execution_run(**overrides) -> ExecutionRun:
     defaults = dict(
         run_id=uuid4(),
         workflow_run_id=uuid4(),
@@ -36,7 +38,7 @@ def _make_execution_run(**overrides):
         component='foundry',
         operation='enrich',
         status=RunStatus.RUNNING,
-        started_at=datetime.now(timezone.utc),
+        started_at=TIMESTAMP,
         completed_at=None,
         retry_of_run_id=None,
     )
@@ -47,14 +49,14 @@ def _make_execution_run(**overrides):
 def test_workflow_run_is_frozen():
     run = _make_workflow_run()
 
-    with pytest.raises(FrozenInstanceError):
+    with pytest.raises(FrozenInstanceError, match='cannot assign to field'):
         run.status = RunStatus.SUCCEEDED
 
 
 def test_execution_run_is_frozen():
     run = _make_execution_run()
 
-    with pytest.raises(FrozenInstanceError):
+    with pytest.raises(FrozenInstanceError, match='cannot assign to field'):
         run.status = RunStatus.SUCCEEDED
 
 
@@ -78,7 +80,7 @@ def test_run_dependency_is_frozen():
         input_role='posting',
     )
 
-    with pytest.raises(FrozenInstanceError):
+    with pytest.raises(FrozenInstanceError, match='cannot assign to field'):
         dependency.input_role = 'oracle_accounting'
 
 
@@ -101,7 +103,7 @@ def test_run_status_values():
     }
 
 
-def _make_identity(**overrides):
+def _make_identity(**overrides) -> RunIdentity:
     defaults = dict(
         workflow_run_id=uuid4(),
         run_id=uuid4(),
@@ -111,7 +113,7 @@ def _make_identity(**overrides):
     return RunIdentity(**defaults)
 
 
-def _make_zone_result(**overrides):
+def _make_zone_result(**overrides) -> ZoneResult:
     defaults = dict(
         identity=_make_identity(),
         zone='STAGING',
@@ -125,14 +127,14 @@ def _make_zone_result(**overrides):
 def test_run_identity_is_frozen():
     identity = _make_identity()
 
-    with pytest.raises(FrozenInstanceError):
+    with pytest.raises(FrozenInstanceError, match='cannot assign to field'):
         identity.run_id = uuid4()
 
 
 def test_zone_result_is_frozen():
     zone_result = _make_zone_result()
 
-    with pytest.raises(FrozenInstanceError):
+    with pytest.raises(FrozenInstanceError, match='cannot assign to field'):
         zone_result.status = RunStatus.FAILED
 
 
@@ -152,7 +154,7 @@ def test_pipeline_result_is_frozen():
         zones=(),
     )
 
-    with pytest.raises(FrozenInstanceError):
+    with pytest.raises(FrozenInstanceError, match='cannot assign to field'):
         pipeline_result.status = RunStatus.FAILED
 
 

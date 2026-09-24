@@ -2,20 +2,18 @@ from uuid import uuid4
 
 import pytest
 
-from core.logging import short_id
-from registry.models import GLSegmentType
-
 from break_analysis.agent import BreakAnalysisAgent
-from break_analysis.tools.registry import RegistryTools
 from break_analysis.models import (
     BreakAnalysisConclusion,
     BreakCase,
     BreakTopology,
 )
-
-from tests.support.constants import AS_OF_DATE
+from break_analysis.tools.registry import RegistryTools
+from core.logging import short_id
+from registry.models import GLSegmentType
 
 from tests.break_analysis.factories import make_break_record
+from tests.support.constants import AS_OF_DATE
 
 
 def _make_break_case(**overrides) -> BreakCase:
@@ -41,24 +39,32 @@ def _make_tool_call(name='validate_segment', call_id='call_1', **arg_overrides) 
 
 
 class _FakeMessage:
+    '''A minimal LLM response message carrying tool calls and usage metadata.'''
+
     def __init__(self, tool_calls=(), usage_metadata=None):
         self.tool_calls = list(tool_calls)
         self.usage_metadata = usage_metadata
 
 
 class _FakeBoundLLM:
+    '''The tool-bound LLM, replaying the scripted responses in order.'''
+
     def __init__(self, responses):
         self._responses = list(responses)
+
 
     def invoke(self, messages):
         return self._responses.pop(0)
 
 
 class _FakeStructuredLLM:
+    '''The structured-output LLM, returning a fixed parsed conclusion.'''
+
     def __init__(self, parsed=None, parsing_error=None, usage_metadata=None):
         self._parsed = parsed
         self._parsing_error = parsing_error
         self._usage_metadata = usage_metadata
+
 
     def invoke(self, messages):
         return {
@@ -69,6 +75,8 @@ class _FakeStructuredLLM:
 
 
 class _FakeLLM:
+    '''A chat model stub exposing bind_tools and with_structured_output.'''
+
     def __init__(self, responses, parsed=None, parsing_error=None, conclusion_usage_metadata=None):
         self._bound = _FakeBoundLLM(responses)
         self._structured = _FakeStructuredLLM(
@@ -77,18 +85,23 @@ class _FakeLLM:
             usage_metadata=conclusion_usage_metadata,
         )
 
+
     def bind_tools(self, tools, reasoning=None):
         return self._bound
+
 
     def with_structured_output(self, schema, method=None, include_raw=False):
         return self._structured
 
 
 class _FakeRegistryClient:
+    '''Duck-types RegistryClient.validate_segment, optionally raising.'''
+
     def __init__(self, is_valid=True, raise_error=False):
         self._is_valid = is_valid
         self._raise_error = raise_error
         self.calls = []
+
 
     def validate_segment(self, segment_type, business_dt, segment_value):
         if self._raise_error:
@@ -99,9 +112,12 @@ class _FakeRegistryClient:
 
 
 class _FakeAtlasTools:
+    '''Duck-types AtlasTools.investigate_resolution, and records each call.'''
+
     def __init__(self, evidence=None):
         self._evidence = evidence
         self.calls = []
+
 
     def investigate_resolution(self, workflow_run_id, recon_result_id, segment_type):
         self.calls.append((workflow_run_id, recon_result_id, segment_type))

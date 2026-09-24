@@ -29,7 +29,7 @@ class _InterfacePipeline(NoOpPipeline):
 
 
 def test_interface_returns_zone_result_for_supplied_identity(spark):
-    df = spark.createDataFrame([(1,), (2,)], ['ID'])
+    df = spark.createDataFrame([(1,), (2,)], schema=['ID'])
     pipeline = make_pipeline(_InterfacePipeline, interface_df=df)
 
     identity = RunIdentity(
@@ -51,7 +51,7 @@ def test_interface_returns_zone_result_for_supplied_identity(spark):
 
 
 def test_interface_passes_workflow_run_id_to_pre_interface(spark):
-    df = spark.createDataFrame([(1,)], ['ID'])
+    df = spark.createDataFrame([(1,)], schema=['ID'])
     pipeline = make_pipeline(_InterfacePipeline, interface_df=df)
 
     identity = RunIdentity(
@@ -66,7 +66,7 @@ def test_interface_passes_workflow_run_id_to_pre_interface(spark):
 
 
 def test_interface_stamps_supplied_workflow_and_producer_run_id(spark):
-    df = spark.createDataFrame([(1,)], ['ID'])
+    df = spark.createDataFrame([(1,)], schema=['ID'])
     pipeline = make_pipeline(_InterfacePipeline, interface_df=df)
 
     identity = RunIdentity(

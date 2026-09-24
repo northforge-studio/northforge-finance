@@ -1,23 +1,22 @@
-from datetime import date, datetime, timezone
+from datetime import date
 from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
-
 from pyspark.sql import DataFrame
 
 from core.store import CsvStore
-
 from recon.models import ReconResult
 from recon.repository import ReconRepository
 
+from tests.support.constants import TIMESTAMP
 from tests.support.fakes import FakeStore
 
 
 def _make_result(**overrides) -> ReconResult:
     fields = dict(
         recon_result_id=uuid4(),
-        reconciled_at=datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+        reconciled_at=TIMESTAMP,
         workflow_run_id=uuid4(),
         producer_run_id=uuid4(),
         as_of_date=date(2026, 1, 1),

@@ -14,18 +14,17 @@ from uuid import UUID, uuid4
 import pytest
 
 from core.store import CsvStore
-
 from gl import GLClient
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
 from gl.models import GLInstruction
-from registry.models import GLSegmentType
-
 from recon import ReconClient
 from recon.models import ReconRunResult
 from recon.repository import ReconRepository
+from registry.models import GLSegmentType
 
 from tests.support.constants import BUSINESS_DT
 from tests.support.fakes import FakeRegistryClient
+from tests.support.paths import GL_SEGMENT_DEFAULT_PATH
 
 
 VALID_SEGMENTS = {
@@ -118,7 +117,7 @@ def registry():
 def gl(spark, tmp_path, registry):
     return GLClient.from_csv(
         spark=spark,
-        segment_default_path='data/gl/segment_default.csv',
+        segment_default_path=GL_SEGMENT_DEFAULT_PATH,
         registry=registry,
         posting_path=tmp_path / 'POSTING',
     )
@@ -135,7 +134,7 @@ def recon(spark, tmp_path, run_tracker, gl):
     )
 
 
-def _write_interface(spark, tmp_path, instructions):
+def _write_interface(spark, tmp_path, instructions) -> None:
     store = CsvStore(
         spark=spark,
         table_locations={

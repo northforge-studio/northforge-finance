@@ -1,16 +1,13 @@
-from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
 import pytest
-
-from pyspark.sql import functions as F
-
-from recon.contracts import RESULT_SCHEMA
+from pyspark.sql import functions as F, DataFrame
 
 from break_analysis.services.recon import ReconBreakRecordResolver
+from recon.contracts import RESULT_SCHEMA
 
-from tests.support.constants import AS_OF_DATE
+from tests.support.constants import AS_OF_DATE, TIMESTAMP
 
 
 class _FakeReconClient:
@@ -18,6 +15,7 @@ class _FakeReconClient:
 
     def __init__(self, df):
         self._df = df
+
 
     def get_results(self, workflow_run_id):
         return self._df.filter(
@@ -28,7 +26,7 @@ class _FakeReconClient:
 def _make_result_row(**overrides) -> dict:
     row = dict(
         RECON_RESULT_ID=str(uuid4()),
-        RECONCILED_AT=datetime.now(timezone.utc),
+        RECONCILED_AT=TIMESTAMP,
         WORKFLOW_RUN_ID=str(uuid4()),
         PRODUCER_RUN_ID=str(uuid4()),
         AS_OF_DATE=AS_OF_DATE,
@@ -50,7 +48,7 @@ def _make_result_row(**overrides) -> dict:
     return row
 
 
-def _make_results_df(spark, rows: list[dict]):
+def _make_results_df(spark, rows: list[dict]) -> DataFrame:
     return spark.createDataFrame(
         [tuple(row[field.name] for field in RESULT_SCHEMA.fields) for row in rows],
         schema=RESULT_SCHEMA,

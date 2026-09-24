@@ -9,12 +9,12 @@ from tests.support.pipelines import make_pipeline
 
 
 def test_base_pipeline_no_longer_accepts_a_run_tracker():
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="unexpected keyword argument 'run_tracker'"):
         make_pipeline(run_tracker=MagicMock())
 
 
 def test_trial_balance_pipeline_no_longer_accepts_a_run_tracker():
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError, match="unexpected keyword argument 'run_tracker'"):
         TrialBalancePipeline(
             business_dt=BUSINESS_DT,
             atlas=MagicMock(),

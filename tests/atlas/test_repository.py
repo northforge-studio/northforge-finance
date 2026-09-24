@@ -19,9 +19,7 @@ def repository(spark, atlas_meta_path, atlas_data_path):
 
 
 def test_get_definition_reconstructs_entity_mapping_definition(repository):
-    definition = repository.get_definition(
-        'ENTITY_MAPPING',
-    )
+    definition = repository.get_definition('ENTITY_MAPPING')
 
     assert definition.mapping_name == 'ENTITY_MAPPING'
     assert definition.mapping_data_name == 'NORTHFORGE_MAPPING_DATA'
@@ -52,9 +50,7 @@ def test_get_definition_reconstructs_entity_mapping_definition(repository):
 
 
 def test_get_mapping_reconstructs_entity_mapping_data(repository):
-    mapping = repository.get_mapping(
-        'ENTITY_MAPPING',
-    )
+    mapping = repository.get_mapping('ENTITY_MAPPING')
 
     assert mapping.definition.mapping_name == 'ENTITY_MAPPING'
 
@@ -75,7 +71,7 @@ def test_get_definition_works_against_a_fake_store(spark):
         [
             ('ENTITY_MAPPING', 'ENTITY_MAPPING_DATASET', 'SRC_APP_CD', 'SRC_APP_CD', 'INPUT', 'VALUE', 'SRC_APP_CD', 'STRING', 1),
         ],
-        [
+        schema=[
             'MAPPING_NAME',
             'MAPPING_DATA_NAME',
             'METADATA_FIELD_NAME',

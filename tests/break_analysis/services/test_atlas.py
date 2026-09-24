@@ -1,5 +1,5 @@
 import pytest
-
+from pyspark.sql import DataFrame
 from pyspark.sql.types import DateType, StringType, StructField, StructType
 
 from atlas.models import (
@@ -9,14 +9,11 @@ from atlas.models import (
     MappingField,
     MappingResolutionEvidence,
 )
-
 from break_analysis.services.atlas import AtlasEvidenceService
-
 from registry.models import GLSegmentType
 
-from tests.support.constants import AS_OF_DATE
-
 from tests.break_analysis.factories import make_break_record, make_segments
+from tests.support.constants import AS_OF_DATE
 
 
 _POSTING_SEGMENT_COLUMNS = dict(
@@ -49,6 +46,8 @@ _POSTING_SCHEMA = StructType([
 
 
 class _FakeAtlasClient:
+    '''Duck-types AtlasClient, serving a canned definition and resolutions.'''
+
     def __init__(
         self,
         definition: MappingDefinition,
@@ -58,8 +57,10 @@ class _FakeAtlasClient:
         self._resolutions = resolutions or {}
         self.explain_resolution_calls: list[dict] = []
 
+
     def get_definition(self, mapping_name: str) -> MappingDefinition:
         return self._definition
+
 
     def explain_resolution(
         self,
@@ -73,8 +74,11 @@ class _FakeAtlasClient:
 
 
 class _FakeFoundryRepository:
+    '''Duck-types the Foundry repository read of the posting zone.'''
+
     def __init__(self, df):
         self._df = df
+
 
     def read_posting(self, workflow_run_id):
         return self._df
@@ -126,7 +130,7 @@ def _make_posting_row(**overrides) -> dict:
     return row
 
 
-def _make_postings_df(spark, rows: list[dict]):
+def _make_postings_df(spark, rows: list[dict]) -> DataFrame:
     return spark.createDataFrame(
         [tuple(row[field.name] for field in _POSTING_SCHEMA.fields) for row in rows],
         schema=_POSTING_SCHEMA,
@@ -144,7 +148,9 @@ def _make_service(
     )
 
 
-def _make_resolution(mapping_name: str, values: dict[str, str], output: str) -> MappingResolutionEvidence:
+def _make_resolution(
+    mapping_name: str, values: dict[str, str], output: str,
+) -> MappingResolutionEvidence:
     return MappingResolutionEvidence(
         mapping_name=mapping_name,
         input_values=values,
@@ -273,7 +279,7 @@ def test_get_foundry_mapping_input_values_no_matching_rows_raises(spark):
     )
     service = _make_service(definition, df)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='No foundry_posting rows found'):
         service.get_foundry_mapping_input_values(
             make_break_record(), mapping_name='TEST_MAPPING',
         )
@@ -286,7 +292,7 @@ def test_get_foundry_mapping_input_values_missing_input_column_raises(spark):
     df = _make_postings_df(spark, [_make_posting_row()])
     service = _make_service(definition, df)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='requires foundry_posting columns'):
         service.get_foundry_mapping_input_values(
             make_break_record(), mapping_name='TEST_MAPPING',
         )
@@ -297,7 +303,7 @@ def test_get_foundry_mapping_input_values_mapping_without_input_fields_raises(sp
     df = _make_postings_df(spark, [_make_posting_row()])
     service = _make_service(definition, df)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='has no input fields'):
         service.get_foundry_mapping_input_values(
             make_break_record(), mapping_name='TEST_MAPPING',
         )
@@ -372,7 +378,7 @@ def test_investigate_resolution_propagates_foundry_lookup_error(spark):
     )
     service = _make_service(definition, df)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='No foundry_posting rows found'):
         service.investigate_resolution(
             make_break_record(),
             segment_type=GLSegmentType.ENTITY,

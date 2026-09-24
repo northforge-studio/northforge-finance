@@ -2,9 +2,6 @@ from datetime import date
 from decimal import Decimal
 from uuid import UUID
 
-from core.logging import short_id
-from registry.models import GLSegmentType
-
 from break_analysis.builder import (
     BreakCaseBuilder,
     _PivotCandidate,
@@ -12,11 +9,12 @@ from break_analysis.builder import (
     _ResolvedCandidate,
 )
 from break_analysis.models import BreakPartitionKey, BreakTopology, BreakCase
+from core.logging import short_id
 from gl.models import GLSegmentDefault, GLSegmentDefaults
-
-from tests.support.constants import AS_OF_DATE
+from registry.models import GLSegmentType
 
 from tests.break_analysis.factories import make_break_record, make_segments
+from tests.support.constants import AS_OF_DATE
 
 
 def _make_partition_key(entity_cd='USM') -> BreakPartitionKey:
@@ -28,7 +26,9 @@ def _make_partition_key(entity_cd='USM') -> BreakPartitionKey:
     )
 
 
-def _make_entity_default(segment_type: GLSegmentType, entity_cd: str, value: str) -> GLSegmentDefault:
+def _make_entity_default(
+    segment_type: GLSegmentType, entity_cd: str, value: str,
+) -> GLSegmentDefault:
     return GLSegmentDefault(
         segment_type=segment_type,
         context_type='ENTITY_CD',

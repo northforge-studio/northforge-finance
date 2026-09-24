@@ -2,6 +2,8 @@ from spec.manager import SpecManager
 
 
 class _FakeRepository:
+    '''Duck-types SpecRepository.get_transformations, and records each call.'''
+
     def __init__(self, transformations):
         self._transformations = transformations
         self.calls = []
@@ -20,7 +22,7 @@ def test_apply_adds_configured_output_column(spark):
     ])
     manager = SpecManager(repository)
 
-    df = spark.createDataFrame([(1,)], ['ID'])
+    df = spark.createDataFrame([(1,)], schema=['ID'])
     result = manager.apply_transformation(
         df,
         dataclass='TRIAL_BALANCE',
@@ -39,7 +41,7 @@ def test_apply_chains_multiple_transformations_in_order(spark):
     ])
     manager = SpecManager(repository)
 
-    df = spark.createDataFrame([(1,)], ['ID'])
+    df = spark.createDataFrame([(1,)], schema=['ID'])
     result = manager.apply_transformation(
         df,
         dataclass='X',
@@ -56,7 +58,7 @@ def test_apply_with_no_transformations_returns_dataframe_unchanged(spark):
     repository = _FakeRepository([])
     manager = SpecManager(repository)
 
-    df = spark.createDataFrame([(1,)], ['ID'])
+    df = spark.createDataFrame([(1,)], schema=['ID'])
     result = manager.apply_transformation(
         df,
         dataclass='X',
@@ -71,7 +73,7 @@ def test_apply_passes_sub_stage_through_to_repository(spark):
     repository = _FakeRepository([])
     manager = SpecManager(repository)
 
-    df = spark.createDataFrame([(1,)], ['ID'])
+    df = spark.createDataFrame([(1,)], schema=['ID'])
     manager.apply_transformation(
         df,
         dataclass='X',

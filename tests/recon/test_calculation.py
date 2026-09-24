@@ -1,6 +1,7 @@
 from datetime import date
 from decimal import Decimal
 
+from pyspark.sql import DataFrame, Row
 from pyspark.sql.types import (
     DateType,
     DecimalType,
@@ -58,7 +59,7 @@ _DEFAULT_KEY = dict(
 )
 
 
-def _make_row(amount, cr_dr_ind=None, **key_overrides):
+def _make_row(amount, cr_dr_ind=None, **key_overrides) -> tuple:
     key = dict(_DEFAULT_KEY)
     key.update(key_overrides)
 
@@ -69,12 +70,12 @@ def _make_row(amount, cr_dr_ind=None, **key_overrides):
     return values
 
 
-def _make_df(spark, rows, with_cr_dr_ind=False):
+def _make_df(spark, rows, with_cr_dr_ind=False) -> DataFrame:
     schema = _SIDE_SCHEMA_WITH_CR_DR_IND if with_cr_dr_ind else _SIDE_SCHEMA
     return spark.createDataFrame(list(rows), schema=schema)
 
 
-def _calculate_result_rows(spark, interface_rows, gl_rows, with_cr_dr_ind=False):
+def _calculate_result_rows(spark, interface_rows, gl_rows, with_cr_dr_ind=False) -> list[Row]:
     interface_df = _make_df(spark, interface_rows, with_cr_dr_ind)
     gl_df = _make_df(spark, gl_rows, with_cr_dr_ind)
 

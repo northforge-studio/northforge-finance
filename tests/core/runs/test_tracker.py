@@ -13,7 +13,7 @@ from core.runs.models import (
 from tests.support.constants import BUSINESS_DT
 
 
-def _make_tracker():
+def _make_tracker() -> tuple[RunTracker, MagicMock]:
     repository = MagicMock(spec=RunRepository)
     return RunTracker(repository), repository
 
@@ -21,10 +21,7 @@ def _make_tracker():
 def test_start_workflow_persists_running_run_and_returns_it():
     tracker, repository = _make_tracker()
 
-    run = tracker.start_workflow(
-        dataclass='TRIAL_BALANCE',
-        business_dt=BUSINESS_DT,
-    )
+    run = tracker.start_workflow(dataclass='TRIAL_BALANCE', business_dt=BUSINESS_DT)
 
     assert isinstance(run, WorkflowRun)
     assert isinstance(run.workflow_run_id, UUID)
@@ -40,14 +37,8 @@ def test_start_workflow_persists_running_run_and_returns_it():
 def test_start_workflow_generates_unique_ids():
     tracker, _ = _make_tracker()
 
-    first = tracker.start_workflow(
-        dataclass='TRIAL_BALANCE',
-        business_dt=BUSINESS_DT,
-    )
-    second = tracker.start_workflow(
-        dataclass='TRIAL_BALANCE',
-        business_dt=BUSINESS_DT,
-    )
+    first = tracker.start_workflow(dataclass='TRIAL_BALANCE', business_dt=BUSINESS_DT)
+    second = tracker.start_workflow(dataclass='TRIAL_BALANCE', business_dt=BUSINESS_DT)
 
     assert first.workflow_run_id != second.workflow_run_id
 

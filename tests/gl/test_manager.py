@@ -3,10 +3,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 from uuid import UUID, uuid4
 
-from registry.models import GLSegmentType
-
 from core.runs.models import RunIdentity
-
 from gl.manager import GLManager
 from gl.models import (
     GLInstruction,
@@ -15,13 +12,18 @@ from gl.models import (
     GLSegmentDefault,
     GLSegmentResolution,
 )
+from registry.models import GLSegmentType
 
-from tests.support.constants import BUSINESS_DT
+from tests.support.constants import BUSINESS_DT, TIMESTAMP
 from tests.support.fakes import FakeRegistryClient
 
 
 class _FakeRepository:
-    def __init__(self, results, instructions=(), postings_by_workflow=None, rejections_by_workflow=None):
+    '''An in-memory GLRepository stand-in that records every read, write and delete.'''
+
+    def __init__(
+        self, results, instructions=(), postings_by_workflow=None, rejections_by_workflow=None,
+    ):
         self._results = results
         self._instructions = instructions
         self._postings_by_workflow = postings_by_workflow or {}
@@ -72,7 +74,7 @@ class _FakeRepository:
         return self._rejections_by_workflow.get(workflow_run_id, ())
 
 
-def _make_unused_registry():
+def _make_unused_registry() -> FakeRegistryClient:
     '''A registry stub for get_segment_default tests, which never touch Registry.'''
     return FakeRegistryClient(set())
 
@@ -808,7 +810,7 @@ def test_posting_from_resolution_stamps_the_supplied_gl_execution_lineage():
     # end-to-end version of this via process_instruction/import_instructions).
     instruction = _make_valid_instruction()
     gl_posting_id = uuid4()
-    posted_at = datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    posted_at = TIMESTAMP
     gl_workflow_run_id = instruction.workflow_run_id
     gl_producer_run_id = uuid4()
 

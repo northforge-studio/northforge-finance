@@ -39,8 +39,8 @@ _DATA_COLUMNS = [
 
 
 def _manager(spark, data_rows: list[tuple]) -> MappingManager:
-    meta_df = spark.createDataFrame(_META_ROWS, _META_COLUMNS)
-    data_df = spark.createDataFrame(data_rows, _DATA_COLUMNS)
+    meta_df = spark.createDataFrame(_META_ROWS, schema=_META_COLUMNS)
+    data_df = spark.createDataFrame(data_rows, schema=_DATA_COLUMNS)
 
     store = FakeStore({
         'MAPPING_META': meta_df,
@@ -250,7 +250,7 @@ def test_apply_ignores_inactive_rows(spark):
 
     df = spark.createDataFrame(
         [('US', 'TRD')],
-        ['FIELD_A', 'FIELD_B'],
+        schema=['FIELD_A', 'FIELD_B'],
     )
 
     result = manager.apply(df, _MAPPING_NAME)

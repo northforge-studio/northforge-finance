@@ -6,7 +6,7 @@ from atlas.repository import AtlasRepository
 from core.store import CsvStore
 
 
-def _make_repository(spark, atlas_meta_path, atlas_data_path):
+def _make_repository(spark, atlas_meta_path, atlas_data_path) -> AtlasRepository:
     store = CsvStore(
         spark=spark,
         table_locations={
@@ -28,23 +28,16 @@ def test_validate_entity_mapping_missing_source_column(spark, manager):
         [
             ('SRC_SYS', '100'),
         ],
-        [
+        schema=[
             'SRC_APP_CD',
             'SRC_ENTITY_CD',
         ],
     )
 
-    with pytest.raises(
-        ValueError,
-        match='DATACLASS',
-    ):
+    mapping = manager.get_mapping('ENTITY_MAPPING')
 
-        mapping = manager.get_mapping('ENTITY_MAPPING')
-
-        manager._validate(
-            df,
-            mapping,
-        )
+    with pytest.raises(ValueError, match='DATACLASS'):
+        manager._validate(df, mapping)
 
 
 def test_apply_resolves_wildcard_by_weightage(spark, manager):
@@ -62,7 +55,7 @@ def test_apply_resolves_wildcard_by_weightage(spark, manager):
                 'TRD',
             ),
         ],
-        [
+        schema=[
             'RECORD_ID',
             'SRC_APP_CD',
             'SRC_ENTITY_CD',
@@ -71,12 +64,11 @@ def test_apply_resolves_wildcard_by_weightage(spark, manager):
         ],
     )
 
-    result = manager.apply(
-        df,
-        'DEPARTMENT_MAPPING',
-    )
+    result = manager.apply(df, 'DEPARTMENT_MAPPING')
 
-    assert result.count() == 1
+    rows = result.collect()
+
+    assert len(rows) == 1
 
     assert result.columns == [
         'RECORD_ID',
@@ -87,7 +79,7 @@ def test_apply_resolves_wildcard_by_weightage(spark, manager):
         'GL_DEPT_CD',
     ]
 
-    assert result.first()['GL_DEPT_CD'] == 'USTRD1'
+    assert rows[0]['GL_DEPT_CD'] == 'USTRD1'
 
 
 def test_apply_preserves_unmatched_source_row(spark, manager):
@@ -101,7 +93,7 @@ def test_apply_preserves_unmatched_source_row(spark, manager):
                 '',
             ),
         ],
-        [
+        schema=[
             'RECORD_ID',
             'SRC_APP_CD',
             'SRC_ENTITY_CD',
@@ -110,10 +102,7 @@ def test_apply_preserves_unmatched_source_row(spark, manager):
         ],
     )
 
-    result = manager.apply(
-        df,
-        'ENTITY_MAPPING',
-    )
+    result = manager.apply(df, 'ENTITY_MAPPING')
 
     row = result.first()
 
@@ -133,7 +122,7 @@ def test_apply_auto_drops_existing_output_column(spark, manager):
                 'existing',
             ),
         ],
-        [
+        schema=[
             'SRC_APP_CD',
             'SRC_ENTITY_CD',
             'DATACLASS',
@@ -142,14 +131,9 @@ def test_apply_auto_drops_existing_output_column(spark, manager):
         ],
     )
 
-    result = manager.apply(
-            df,
-            'ENTITY_MAPPING',
-        )
+    result = manager.apply(df, 'ENTITY_MAPPING')
 
-    result.show(
-        truncate=False,
-    )
+    result.show(truncate=False)
 
     assert result.count() == 1
 

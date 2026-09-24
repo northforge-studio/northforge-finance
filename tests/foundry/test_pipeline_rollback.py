@@ -8,7 +8,7 @@ from foundry.repository import TrialBalanceRepository
 from tests.support.constants import BUSINESS_DT
 
 
-def _make_pipeline(repository):
+def _make_pipeline(repository) -> TrialBalancePipeline:
     return TrialBalancePipeline(
         business_dt=BUSINESS_DT,
         atlas=MagicMock(),

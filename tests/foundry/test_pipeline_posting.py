@@ -29,7 +29,7 @@ class _PostingPipeline(NoOpPipeline):
 
 
 def test_posting_returns_zone_result_for_supplied_identity(spark):
-    df = spark.createDataFrame([(1,), (2,), (3,), (4,)], ['ID'])
+    df = spark.createDataFrame([(1,), (2,), (3,), (4,)], schema=['ID'])
     pipeline = make_pipeline(_PostingPipeline, posting_df=df)
 
     identity = RunIdentity(
@@ -51,7 +51,7 @@ def test_posting_returns_zone_result_for_supplied_identity(spark):
 
 
 def test_posting_passes_workflow_run_id_to_pre_posting(spark):
-    df = spark.createDataFrame([(1,)], ['ID'])
+    df = spark.createDataFrame([(1,)], schema=['ID'])
     pipeline = make_pipeline(_PostingPipeline, posting_df=df)
 
     identity = RunIdentity(
@@ -66,7 +66,7 @@ def test_posting_passes_workflow_run_id_to_pre_posting(spark):
 
 
 def test_posting_stamps_supplied_workflow_and_producer_run_id(spark):
-    df = spark.createDataFrame([(1,)], ['ID'])
+    df = spark.createDataFrame([(1,)], schema=['ID'])
     pipeline = make_pipeline(_PostingPipeline, posting_df=df)
 
     identity = RunIdentity(

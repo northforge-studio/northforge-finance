@@ -29,7 +29,7 @@ class _ReportingPipeline(NoOpPipeline):
 
 
 def test_reporting_returns_zone_result_for_supplied_identity(spark):
-    df = spark.createDataFrame([(1,), (2,), (3,)], ['ID'])
+    df = spark.createDataFrame([(1,), (2,), (3,)], schema=['ID'])
     pipeline = make_pipeline(_ReportingPipeline, reporting_df=df)
 
     identity = RunIdentity(
@@ -51,7 +51,7 @@ def test_reporting_returns_zone_result_for_supplied_identity(spark):
 
 
 def test_reporting_passes_workflow_run_id_to_pre_reporting(spark):
-    df = spark.createDataFrame([(1,)], ['ID'])
+    df = spark.createDataFrame([(1,)], schema=['ID'])
     pipeline = make_pipeline(_ReportingPipeline, reporting_df=df)
 
     identity = RunIdentity(
@@ -66,7 +66,7 @@ def test_reporting_passes_workflow_run_id_to_pre_reporting(spark):
 
 
 def test_reporting_stamps_supplied_workflow_and_producer_run_id(spark):
-    df = spark.createDataFrame([(1,)], ['ID'])
+    df = spark.createDataFrame([(1,)], schema=['ID'])
     pipeline = make_pipeline(_ReportingPipeline, reporting_df=df)
 
     identity = RunIdentity(

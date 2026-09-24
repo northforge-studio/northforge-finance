@@ -2,11 +2,10 @@ from decimal import Decimal
 from uuid import uuid4
 
 import pytest
+from pyspark.sql import DataFrame
 
 from core.runs.models import RunStatus
-
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA, POSTING_SCHEMA
-
 from recon.manager import ReconManager
 from recon.models import ReconRunResult
 
@@ -18,6 +17,8 @@ from tests.support.constants import BUSINESS_DT
 # -- fakes --------------------------------------------------------------
 
 class _FakeReconRepository:
+    '''An in-memory ReconRepository stand-in, optionally failing on write.'''
+
     def __init__(self, interface_by_workflow=None, raise_on_write=False, results_by_workflow=None):
         self._interface_by_workflow = interface_by_workflow or {}
         self._raise_on_write = raise_on_write
@@ -45,17 +46,19 @@ class _FakeReconRepository:
 
 # -- row builders ---------------------------------------------------------
 
-def _make_interface_df(spark, rows):
+def _make_interface_df(spark, rows) -> DataFrame:
     return spark.createDataFrame(list(rows), schema=INTERFACE_TRIAL_BALANCE_SCHEMA)
 
 
-def _make_posting_df(spark, rows):
+def _make_posting_df(spark, rows) -> DataFrame:
     return spark.createDataFrame(list(rows), schema=POSTING_SCHEMA)
 
 
 # -- helpers ---------------------------------------------------------------
 
-def _make_manager(run_tracker, interface_df, gl_df, raise_on_write=False):
+def _make_manager(
+    run_tracker, interface_df, gl_df, raise_on_write=False,
+) -> tuple[ReconManager, _FakeReconRepository, FakeGL]:
     workflow_run_id = list(run_tracker._repository.workflows)[0]
 
     repository = _FakeReconRepository(
@@ -144,7 +147,7 @@ def test_reconcile_reads_interface_and_gl_scoped_to_the_workflow_run_id(
 
 
 def test_get_results_delegates_to_the_repository(spark, run_tracker, workflow):
-    sentinel_df = spark.createDataFrame([(1,)], ['X'])
+    sentinel_df = spark.createDataFrame([(1,)], schema=['X'])
     repository = _FakeReconRepository(
         results_by_workflow={workflow.workflow_run_id: sentinel_df},
     )
@@ -210,7 +213,7 @@ def test_reconcile_fails_the_execution_and_reraises_on_a_technical_failure(
 def test_reconcile_raises_for_unknown_workflow_run_id(run_tracker):
     manager = ReconManager(_FakeReconRepository(), run_tracker, FakeGL())
 
-    with pytest.raises(KeyError):
+    with pytest.raises(KeyError, match='Unknown workflow_run_id'):
         manager.reconcile(uuid4())
 
 
