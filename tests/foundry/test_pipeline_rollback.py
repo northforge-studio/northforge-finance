@@ -1,4 +1,3 @@
-from datetime import date
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -6,10 +5,12 @@ from core.runs.models import RunIdentity
 from foundry.pipeline.trial_balance import TrialBalancePipeline
 from foundry.repository import TrialBalanceRepository
 
+from tests.support.constants import BUSINESS_DT
+
 
 def _make_pipeline(repository):
     return TrialBalancePipeline(
-        business_dt=date(2026, 8, 24),
+        business_dt=BUSINESS_DT,
         atlas=MagicMock(),
         repository=repository,
         reference=MagicMock(),

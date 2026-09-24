@@ -1,33 +1,17 @@
-from datetime import date
-from unittest.mock import MagicMock
 from uuid import uuid4
 
 from core.runs.models import RunIdentity, RunStatus, ZoneResult
-from foundry.pipeline.base import BasePipeline
-from foundry.models import PipelineConfig
+
+from tests.support.pipelines import NoOpPipeline, make_pipeline
 
 
-class _InterfacePipeline(BasePipeline):
-    """A minimal BasePipeline subclass that only implements interface."""
+class _InterfacePipeline(NoOpPipeline):
+    '''A minimal BasePipeline subclass that only implements interface.'''
 
     def __init__(self, interface_df, **kwargs):
         super().__init__(**kwargs)
         self._interface_df = interface_df
         self.post_interface_called_with = None
-
-
-    def pre_staging(self): ...
-    def main_staging(self, df): ...
-    def post_staging(self, df): ...
-    def pre_enrichment(self, workflow_run_id): ...
-    def main_enrichment(self, df): ...
-    def post_enrichment(self, df): ...
-    def pre_reporting(self, workflow_run_id): ...
-    def main_reporting(self, df): ...
-    def post_reporting(self, df): ...
-    def pre_posting(self, workflow_run_id): ...
-    def main_posting(self, df): ...
-    def post_posting(self, df): ...
 
 
     def pre_interface(self, workflow_run_id):
@@ -44,23 +28,9 @@ class _InterfacePipeline(BasePipeline):
         return self._config.business_dt
 
 
-def _make_pipeline(interface_df):
-    config = PipelineConfig(
-        dataclass='TRIAL_BALANCE',
-        business_dt=date(2026, 8, 24),
-    )
-    return _InterfacePipeline(
-        interface_df=interface_df,
-        config=config,
-        atlas=MagicMock(),
-        reference=MagicMock(),
-        spec=MagicMock(),
-    )
-
-
 def test_interface_returns_zone_result_for_supplied_identity(spark):
     df = spark.createDataFrame([(1,), (2,)], ['ID'])
-    pipeline = _make_pipeline(interface_df=df)
+    pipeline = make_pipeline(_InterfacePipeline, interface_df=df)
 
     identity = RunIdentity(
         workflow_run_id=uuid4(),
@@ -82,7 +52,7 @@ def test_interface_returns_zone_result_for_supplied_identity(spark):
 
 def test_interface_passes_workflow_run_id_to_pre_interface(spark):
     df = spark.createDataFrame([(1,)], ['ID'])
-    pipeline = _make_pipeline(interface_df=df)
+    pipeline = make_pipeline(_InterfacePipeline, interface_df=df)
 
     identity = RunIdentity(
         workflow_run_id=uuid4(),
@@ -97,7 +67,7 @@ def test_interface_passes_workflow_run_id_to_pre_interface(spark):
 
 def test_interface_stamps_supplied_workflow_and_producer_run_id(spark):
     df = spark.createDataFrame([(1,)], ['ID'])
-    pipeline = _make_pipeline(interface_df=df)
+    pipeline = make_pipeline(_InterfacePipeline, interface_df=df)
 
     identity = RunIdentity(
         workflow_run_id=uuid4(),

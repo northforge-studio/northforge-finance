@@ -1,27 +1,17 @@
-from datetime import date
-from unittest.mock import MagicMock
 from uuid import uuid4
 
 from core.runs.models import RunIdentity, RunStatus, ZoneResult
-from foundry.pipeline.base import BasePipeline
-from foundry.models import PipelineConfig
+
+from tests.support.pipelines import NoOpPipeline, make_pipeline
 
 
-class _ReportingPipeline(BasePipeline):
-    """A minimal BasePipeline subclass that only implements reporting."""
+class _ReportingPipeline(NoOpPipeline):
+    '''A minimal BasePipeline subclass that only implements reporting.'''
 
     def __init__(self, reporting_df, **kwargs):
         super().__init__(**kwargs)
         self._reporting_df = reporting_df
         self.post_reporting_called_with = None
-
-
-    def pre_staging(self): ...
-    def main_staging(self, df): ...
-    def post_staging(self, df): ...
-    def pre_enrichment(self, workflow_run_id): ...
-    def main_enrichment(self, df): ...
-    def post_enrichment(self, df): ...
 
 
     def pre_reporting(self, workflow_run_id):
@@ -38,31 +28,9 @@ class _ReportingPipeline(BasePipeline):
         return self._config.business_dt
 
 
-    def pre_posting(self, workflow_run_id): ...
-    def main_posting(self, df): ...
-    def post_posting(self, df): ...
-    def pre_interface(self, workflow_run_id): ...
-    def main_interface(self, df): ...
-    def post_interface(self, df): ...
-
-
-def _make_pipeline(reporting_df):
-    config = PipelineConfig(
-        dataclass='TRIAL_BALANCE',
-        business_dt=date(2026, 8, 24),
-    )
-    return _ReportingPipeline(
-        reporting_df=reporting_df,
-        config=config,
-        atlas=MagicMock(),
-        reference=MagicMock(),
-        spec=MagicMock(),
-    )
-
-
 def test_reporting_returns_zone_result_for_supplied_identity(spark):
     df = spark.createDataFrame([(1,), (2,), (3,)], ['ID'])
-    pipeline = _make_pipeline(reporting_df=df)
+    pipeline = make_pipeline(_ReportingPipeline, reporting_df=df)
 
     identity = RunIdentity(
         workflow_run_id=uuid4(),
@@ -84,7 +52,7 @@ def test_reporting_returns_zone_result_for_supplied_identity(spark):
 
 def test_reporting_passes_workflow_run_id_to_pre_reporting(spark):
     df = spark.createDataFrame([(1,)], ['ID'])
-    pipeline = _make_pipeline(reporting_df=df)
+    pipeline = make_pipeline(_ReportingPipeline, reporting_df=df)
 
     identity = RunIdentity(
         workflow_run_id=uuid4(),
@@ -99,7 +67,7 @@ def test_reporting_passes_workflow_run_id_to_pre_reporting(spark):
 
 def test_reporting_stamps_supplied_workflow_and_producer_run_id(spark):
     df = spark.createDataFrame([(1,)], ['ID'])
-    pipeline = _make_pipeline(reporting_df=df)
+    pipeline = make_pipeline(_ReportingPipeline, reporting_df=df)
 
     identity = RunIdentity(
         workflow_run_id=uuid4(),

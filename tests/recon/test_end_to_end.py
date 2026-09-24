@@ -8,15 +8,12 @@
 # test seeds interface.trial_balance directly with the same rows Foundry
 # would have produced, then drives the real GLClient and ReconClient
 # public APIs -- nothing about GL or recon itself is faked.
-from dataclasses import replace
-from datetime import date
 from decimal import Decimal
 from uuid import UUID, uuid4
 
 import pytest
 
 from core.store import CsvStore
-from core.runs import RunRepository, RunTracker
 
 from gl import GLClient
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
@@ -27,74 +24,8 @@ from recon import ReconClient
 from recon.models import ReconRunResult
 from recon.repository import ReconRepository
 
-
-BUSINESS_DT = date(2026, 3, 31)
-
-
-class _FakeRunRepository(RunRepository):
-    """In-memory RunRepository stand-in (mirrors
-    tests/workflow/test_orchestrator.py), so the real RunTracker can run
-    without touching the shared dev database."""
-
-    def __init__(self):
-        self.workflows = {}
-        self.executions = {}
-        self.dependencies = []
-
-
-    def create_workflow_run(self, run):
-        self.workflows[run.workflow_run_id] = run
-
-
-    def get_workflow_run(self, workflow_run_id):
-        if workflow_run_id not in self.workflows:
-            raise KeyError(f'Unknown workflow_run_id: {workflow_run_id!r}')
-        return self.workflows[workflow_run_id]
-
-
-    def create_execution_run(self, run):
-        self.executions[run.run_id] = run
-
-
-    def get_execution_run(self, run_id):
-        return self.executions[run_id]
-
-
-    def get_execution_runs(self, workflow_run_id):
-        return tuple(
-            execution
-            for execution in self.executions.values()
-            if execution.workflow_run_id == workflow_run_id
-        )
-
-
-    def update_workflow_status(self, workflow_run_id, status, completed_at=None):
-        run = self.workflows[workflow_run_id]
-        self.workflows[workflow_run_id] = replace(
-            run, status=status, completed_at=completed_at,
-        )
-
-
-    def update_execution_status(self, run_id, status, completed_at=None):
-        run = self.executions[run_id]
-        self.executions[run_id] = replace(
-            run, status=status, completed_at=completed_at,
-        )
-
-
-    def create_dependency(self, dependency):
-        self.dependencies.append(dependency)
-
-
-class _FakeRegistryClient:
-    """Duck-types RegistryClient.validate_segment, as in tests/gl/test_client.py."""
-
-    def __init__(self, valid_segments):
-        self._valid_segments = valid_segments
-
-
-    def validate_segment(self, segment, business_dt, segment_cd):
-        return (segment, business_dt, segment_cd) in self._valid_segments
+from tests.support.constants import BUSINESS_DT
+from tests.support.fakes import FakeRegistryClient
 
 
 VALID_SEGMENTS = {
@@ -179,13 +110,8 @@ def _interface_row(instruction: GLInstruction) -> tuple:
 
 
 @pytest.fixture
-def run_tracker():
-    return RunTracker(_FakeRunRepository())
-
-
-@pytest.fixture
 def registry():
-    return _FakeRegistryClient(VALID_SEGMENTS)
+    return FakeRegistryClient(VALID_SEGMENTS)
 
 
 @pytest.fixture

@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import datetime
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
@@ -9,6 +9,8 @@ from core.runs.models import (
     ExecutionRun,
     RunDependency,
 )
+
+from tests.support.constants import BUSINESS_DT
 
 
 def _tracker():
@@ -21,13 +23,13 @@ def test_start_workflow_persists_running_run_and_returns_it():
 
     run = tracker.start_workflow(
         dataclass='TRIAL_BALANCE',
-        business_dt=date(2026, 8, 24),
+        business_dt=BUSINESS_DT,
     )
 
     assert isinstance(run, WorkflowRun)
     assert isinstance(run.workflow_run_id, UUID)
     assert run.dataclass == 'TRIAL_BALANCE'
-    assert run.business_dt == date(2026, 8, 24)
+    assert run.business_dt == BUSINESS_DT
     assert run.status == RunStatus.RUNNING
     assert run.started_at.tzinfo is not None
     assert run.completed_at is None
@@ -40,11 +42,11 @@ def test_start_workflow_generates_unique_ids():
 
     first = tracker.start_workflow(
         dataclass='TRIAL_BALANCE',
-        business_dt=date(2026, 8, 24),
+        business_dt=BUSINESS_DT,
     )
     second = tracker.start_workflow(
         dataclass='TRIAL_BALANCE',
-        business_dt=date(2026, 8, 24),
+        business_dt=BUSINESS_DT,
     )
 
     assert first.workflow_run_id != second.workflow_run_id

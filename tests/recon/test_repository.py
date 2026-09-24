@@ -11,6 +11,8 @@ from core.store import CsvStore
 from recon.models import ReconResult
 from recon.repository import ReconRepository
 
+from tests.support.fakes import FakeStore
+
 
 def _result(**overrides) -> ReconResult:
     fields = dict(
@@ -144,24 +146,11 @@ def test_write_results_preserves_negative_difference_amount(repository):
     assert row['DIFFERENCE_AMOUNT'] == Decimal('-500.00')
 
 
-class _FakeStore:
-    """A minimal Store stand-in, to prove ReconRepository is backend-agnostic."""
-
-    def __init__(self, tables):
-        self._tables = tables
-
-    def read(self, table_name, schema=None):
-        return self._tables[table_name]
-
-    def write(self, df, table_name, mode='append'):
-        self._tables[table_name] = df
-
-
 def test_get_results_works_against_a_fake_store(spark):
     workflow_run_id = uuid4()
     result = _result(workflow_run_id=workflow_run_id)
 
-    store = _FakeStore({})
+    store = FakeStore({})
     repository = ReconRepository(store, spark)
 
     repository.write_results([result])

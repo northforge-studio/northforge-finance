@@ -16,24 +16,13 @@ from gl import GLClient
 from gl.models import GLInstruction, GLSegments, GLSegmentResolution
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
 
-
-BUSINESS_DT = date(2026, 1, 1)
-
-
-class _FakeRegistryClient:
-    """Duck-types RegistryClient.validate_segment for delegation tests."""
-
-    def __init__(self, valid_segments):
-        self._valid_segments = valid_segments
-
-
-    def validate_segment(self, segment, business_dt, segment_cd):
-        return (segment, business_dt, segment_cd) in self._valid_segments
+from tests.support.constants import BUSINESS_DT
+from tests.support.fakes import FakeRegistryClient
 
 
 @pytest.fixture(scope='module')
 def registry():
-    return _FakeRegistryClient({
+    return FakeRegistryClient({
         (GLSegmentType.DEPARTMENT, BUSINESS_DT, 'USGL99'),
         (GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED'),
         (GLSegmentType.ENTITY, BUSINESS_DT, 'USMKTS'),

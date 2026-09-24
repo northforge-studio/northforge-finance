@@ -16,8 +16,8 @@ from gl.models import (
     GLSegmentResolution,
 )
 
-
-BUSINESS_DT = date(2026, 1, 1)
+from tests.support.constants import BUSINESS_DT
+from tests.support.fakes import FakeRegistryClient
 
 
 class _FakeRepository:
@@ -72,20 +72,9 @@ class _FakeRepository:
         return self._rejections_by_workflow.get(workflow_run_id, ())
 
 
-class _FakeRegistryClient:
-    def __init__(self, valid_segments):
-        self._valid_segments = valid_segments
-        self.calls = []
-
-
-    def validate_segment(self, segment, business_dt, segment_cd):
-        self.calls.append((segment, business_dt, segment_cd))
-        return (segment, business_dt, segment_cd) in self._valid_segments
-
-
 def _no_registry_calls_expected():
-    """A registry stub for get_segment_default tests, which never touch Registry."""
-    return _FakeRegistryClient(set())
+    '''A registry stub for get_segment_default tests, which never touch Registry.'''
+    return FakeRegistryClient(set())
 
 
 def test_contextual_default_is_returned_when_configured():
@@ -182,7 +171,7 @@ def test_contextual_default_takes_precedence_over_global():
 
 def test_resolve_segment_returns_supplied_value_unchanged_when_registry_valid():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient({
+    registry = FakeRegistryClient({
         (GLSegmentType.DEPARTMENT, BUSINESS_DT, '1234'),
     })
     manager = GLManager(repository, registry)
@@ -213,7 +202,7 @@ def test_resolve_segment_uses_contextual_default_when_supplied_invalid():
             default_value='9999',
         ),
     })
-    registry = _FakeRegistryClient({
+    registry = FakeRegistryClient({
         (GLSegmentType.DEPARTMENT, BUSINESS_DT, '9999'),
     })
     manager = GLManager(repository, registry)
@@ -247,7 +236,7 @@ def test_resolve_segment_falls_back_to_global_default_when_contextual_absent():
             default_value='UNASSIGNED',
         ),
     })
-    registry = _FakeRegistryClient({
+    registry = FakeRegistryClient({
         (GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED'),
     })
     manager = GLManager(repository, registry)
@@ -272,7 +261,7 @@ def test_resolve_segment_falls_back_to_global_default_when_contextual_absent():
 
 def test_resolve_segment_unresolved_when_no_default_configured():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(set())
+    registry = FakeRegistryClient(set())
     manager = GLManager(repository, registry)
 
     result = manager.resolve_segment(
@@ -299,7 +288,7 @@ def test_resolve_segment_unresolved_when_configured_default_is_registry_invalid(
         ),
     })
     # '9999' is configured but not registered as valid in Registry.
-    registry = _FakeRegistryClient(set())
+    registry = FakeRegistryClient(set())
     manager = GLManager(repository, registry)
 
     result = manager.resolve_segment(
@@ -327,7 +316,7 @@ def test_resolve_segment_empty_supplied_value_skips_registry_and_uses_default():
             default_value='UNASSIGNED',
         ),
     })
-    registry = _FakeRegistryClient({
+    registry = FakeRegistryClient({
         (GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED'),
     })
     manager = GLManager(repository, registry)
@@ -352,7 +341,7 @@ def test_resolve_segment_invalid_entity_cd_is_naturally_unresolved():
     # ENTITY is Registry-mapped like any other segment, but
     # gl.segment_default has no configured rows for it.
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(set())
+    registry = FakeRegistryClient(set())
     manager = GLManager(repository, registry)
 
     result = manager.resolve_segment(
@@ -381,7 +370,7 @@ def test_resolve_segment_keeps_valid_supplied_value_even_if_it_looks_like_a_defa
             default_value='US_DEFAULT',
         ),
     })
-    registry = _FakeRegistryClient({
+    registry = FakeRegistryClient({
         (GLSegmentType.BOOK, BUSINESS_DT, 'US_DEFAULT'),
     })
     manager = GLManager(repository, registry)
@@ -413,7 +402,7 @@ def test_resolve_segment_preserves_numeric_looking_values_as_strings():
             default_value='999999',
         ),
     })
-    registry = _FakeRegistryClient({
+    registry = FakeRegistryClient({
         (GLSegmentType.ACCOUNT, BUSINESS_DT, '999999'),
     })
     manager = GLManager(repository, registry)
@@ -462,7 +451,7 @@ def _valid_registry_entries() -> set:
 
 def test_resolve_segments_all_valid_returns_final_set_unchanged():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
 
     result = manager.resolve_segments(_valid_segments(), business_dt=BUSINESS_DT)
@@ -484,7 +473,7 @@ def test_resolve_segments_applies_contextual_default_for_invalid_segment():
             default_value='9999',
         ),
     })
-    registry = _FakeRegistryClient(
+    registry = FakeRegistryClient(
         _valid_registry_entries() | {(GLSegmentType.DEPARTMENT, BUSINESS_DT, '9999')}
     )
     manager = GLManager(repository, registry)
@@ -516,7 +505,7 @@ def test_resolve_segments_applies_global_default_for_invalid_segment():
             default_value='UNASSIGNED',
         ),
     })
-    registry = _FakeRegistryClient(
+    registry = FakeRegistryClient(
         _valid_registry_entries() | {(GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED')}
     )
     manager = GLManager(repository, registry)
@@ -550,7 +539,7 @@ def test_resolve_segments_applies_defaults_to_multiple_invalid_segments():
             default_value='999999',
         ),
     })
-    registry = _FakeRegistryClient(
+    registry = FakeRegistryClient(
         _valid_registry_entries() | {
             (GLSegmentType.DEPARTMENT, BUSINESS_DT, '9999'),
             (GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED'),
@@ -579,7 +568,7 @@ def test_resolve_segments_applies_defaults_to_multiple_invalid_segments():
 
 def test_resolve_segments_invalid_entity_leaves_whole_set_unresolved():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(_valid_registry_entries() - {
+    registry = FakeRegistryClient(_valid_registry_entries() - {
         (GLSegmentType.ENTITY, BUSINESS_DT, 'USM'),
     })
     manager = GLManager(repository, registry)
@@ -600,7 +589,7 @@ def test_resolve_segments_invalid_entity_leaves_whole_set_unresolved():
 
 def test_resolve_segments_invalid_source_cd_leaves_whole_set_unresolved():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(_valid_registry_entries() - {
+    registry = FakeRegistryClient(_valid_registry_entries() - {
         (GLSegmentType.SOURCE, BUSINESS_DT, 'SRC1'),
     })
     manager = GLManager(repository, registry)
@@ -630,7 +619,7 @@ def test_resolve_segments_unresolved_when_configured_default_is_registry_invalid
         ),
     })
     # 'BAD_DEFAULT' is configured but never registered as Registry-valid.
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
 
     supplied = replace(_valid_segments(), branch_cd='BOGUS')
@@ -654,7 +643,7 @@ def test_resolve_segments_empty_value_is_defaulted():
             default_value='9999',
         ),
     })
-    registry = _FakeRegistryClient(
+    registry = FakeRegistryClient(
         _valid_registry_entries() | {(GLSegmentType.DEPARTMENT, BUSINESS_DT, '9999')}
     )
     manager = GLManager(repository, registry)
@@ -882,7 +871,7 @@ def test_process_instruction_without_identity_falls_back_to_instruction_lineage(
     # Direct/standalone use (no orchestrated GL execution) keeps the prior
     # behavior of stamping the instruction's own lineage.
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
     instruction = _valid_instruction()
 
@@ -894,7 +883,7 @@ def test_process_instruction_without_identity_falls_back_to_instruction_lineage(
 
 def test_process_instruction_with_identity_stamps_gl_execution_lineage():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
     instruction = _valid_instruction()
     identity = RunIdentity(workflow_run_id=uuid4(), run_id=uuid4(), parent_run_id=None)
@@ -908,7 +897,7 @@ def test_process_instruction_with_identity_stamps_gl_execution_lineage():
 
 def test_process_instruction_valid_posts_successfully():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
     instruction = _valid_instruction()
 
@@ -933,7 +922,7 @@ def test_process_instruction_defaulted_segment_posts_resolved_value():
             default_value='9999',
         ),
     })
-    registry = _FakeRegistryClient(
+    registry = FakeRegistryClient(
         _valid_registry_entries() | {(GLSegmentType.DEPARTMENT, BUSINESS_DT, '9999')}
     )
     manager = GLManager(repository, registry)
@@ -949,7 +938,7 @@ def test_process_instruction_defaulted_segment_posts_resolved_value():
 
 def test_process_instruction_structural_failure_rejects_without_posting():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
     instruction = replace(_valid_instruction(), cr_dr_ind='XX')
 
@@ -969,7 +958,7 @@ def test_process_instruction_structural_failure_rejects_without_posting():
 
 def test_process_instruction_invalid_entity_rejects_via_segment_resolution():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(set())
+    registry = FakeRegistryClient(set())
     manager = GLManager(repository, registry)
     instruction = replace(_valid_instruction(), entity_cd='BOGUS')
 
@@ -984,7 +973,7 @@ def test_process_instruction_invalid_entity_rejects_via_segment_resolution():
 
 def test_process_instruction_invalid_source_rejects_via_segment_resolution():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(
+    registry = FakeRegistryClient(
         _valid_registry_entries() - {(GLSegmentType.SOURCE, BUSINESS_DT, 'SRC1')}
     )
     manager = GLManager(repository, registry)
@@ -1019,7 +1008,7 @@ def test_process_instruction_multiple_defaults_produce_one_posting():
             default_value='999999',
         ),
     })
-    registry = _FakeRegistryClient(
+    registry = FakeRegistryClient(
         _valid_registry_entries() | {
             (GLSegmentType.DEPARTMENT, BUSINESS_DT, '9999'),
             (GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED'),
@@ -1045,7 +1034,7 @@ def test_process_instruction_multiple_defaults_produce_one_posting():
 
 def test_process_instruction_generates_uuid_and_utc_timestamp_by_default():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
 
     result = manager.process_instruction(_valid_instruction())
@@ -1057,7 +1046,7 @@ def test_process_instruction_generates_uuid_and_utc_timestamp_by_default():
 
 def test_process_instruction_accepts_injected_deterministic_ids():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
     fixed_id = uuid4()
     fixed_time = datetime(2026, 1, 1, 9, 0, 0, tzinfo=timezone.utc)
@@ -1074,7 +1063,7 @@ def test_process_instruction_accepts_injected_deterministic_ids():
 
 def test_process_instruction_accepts_injected_deterministic_rejection_ids():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
     fixed_id = uuid4()
     fixed_time = datetime(2026, 1, 1, 9, 0, 0, tzinfo=timezone.utc)
@@ -1091,7 +1080,7 @@ def test_process_instruction_accepts_injected_deterministic_rejection_ids():
 
 def test_process_instruction_never_writes_both_posting_and_rejection():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
 
     posted_result = manager.process_instruction(_valid_instruction())
@@ -1123,7 +1112,7 @@ def test_import_instructions_all_valid_partition_all_posted():
     valid_1 = _valid_instruction()
     valid_2 = replace(_valid_instruction(), transaction_number='TXN-2')
     repository = _FakeRepository({}, instructions=(valid_1, valid_2))
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
     identity = _gl_identity()
     source_producer_run_id = uuid4()
@@ -1144,7 +1133,7 @@ def test_import_instructions_mixed_partition_posts_valid_rejects_invalid():
     valid = _valid_instruction()
     invalid = replace(_valid_instruction(), transaction_number='TXN-2', cr_dr_ind='XX')
     repository = _FakeRepository({}, instructions=(invalid, valid))
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
 
     result = manager.import_instructions(_gl_identity(), uuid4())
@@ -1165,7 +1154,7 @@ def test_import_instructions_business_rejections_do_not_fail_the_import():
     # GL/IMPORT SUCCEEDED even when rejected_count > 0.
     invalid = replace(_valid_instruction(), cr_dr_ind='XX')
     repository = _FakeRepository({}, instructions=(invalid,))
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
 
     result = manager.import_instructions(_gl_identity(), uuid4())
@@ -1177,7 +1166,7 @@ def test_import_instructions_business_rejections_do_not_fail_the_import():
 
 def test_import_instructions_empty_partition_returns_zero_counts():
     repository = _FakeRepository({}, instructions=())
-    registry = _FakeRegistryClient(set())
+    registry = FakeRegistryClient(set())
     manager = GLManager(repository, registry)
 
     result = manager.import_instructions(_gl_identity(), uuid4())
@@ -1193,7 +1182,7 @@ def test_import_instructions_results_retained_in_deterministic_order():
     second = replace(_valid_instruction(), transaction_number='TXN-2')
     third = replace(_valid_instruction(), transaction_number='TXN-3')
     repository = _FakeRepository({}, instructions=(first, second, third))
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
 
     result = manager.import_instructions(_gl_identity(), uuid4())
@@ -1215,7 +1204,7 @@ def test_import_instructions_defaulted_segment_appears_in_posting():
         },
         instructions=(replace(_valid_instruction(), dept_cd='BOGUS'),),
     )
-    registry = _FakeRegistryClient(
+    registry = FakeRegistryClient(
         _valid_registry_entries() | {(GLSegmentType.DEPARTMENT, BUSINESS_DT, '9999')}
     )
     manager = GLManager(repository, registry)
@@ -1231,7 +1220,7 @@ def test_import_instructions_does_not_prevent_duplicate_posting_id():
     repository = _FakeRepository(
         {}, instructions=(same_posting_id, same_posting_id)
     )
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
 
     result = manager.import_instructions(_gl_identity(), uuid4())
@@ -1259,7 +1248,7 @@ def test_import_instructions_stamps_gl_execution_lineage_not_interface_lineage()
         producer_run_id=interface_producer_run_id,
     )
     repository = _FakeRepository({}, instructions=(valid, invalid))
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
     identity = _gl_identity()
 
@@ -1278,7 +1267,7 @@ def test_import_instructions_stamps_gl_execution_lineage_not_interface_lineage()
 
 def test_import_instructions_reads_by_workflow_run_id_not_source_producer_run_id():
     repository = _FakeRepository({}, instructions=(_valid_instruction(),))
-    registry = _FakeRegistryClient(_valid_registry_entries())
+    registry = FakeRegistryClient(_valid_registry_entries())
     manager = GLManager(repository, registry)
     identity = _gl_identity()
     source_producer_run_id = uuid4()
@@ -1296,7 +1285,7 @@ def test_import_instructions_reads_by_workflow_run_id_not_source_producer_run_id
 
 def test_rollback_execution_deletes_only_postings_and_rejections_for_the_workflow():
     repository = _FakeRepository({})
-    registry = _FakeRegistryClient(set())
+    registry = FakeRegistryClient(set())
     manager = GLManager(repository, registry)
     identity = _gl_identity()
 

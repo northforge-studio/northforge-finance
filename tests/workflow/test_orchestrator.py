@@ -1,15 +1,10 @@
-from datetime import date, datetime, timezone
 from uuid import UUID, uuid4
 
 import pytest
 
-from core.runs import RunRepository, RunTracker
 from core.runs.models import (
-    ExecutionRun,
-    RunDependency,
     RunIdentity,
     RunStatus,
-    WorkflowRun,
     ZoneResult,
 )
 from foundry.models import PipelineConfig
@@ -17,88 +12,17 @@ from gl.models import GLImportResult
 from workflow import WorkflowOrchestrator
 from workflow.models import WorkflowResult
 
+from tests.support.constants import BUSINESS_DT
+from tests.support.fakes import FakeRunRepository, make_run_tracker
 
-BUSINESS_DT = date(2026, 8, 24)
 
 ZONES = ('staging', 'enrichment', 'reporting', 'posting', 'interface')
 
 
-class _FakeRunRepository(RunRepository):
-    """An in-memory stand-in for RunRepository, so RunTracker (the real,
-    unmocked collaborator) can be exercised against the orchestrator
-    without a database."""
-
-    def __init__(self):
-        self.workflows: dict[UUID, WorkflowRun] = {}
-        self.executions: dict[UUID, ExecutionRun] = {}
-        self.dependencies: list[RunDependency] = []
-
-
-    def create_workflow_run(self, run):
-        self.workflows[run.workflow_run_id] = run
-
-
-    def get_workflow_run(self, workflow_run_id):
-        if workflow_run_id not in self.workflows:
-            raise KeyError(f'Unknown workflow_run_id: {workflow_run_id!r}')
-        return self.workflows[workflow_run_id]
-
-
-    def create_execution_run(self, run):
-        self.executions[run.run_id] = run
-
-
-    def get_execution_run(self, run_id):
-        return self.executions[run_id]
-
-
-    def get_execution_runs(self, workflow_run_id):
-        return tuple(
-            execution
-            for execution in self.executions.values()
-            if execution.workflow_run_id == workflow_run_id
-        )
-
-
-    def update_workflow_status(self, workflow_run_id, status, completed_at=None):
-        run = self.workflows[workflow_run_id]
-        self.workflows[workflow_run_id] = WorkflowRun(
-            workflow_run_id=run.workflow_run_id,
-            dataclass=run.dataclass,
-            business_dt=run.business_dt,
-            status=status,
-            started_at=run.started_at,
-            completed_at=completed_at,
-        )
-
-
-    def update_execution_status(self, run_id, status, completed_at=None):
-        run = self.executions[run_id]
-        self.executions[run_id] = ExecutionRun(
-            run_id=run.run_id,
-            workflow_run_id=run.workflow_run_id,
-            parent_run_id=run.parent_run_id,
-            component=run.component,
-            operation=run.operation,
-            status=status,
-            started_at=run.started_at,
-            completed_at=completed_at,
-            retry_of_run_id=run.retry_of_run_id,
-        )
-
-
-    def create_dependency(self, dependency):
-        self.dependencies.append(dependency)
-
-
-def _make_run_tracker():
-    return RunTracker(_FakeRunRepository())
-
-
 class _FakePipeline:
-    """A stand-in for BasePipeline: implements the zone(identity) API and
+    '''A stand-in for BasePipeline: implements the zone(identity) API and
     rollback_execution(operation, identity), with no Spark/DataFrame
-    involvement at all."""
+    involvement at all.'''
 
     def __init__(self, business_dt=BUSINESS_DT, raise_in=None):
         self.config = PipelineConfig(
@@ -172,7 +96,7 @@ class _FakeGL:
         self.rollback_calls.append(identity)
 
 
-def _executions_by_operation(repository: _FakeRunRepository, workflow_run_id: UUID):
+def _executions_by_operation(repository: FakeRunRepository, workflow_run_id: UUID):
     return {
         execution.operation: execution
         for execution in repository.get_execution_runs(workflow_run_id)
@@ -182,7 +106,7 @@ def _executions_by_operation(repository: _FakeRunRepository, workflow_run_id: UU
 # -- run_foundry: topology -----------------------------------------------
 
 def test_run_foundry_creates_pipeline_and_all_five_zone_executions_under_one_workflow():
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
 
@@ -202,7 +126,7 @@ def test_run_foundry_creates_pipeline_and_all_five_zone_executions_under_one_wor
 
 
 def test_run_foundry_creates_all_five_zone_to_zone_dependencies():
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
 
@@ -228,7 +152,7 @@ def test_run_foundry_creates_all_five_zone_to_zone_dependencies():
 
 
 def test_run_foundry_returns_pipeline_result_with_zones_in_order():
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
 
@@ -243,7 +167,7 @@ def test_run_foundry_returns_pipeline_result_with_zones_in_order():
 # -- run_foundry: lifecycle ------------------------------------------------
 
 def test_run_foundry_completes_workflow_and_pipeline_execution_on_success():
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
 
@@ -259,7 +183,7 @@ def test_run_foundry_completes_workflow_and_pipeline_execution_on_success():
 
 @pytest.mark.parametrize('failing_zone', ZONES)
 def test_run_foundry_rolls_back_and_fails_execution_chain_on_zone_failure(failing_zone):
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline(raise_in=failing_zone)
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
 
@@ -287,7 +211,7 @@ def test_run_foundry_rolls_back_and_fails_execution_chain_on_zone_failure(failin
 
 
 def test_run_foundry_passes_the_zones_own_identity_into_each_zone_call():
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
 
@@ -307,7 +231,7 @@ def test_run_foundry_passes_the_zones_own_identity_into_each_zone_call():
 # -- run_gl -----------------------------------------------------------------
 
 def test_run_gl_requires_an_existing_workflow():
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     orchestrator = WorkflowOrchestrator(run_tracker, _FakePipeline(), gl=_FakeGL())
 
     with pytest.raises(KeyError):
@@ -315,7 +239,7 @@ def test_run_gl_requires_an_existing_workflow():
 
 
 def test_run_gl_resolves_the_workflows_foundry_interface_execution():
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     gl = _FakeGL()
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
@@ -334,7 +258,7 @@ def test_run_gl_resolves_the_workflows_foundry_interface_execution():
 
 
 def test_run_gl_creates_gl_import_execution_under_the_same_workflow_with_dependency():
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     gl = _FakeGL()
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
@@ -362,7 +286,7 @@ def test_run_gl_creates_gl_import_execution_under_the_same_workflow_with_depende
 
 
 def test_run_gl_raises_when_no_successful_interface_execution_exists():
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline(raise_in='interface')
     gl = _FakeGL()
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
@@ -377,7 +301,7 @@ def test_run_gl_raises_when_no_successful_interface_execution_exists():
 
 
 def test_run_gl_business_rejections_still_succeed_the_import_execution():
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     gl = _FakeGL(rejected_count=3)
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
@@ -395,7 +319,7 @@ def test_run_gl_business_rejections_still_succeed_the_import_execution():
 
 
 def test_run_gl_rolls_back_and_fails_on_technical_failure():
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     gl = _FakeGL(raise_error=True)
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
@@ -418,7 +342,7 @@ def test_run_gl_rolls_back_and_fails_on_technical_failure():
 
 
 def test_run_gl_continuing_an_already_succeeded_workflow_keeps_it_succeeded():
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     gl = _FakeGL()
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
@@ -437,7 +361,7 @@ def test_run_gl_continuing_an_already_succeeded_workflow_keeps_it_succeeded():
 # -- logging --------------------------------------------------------------
 
 def test_run_foundry_zone_success_logs_operation_run_id_and_record_count(caplog):
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
 
@@ -461,7 +385,7 @@ def test_run_foundry_zone_success_logs_operation_run_id_and_record_count(caplog)
 
 
 def test_run_gl_success_logs_received_posted_and_rejected_counts(caplog):
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     gl = _FakeGL(rejected_count=2)
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
@@ -485,7 +409,7 @@ def test_run_gl_success_logs_received_posted_and_rejected_counts(caplog):
 
 @pytest.mark.parametrize('failing_zone', ZONES)
 def test_run_foundry_failure_logs_rollback_warning_and_one_exception(caplog, failing_zone):
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline(raise_in=failing_zone)
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
 
@@ -509,7 +433,7 @@ def test_run_foundry_failure_logs_rollback_warning_and_one_exception(caplog, fai
 
 
 def test_run_gl_failure_logs_rollback_warning_and_one_exception(caplog):
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     gl = _FakeGL(raise_error=True)
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
@@ -537,7 +461,7 @@ def test_run_gl_failure_logs_rollback_warning_and_one_exception(caplog):
 # -- run_workflow -------------------------------------------------------
 
 def test_run_workflow_creates_exactly_one_workflow_with_foundry_and_gl():
-    run_tracker = _make_run_tracker()
+    run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     gl = _FakeGL()
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)

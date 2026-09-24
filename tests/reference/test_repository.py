@@ -5,6 +5,8 @@ from core.store import CsvStore
 from reference.models import ReferenceData
 from reference.repository import ReferenceRepository
 
+from tests.support.fakes import FakeStore
+
 
 @pytest.fixture(scope='module')
 def repository(spark):
@@ -43,23 +45,13 @@ def test_get_counterparty_reads_configured_columns(repository):
     assert df.count() > 0
 
 
-class _FakeStore:
-    """A minimal Store stand-in, to prove ReferenceRepository is backend-agnostic."""
-
-    def __init__(self, tables):
-        self._tables = tables
-
-    def read(self, table_name, schema=None):
-        return self._tables[table_name]
-
-
 def test_get_fx_rate_works_against_a_fake_store(spark):
     fx_rate_df = spark.createDataFrame(
         [('CAD', 'USD', 1.35)],
         ['FROM_CURRENCY', 'TO_CURRENCY', 'FX_RATE'],
     )
 
-    store = _FakeStore({'REF_FX_RATE': fx_rate_df})
+    store = FakeStore({'REF_FX_RATE': fx_rate_df})
     repository = ReferenceRepository(store)
 
     df = repository.get_reference_data(ReferenceData.FX_RATE)

@@ -1,7 +1,3 @@
-from datetime import date
-from decimal import Decimal
-from uuid import uuid4
-
 import pytest
 
 from pyspark.sql.types import DateType, StringType, StructField, StructType
@@ -15,25 +11,13 @@ from atlas.models import (
 )
 
 from break_analysis.services.atlas import AtlasEvidenceService
-from break_analysis.models import BreakRecord
 
-from gl.models import GLSegments
 from registry.models import GLSegmentType
 
+from tests.support.constants import AS_OF_DATE
 
-AS_OF_DATE = date(2026, 1, 1)
+from tests.break_analysis.factories import make_break_record, make_segments
 
-_DEFAULT_SEGMENT_VALUES = dict(
-    entity_cd='USM',
-    branch_cd='100',
-    dept_cd='4000',
-    gl_account='123456',
-    sub_account='001',
-    affiliate_cd='AFF1',
-    product_cd='PRD1',
-    book_cd='BK1',
-    source_cd='SRC1',
-)
 
 _POSTING_SEGMENT_COLUMNS = dict(
     GL_ENTITY_CD='USM',
@@ -94,27 +78,6 @@ class _FakeFoundryRepository:
 
     def read_posting(self, workflow_run_id):
         return self._df
-
-
-def _segments(**overrides) -> GLSegments:
-    values = dict(_DEFAULT_SEGMENT_VALUES)
-    values.update(overrides)
-    return GLSegments(**values)
-
-
-def _break_record(**overrides) -> BreakRecord:
-    defaults = dict(
-        recon_result_id=uuid4(),
-        workflow_run_id=uuid4(),
-        as_of_date=AS_OF_DATE,
-        segments=_segments(),
-        accounted_currency='USD',
-        interface_balance=Decimal('100.00'),
-        gl_balance=Decimal('100.00'),
-        difference_amount=Decimal('0.00'),
-    )
-    defaults.update(overrides)
-    return BreakRecord(**defaults)
 
 
 def _mapping_definition(
@@ -200,7 +163,7 @@ def test_input_field_discovery_uses_exact_canonical_names(spark):
     service = _service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
-        _break_record(), mapping_name='TEST_MAPPING',
+        make_break_record(), mapping_name='TEST_MAPPING',
     )
 
     assert len(result) == 1
@@ -213,7 +176,7 @@ def test_single_foundry_match_returns_one_evidence_result(spark):
     service = _service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
-        _break_record(), mapping_name='TEST_MAPPING',
+        make_break_record(), mapping_name='TEST_MAPPING',
     )
 
     assert len(result) == 1
@@ -235,7 +198,7 @@ def test_duplicate_input_combinations_are_collapsed_with_count(spark):
     service = _service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
-        _break_record(), mapping_name='TEST_MAPPING',
+        make_break_record(), mapping_name='TEST_MAPPING',
     )
 
     assert len(result) == 1
@@ -256,7 +219,7 @@ def test_multiple_distinct_input_combinations_produce_multiple_results(spark):
     service = _service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
-        _break_record(), mapping_name='TEST_MAPPING',
+        make_break_record(), mapping_name='TEST_MAPPING',
     )
 
     by_counterparty = {r.values['COUNTERPARTY_CD']: r for r in result}
@@ -267,7 +230,7 @@ def test_multiple_distinct_input_combinations_produce_multiple_results(spark):
 
 def test_blank_gl_segment_matches_empty_string_in_foundry(spark):
     definition = _mapping_definition()
-    break_record = _break_record(segments=_segments(sub_account=''))
+    break_record = make_break_record(segments=make_segments(sub_account=''))
     df = _postings_df(
         spark,
         [_posting_row(GL_SUB_ACCOUNT='')],
@@ -295,7 +258,7 @@ def test_nonmatching_segments_are_excluded(spark):
     service = _service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
-        _break_record(), mapping_name='TEST_MAPPING',
+        make_break_record(), mapping_name='TEST_MAPPING',
     )
 
     assert len(result) == 1
@@ -312,7 +275,7 @@ def test_no_matching_foundry_rows_raises(spark):
 
     with pytest.raises(ValueError):
         service.get_foundry_mapping_input_values(
-            _break_record(), mapping_name='TEST_MAPPING',
+            make_break_record(), mapping_name='TEST_MAPPING',
         )
 
 
@@ -325,7 +288,7 @@ def test_missing_required_atlas_input_column_raises(spark):
 
     with pytest.raises(ValueError):
         service.get_foundry_mapping_input_values(
-            _break_record(), mapping_name='TEST_MAPPING',
+            make_break_record(), mapping_name='TEST_MAPPING',
         )
 
 
@@ -336,7 +299,7 @@ def test_mapping_with_no_input_fields_raises(spark):
 
     with pytest.raises(ValueError):
         service.get_foundry_mapping_input_values(
-            _break_record(), mapping_name='TEST_MAPPING',
+            make_break_record(), mapping_name='TEST_MAPPING',
         )
 
 
@@ -351,7 +314,7 @@ def test_investigate_resolution_wraps_single_foundry_input_with_its_resolution(s
         definition, df,
         resolutions={tuple(sorted(values.items())): resolution},
     )
-    break_record = _break_record()
+    break_record = make_break_record()
 
     evidence = service.investigate_resolution(
         break_record,
@@ -388,7 +351,7 @@ def test_investigate_resolution_pairs_each_foundry_input_with_its_own_resolution
     )
 
     evidence = service.investigate_resolution(
-        _break_record(),
+        make_break_record(),
         segment_type=GLSegmentType.ENTITY,
     )
 
@@ -411,6 +374,6 @@ def test_investigate_resolution_propagates_foundry_lookup_error(spark):
 
     with pytest.raises(ValueError):
         service.investigate_resolution(
-            _break_record(),
+            make_break_record(),
             segment_type=GLSegmentType.ENTITY,
         )

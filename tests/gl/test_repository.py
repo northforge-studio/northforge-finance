@@ -20,6 +20,8 @@ from gl.models import (
 )
 from gl.repository import GLRepository
 
+from tests.support.fakes import FakeStore
+
 
 @pytest.fixture(scope='module')
 def repository(spark):
@@ -85,16 +87,6 @@ def test_get_segment_default_preserves_numeric_looking_values_as_strings(reposit
     assert isinstance(result.default_value, str)
 
 
-class _FakeStore:
-    """A minimal Store stand-in, to prove GLRepository is backend-agnostic."""
-
-    def __init__(self, tables):
-        self._tables = tables
-
-    def read(self, table_name, schema=None):
-        return self._tables[table_name]
-
-
 def test_get_segment_default_works_against_a_fake_store(spark):
     df = spark.createDataFrame(
         [
@@ -103,7 +95,7 @@ def test_get_segment_default_works_against_a_fake_store(spark):
         ['SEGMENT_TYPE', 'CONTEXT_TYPE', 'CONTEXT_VALUE', 'DEFAULT_VALUE'],
     )
 
-    store = _FakeStore({'SEGMENT_DEFAULT': df})
+    store = FakeStore({'SEGMENT_DEFAULT': df})
     repository = GLRepository(store, spark)
 
     result = repository.get_segment_default(GLSegmentType.DEPARTMENT, 'ENTITY_CD', 'ZZZ')

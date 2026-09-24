@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from decimal import Decimal
 from uuid import uuid4
 
@@ -10,12 +10,11 @@ from recon.contracts import RESULT_SCHEMA
 
 from break_analysis.services.recon import ReconBreakRecordResolver
 
-
-AS_OF_DATE = date(2026, 1, 1)
+from tests.support.constants import AS_OF_DATE
 
 
 class _FakeReconClient:
-    """Mirrors ReconClient.get_results(): scoped to the given workflow_run_id."""
+    '''Mirrors ReconClient.get_results(): scoped to the given workflow_run_id.'''
 
     def __init__(self, df):
         self._df = df

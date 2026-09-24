@@ -1,4 +1,3 @@
-from datetime import date
 from decimal import Decimal
 from uuid import uuid4
 
@@ -13,8 +12,7 @@ from foundry.contracts import (
 )
 from foundry.repository import TrialBalanceRepository
 
-
-BUSINESS_DT = date(2026, 1, 1)
+from tests.support.constants import BUSINESS_DT
 
 
 def _default_for(field):

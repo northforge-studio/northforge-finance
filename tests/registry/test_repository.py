@@ -7,6 +7,8 @@ from core.store import CsvStore
 from registry.models import GLSegmentType
 from registry.repository import RegistryRepository
 
+from tests.support.fakes import FakeStore
+
 
 @pytest.fixture(scope='module')
 def repository(spark):
@@ -83,16 +85,6 @@ def test_get_segment_details_returns_empty_for_unmatched_segment_cd(repository):
     assert df.count() == 0
 
 
-class _FakeStore:
-    """A minimal Store stand-in, to prove RegistryRepository is backend-agnostic."""
-
-    def __init__(self, tables):
-        self._tables = tables
-
-    def read(self, table_name, schema=None):
-        return self._tables[table_name]
-
-
 def test_get_active_segment_works_against_a_fake_store(spark):
     branch_df = spark.createDataFrame(
         [
@@ -102,7 +94,7 @@ def test_get_active_segment_works_against_a_fake_store(spark):
         ['BUSINESS_DT', 'BCH_CD', 'BCH_DS', 'STATUS'],
     )
 
-    store = _FakeStore({GLSegmentType.BRANCH: branch_df})
+    store = FakeStore({GLSegmentType.BRANCH: branch_df})
     repository = RegistryRepository(store)
 
     df = repository.get_active_segment(
@@ -123,7 +115,7 @@ def test_get_segment_details_works_against_a_fake_store(spark):
         ['BUSINESS_DT', 'BCH_CD', 'BCH_DS', 'STATUS'],
     )
 
-    store = _FakeStore({GLSegmentType.BRANCH: branch_df})
+    store = FakeStore({GLSegmentType.BRANCH: branch_df})
     repository = RegistryRepository(store)
 
     df = repository.get_segment_details(

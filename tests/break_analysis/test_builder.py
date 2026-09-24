@@ -1,6 +1,6 @@
 from datetime import date
 from decimal import Decimal
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from core.logging import short_id
 from registry.models import GLSegmentType
@@ -11,42 +11,12 @@ from break_analysis.builder import (
     _BreakCaseCandidate,
     _ResolvedCandidate,
 )
-from break_analysis.models import BreakPartitionKey, BreakRecord, BreakTopology, BreakCase
-from gl.models import GLSegments, GLSegmentDefault, GLSegmentDefaults
+from break_analysis.models import BreakPartitionKey, BreakTopology, BreakCase
+from gl.models import GLSegmentDefault, GLSegmentDefaults
 
+from tests.support.constants import AS_OF_DATE
 
-AS_OF_DATE = date(2026, 1, 1)
-
-
-def _segments(**overrides) -> GLSegments:
-    defaults = dict(
-        entity_cd='USM',
-        branch_cd='100',
-        dept_cd='4000',
-        gl_account='123456',
-        sub_account='001',
-        affiliate_cd='AFF1',
-        product_cd='PRD1',
-        book_cd='BK1',
-        source_cd='SRC1',
-    )
-    defaults.update(overrides)
-    return GLSegments(**defaults)
-
-
-def _record(**overrides) -> BreakRecord:
-    defaults = dict(
-        recon_result_id=uuid4(),
-        workflow_run_id=uuid4(),
-        as_of_date=AS_OF_DATE,
-        segments=_segments(),
-        accounted_currency='USD',
-        interface_balance=Decimal('100.00'),
-        gl_balance=Decimal('100.00'),
-        difference_amount=Decimal('0.00'),
-    )
-    defaults.update(overrides)
-    return BreakRecord(**defaults)
+from tests.break_analysis.factories import make_break_record, make_segments
 
 
 def _partition_key(entity_cd='USM') -> BreakPartitionKey:
@@ -85,8 +55,8 @@ def _builder(segment_defaults: GLSegmentDefaults | None = None) -> BreakCaseBuil
 
 
 def test_records_with_identical_hard_anchors_share_a_partition():
-    first = _record()
-    second = _record()
+    first = make_break_record()
+    second = make_break_record()
 
     result = _builder()._partition([first, second])
 
@@ -96,8 +66,8 @@ def test_records_with_identical_hard_anchors_share_a_partition():
 
 
 def test_different_as_of_date_creates_separate_partition():
-    same_day = _record()
-    other_day = _record(as_of_date=date(2026, 1, 2))
+    same_day = make_break_record()
+    other_day = make_break_record(as_of_date=date(2026, 1, 2))
 
     result = _builder()._partition([same_day, other_day])
 
@@ -105,8 +75,8 @@ def test_different_as_of_date_creates_separate_partition():
 
 
 def test_different_entity_cd_creates_separate_partition():
-    home_entity = _record()
-    other_entity = _record(segments=_segments(entity_cd='CAM'))
+    home_entity = make_break_record()
+    other_entity = make_break_record(segments=make_segments(entity_cd='CAM'))
 
     result = _builder()._partition([home_entity, other_entity])
 
@@ -114,8 +84,8 @@ def test_different_entity_cd_creates_separate_partition():
 
 
 def test_different_source_cd_creates_separate_partition():
-    home_source = _record()
-    other_source = _record(segments=_segments(source_cd='SRC2'))
+    home_source = make_break_record()
+    other_source = make_break_record(segments=make_segments(source_cd='SRC2'))
 
     result = _builder()._partition([home_source, other_source])
 
@@ -123,8 +93,8 @@ def test_different_source_cd_creates_separate_partition():
 
 
 def test_different_accounted_currency_creates_separate_partition():
-    usd = _record()
-    eur = _record(accounted_currency='EUR')
+    usd = make_break_record()
+    eur = make_break_record(accounted_currency='EUR')
 
     result = _builder()._partition([usd, eur])
 
@@ -135,8 +105,8 @@ def test_differences_in_transformable_segments_do_not_create_separate_partitions
     # BRANCH_CD, DEPT_CD, GL_ACCOUNT, SUB_ACCOUNT, AFFILIATE_CD, PRODUCT_CD
     # and BOOK_CD are transformable segments, not hard anchors, and must
     # not fragment the partition on their own.
-    first = _record()
-    second = _record(segments=_segments(
+    first = make_break_record()
+    second = make_break_record(segments=make_segments(
         branch_cd='200',
         dept_cd='4001',
         gl_account='654321',
@@ -160,14 +130,14 @@ def test_empty_input_returns_empty_dict():
 
 
 def test_multiple_independent_hard_anchor_combinations_produce_expected_partitions():
-    group_a = (_record(), _record())
+    group_a = (make_break_record(), make_break_record())
     group_b = (
-        _record(as_of_date=date(2026, 1, 2)),
-        _record(as_of_date=date(2026, 1, 2)),
+        make_break_record(as_of_date=date(2026, 1, 2)),
+        make_break_record(as_of_date=date(2026, 1, 2)),
     )
     group_c = (
-        _record(segments=_segments(entity_cd='CAM')),
-        _record(segments=_segments(entity_cd='CAM')),
+        make_break_record(segments=make_segments(entity_cd='CAM')),
+        make_break_record(segments=make_segments(entity_cd='CAM')),
     )
 
     result = _builder()._partition(group_a + group_b + group_c)
@@ -242,7 +212,7 @@ def test_record_matching_multiple_applicable_defaults_has_all_corresponding_rela
         _global_default(GLSegmentType.SUB_ACCOUNT, 'UNASSIGNED'),
     )
     builder = _builder(segment_defaults)
-    record = _record(segments=_segments(dept_cd='9999', sub_account='UNASSIGNED'))
+    record = make_break_record(segments=make_segments(dept_cd='9999', sub_account='UNASSIGNED'))
 
     pivots = builder._find_pivots(_partition_key(), [record])
 
@@ -259,7 +229,7 @@ def test_record_matching_no_applicable_defaults_is_not_a_pivot():
     )
     builder = _builder(segment_defaults)
     # dept_cd stays at its non-default value.
-    record = _record()
+    record = make_break_record()
 
     pivots = builder._find_pivots(_partition_key(), [record])
 
@@ -273,7 +243,7 @@ def test_default_configured_for_another_entity_does_not_make_a_record_a_pivot():
     builder = _builder(segment_defaults)
     # Value happens to match CAM's configured default, but this record
     # belongs to the USM partition, which has no default of its own.
-    record = _record(segments=_segments(dept_cd='9999'))
+    record = make_break_record(segments=make_segments(dept_cd='9999'))
 
     pivots = builder._find_pivots(_partition_key(entity_cd='USM'), [record])
 
@@ -287,7 +257,7 @@ def test_matching_one_default_does_not_relax_unrelated_transformable_segments():
     )
     builder = _builder(segment_defaults)
     # sub_account keeps its non-default value, so only DEPARTMENT should relax.
-    record = _record(segments=_segments(dept_cd='9999'))
+    record = make_break_record(segments=make_segments(dept_cd='9999'))
 
     pivots = builder._find_pivots(_partition_key(), [record])
 
@@ -300,8 +270,8 @@ def test_multiple_pivot_records_in_the_same_partition_are_all_returned():
         _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
     )
     builder = _builder(segment_defaults)
-    first = _record(segments=_segments(dept_cd='9999'))
-    second = _record(segments=_segments(dept_cd='9999'))
+    first = make_break_record(segments=make_segments(dept_cd='9999'))
+    second = make_break_record(segments=make_segments(dept_cd='9999'))
 
     pivots = builder._find_pivots(_partition_key(), [first, second])
 
@@ -320,11 +290,11 @@ def test_empty_partition_records_return_no_pivots():
 # -- _find_neighborhood ----------------------------------------------------
 
 def test_one_relaxed_segment_requires_remaining_segments_to_match():
-    pivot_record = _record(segments=_segments(dept_cd='9999'))
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999'))
     pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
     # Differs only on DEPARTMENT, the relaxed segment; every other
     # transformable segment matches the pivot.
-    compatible = _record(segments=_segments(dept_cd='4000'))
+    compatible = make_break_record(segments=make_segments(dept_cd='4000'))
 
     neighborhood = _builder()._find_neighborhood(pivot, [pivot_record, compatible], frozenset())
 
@@ -332,14 +302,14 @@ def test_one_relaxed_segment_requires_remaining_segments_to_match():
 
 
 def test_multiple_relaxed_segments_require_all_other_segments_to_match():
-    pivot_record = _record(segments=_segments(dept_cd='9999', sub_account='UNASSIGNED'))
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999', sub_account='UNASSIGNED'))
     pivot = _PivotCandidate(
         record=pivot_record,
         relaxed_segments=(GLSegmentType.DEPARTMENT, GLSegmentType.SUB_ACCOUNT),
     )
     # Differs only on the two relaxed segments; every non-relaxed
     # transformable segment matches the pivot.
-    compatible = _record(segments=_segments(dept_cd='4000', sub_account='001'))
+    compatible = make_break_record(segments=make_segments(dept_cd='4000', sub_account='001'))
 
     neighborhood = _builder()._find_neighborhood(pivot, [pivot_record, compatible], frozenset())
 
@@ -347,11 +317,11 @@ def test_multiple_relaxed_segments_require_all_other_segments_to_match():
 
 
 def test_difference_on_any_effective_anchor_excludes_the_record():
-    pivot_record = _record(segments=_segments(dept_cd='9999'))
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999'))
     pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
     # branch_cd is an effective anchor (not relaxed), so this record must
     # be excluded even though DEPARTMENT differs too.
-    unrelated = _record(segments=_segments(dept_cd='9999', branch_cd='200'))
+    unrelated = make_break_record(segments=make_segments(dept_cd='9999', branch_cd='200'))
 
     neighborhood = _builder()._find_neighborhood(pivot, [pivot_record, unrelated], frozenset())
 
@@ -359,11 +329,11 @@ def test_difference_on_any_effective_anchor_excludes_the_record():
 
 
 def test_another_pivot_matching_effective_anchors_is_excluded_from_neighborhood():
-    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
     pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
     # Matches the pivot's effective anchors, but is itself another pivot,
     # so it must not be absorbed into this pivot's neighborhood.
-    other_pivot_record = _record(difference_amount=Decimal('-50.00'))
+    other_pivot_record = make_break_record(difference_amount=Decimal('-50.00'))
     pivot_ids = frozenset({
         pivot_record.recon_result_id,
         other_pivot_record.recon_result_id,
@@ -379,7 +349,7 @@ def test_another_pivot_matching_effective_anchors_is_excluded_from_neighborhood(
 
 
 def test_current_pivot_record_remains_included_in_its_own_neighborhood():
-    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
     pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
     pivot_ids = frozenset({pivot_record.recon_result_id})
 
@@ -389,11 +359,11 @@ def test_current_pivot_record_remains_included_in_its_own_neighborhood():
 
 
 def test_non_pivot_matching_effective_anchors_remains_included():
-    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
     pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
     # Matches the pivot's effective anchors and is not itself a pivot, so
     # it must remain in the neighborhood.
-    compatible = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
+    compatible = make_break_record(segments=make_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
     pivot_ids = frozenset({pivot_record.recon_result_id})
 
     neighborhood = _builder()._find_neighborhood(
@@ -406,8 +376,8 @@ def test_non_pivot_matching_effective_anchors_remains_included():
 
 
 def test_pivot_with_narrower_relaxed_segments_cannot_absorb_pivot_with_wider_relaxed_segments():
-    account_pivot_record = _record(
-        segments=_segments(gl_account='999999'),
+    account_pivot_record = make_break_record(
+        segments=make_segments(gl_account='999999'),
         difference_amount=Decimal('50.00'),
     )
     account_pivot = _PivotCandidate(
@@ -417,8 +387,8 @@ def test_pivot_with_narrower_relaxed_segments_cannot_absorb_pivot_with_wider_rel
     # Would match the ACCOUNT-only pivot's effective anchors (SUB_ACCOUNT
     # included), but is itself a pivot with a wider set of relaxed
     # segments, so it must not be absorbed.
-    account_and_sub_account_pivot_record = _record(
-        segments=_segments(gl_account='999999', sub_account='001'),
+    account_and_sub_account_pivot_record = make_break_record(
+        segments=make_segments(gl_account='999999', sub_account='001'),
         difference_amount=Decimal('-50.00'),
     )
     pivot_ids = frozenset({
@@ -438,15 +408,15 @@ def test_pivot_with_narrower_relaxed_segments_cannot_absorb_pivot_with_wider_rel
 # -- _is_closed -------------------------------------------------------------
 
 def test_records_with_offsetting_differences_are_closed():
-    first = _record(difference_amount=Decimal('50.00'))
-    second = _record(difference_amount=Decimal('-50.00'))
+    first = make_break_record(difference_amount=Decimal('50.00'))
+    second = make_break_record(difference_amount=Decimal('-50.00'))
 
     assert _builder()._is_closed([first, second]) is True
 
 
 def test_records_with_nonzero_net_difference_are_not_closed():
-    first = _record(difference_amount=Decimal('50.00'))
-    second = _record(difference_amount=Decimal('-30.00'))
+    first = make_break_record(difference_amount=Decimal('50.00'))
+    second = make_break_record(difference_amount=Decimal('-30.00'))
 
     assert _builder()._is_closed([first, second]) is False
 
@@ -458,9 +428,9 @@ def test_empty_records_are_closed():
 # -- _build_candidate ---------------------------------------------------------
 
 def test_closed_two_record_neighborhood_yields_one_to_one():
-    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
     pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
-    offsetting = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
+    offsetting = make_break_record(segments=make_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
 
     candidate = _builder()._build_candidate(pivot, [pivot_record, offsetting], frozenset())
 
@@ -470,10 +440,10 @@ def test_closed_two_record_neighborhood_yields_one_to_one():
 
 
 def test_closed_three_or_more_record_neighborhood_yields_many_to_one():
-    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
     pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
-    first = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-20.00'))
-    second = _record(segments=_segments(dept_cd='0001'), difference_amount=Decimal('-30.00'))
+    first = make_break_record(segments=make_segments(dept_cd='4000'), difference_amount=Decimal('-20.00'))
+    second = make_break_record(segments=make_segments(dept_cd='0001'), difference_amount=Decimal('-30.00'))
 
     candidate = _builder()._build_candidate(pivot, [pivot_record, first, second], frozenset())
 
@@ -483,9 +453,9 @@ def test_closed_three_or_more_record_neighborhood_yields_many_to_one():
 
 
 def test_non_closing_neighborhood_yields_no_candidate():
-    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
     pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
-    non_offsetting = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-30.00'))
+    non_offsetting = make_break_record(segments=make_segments(dept_cd='4000'), difference_amount=Decimal('-30.00'))
 
     candidate = _builder()._build_candidate(pivot, [pivot_record, non_offsetting], frozenset())
 
@@ -493,7 +463,7 @@ def test_non_closing_neighborhood_yields_no_candidate():
 
 
 def test_neighborhood_containing_only_the_pivot_yields_no_candidate():
-    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
     pivot = _PivotCandidate(record=pivot_record, relaxed_segments=(GLSegmentType.DEPARTMENT,))
 
     candidate = _builder()._build_candidate(pivot, [pivot_record], frozenset())
@@ -502,16 +472,16 @@ def test_neighborhood_containing_only_the_pivot_yields_no_candidate():
 
 
 def test_candidate_preserves_pivot_relaxed_segments():
-    pivot_record = _record(
-        segments=_segments(dept_cd='9999', sub_account='UNASSIGNED'),
+    pivot_record = make_break_record(
+        segments=make_segments(dept_cd='9999', sub_account='UNASSIGNED'),
         difference_amount=Decimal('50.00'),
     )
     pivot = _PivotCandidate(
         record=pivot_record,
         relaxed_segments=(GLSegmentType.DEPARTMENT, GLSegmentType.SUB_ACCOUNT),
     )
-    offsetting = _record(
-        segments=_segments(dept_cd='4000', sub_account='001'),
+    offsetting = make_break_record(
+        segments=make_segments(dept_cd='4000', sub_account='001'),
         difference_amount=Decimal('-50.00'),
     )
 
@@ -529,10 +499,10 @@ def test_multiple_valid_pivots_each_build_a_candidate():
     )
     builder = _builder(segment_defaults)
     # Two independent branches, each with its own pivot/offsetting pair.
-    pivot_a = _record(segments=_segments(branch_cd='100', dept_cd='9999'), difference_amount=Decimal('50.00'))
-    partner_a = _record(segments=_segments(branch_cd='100', dept_cd='4000'), difference_amount=Decimal('-50.00'))
-    pivot_b = _record(segments=_segments(branch_cd='200', dept_cd='9999'), difference_amount=Decimal('30.00'))
-    partner_b = _record(segments=_segments(branch_cd='200', dept_cd='4000'), difference_amount=Decimal('-30.00'))
+    pivot_a = make_break_record(segments=make_segments(branch_cd='100', dept_cd='9999'), difference_amount=Decimal('50.00'))
+    partner_a = make_break_record(segments=make_segments(branch_cd='100', dept_cd='4000'), difference_amount=Decimal('-50.00'))
+    pivot_b = make_break_record(segments=make_segments(branch_cd='200', dept_cd='9999'), difference_amount=Decimal('30.00'))
+    partner_b = make_break_record(segments=make_segments(branch_cd='200', dept_cd='4000'), difference_amount=Decimal('-30.00'))
 
     candidates = builder._find_candidates(
         _partition_key(),
@@ -556,9 +526,9 @@ def test_multiple_pivots_with_identical_anchors_independently_build_their_own_ne
     # other's signature. Without pivot exclusion, pivot_b would be
     # absorbed into pivot_a's neighborhood (and vice versa); each pivot
     # must instead build its own neighborhood from non-pivot records only.
-    pivot_a = _record(segments=_segments(gl_account='999999'), difference_amount=Decimal('50.00'))
-    partner_a = _record(segments=_segments(gl_account='111111'), difference_amount=Decimal('-50.00'))
-    pivot_b = _record(segments=_segments(gl_account='999999'), difference_amount=Decimal('999.00'))
+    pivot_a = make_break_record(segments=make_segments(gl_account='999999'), difference_amount=Decimal('50.00'))
+    partner_a = make_break_record(segments=make_segments(gl_account='111111'), difference_amount=Decimal('-50.00'))
+    pivot_b = make_break_record(segments=make_segments(gl_account='999999'), difference_amount=Decimal('999.00'))
 
     candidates = builder._find_candidates(
         _partition_key(),
@@ -577,8 +547,8 @@ def test_non_closing_pivot_is_excluded():
         _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
     )
     builder = _builder(segment_defaults)
-    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
-    non_offsetting = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-30.00'))
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    non_offsetting = make_break_record(segments=make_segments(dept_cd='4000'), difference_amount=Decimal('-30.00'))
 
     candidates = builder._find_candidates(_partition_key(), (pivot_record, non_offsetting))
 
@@ -587,7 +557,7 @@ def test_non_closing_pivot_is_excluded():
 
 def test_no_pivots_returns_empty_tuple():
     builder = _builder()
-    record = _record()
+    record = make_break_record()
 
     candidates = builder._find_candidates(_partition_key(), (record,))
 
@@ -600,10 +570,10 @@ def test_mix_of_valid_and_invalid_pivots_returns_only_valid_candidates():
     )
     builder = _builder(segment_defaults)
     # Branch 100 closes; branch 200 does not.
-    closing_pivot = _record(segments=_segments(branch_cd='100', dept_cd='9999'), difference_amount=Decimal('50.00'))
-    closing_partner = _record(segments=_segments(branch_cd='100', dept_cd='4000'), difference_amount=Decimal('-50.00'))
-    open_pivot = _record(segments=_segments(branch_cd='200', dept_cd='9999'), difference_amount=Decimal('30.00'))
-    open_partner = _record(segments=_segments(branch_cd='200', dept_cd='4000'), difference_amount=Decimal('-10.00'))
+    closing_pivot = make_break_record(segments=make_segments(branch_cd='100', dept_cd='9999'), difference_amount=Decimal('50.00'))
+    closing_partner = make_break_record(segments=make_segments(branch_cd='100', dept_cd='4000'), difference_amount=Decimal('-50.00'))
+    open_pivot = make_break_record(segments=make_segments(branch_cd='200', dept_cd='9999'), difference_amount=Decimal('30.00'))
+    open_partner = make_break_record(segments=make_segments(branch_cd='200', dept_cd='4000'), difference_amount=Decimal('-10.00'))
 
     candidates = builder._find_candidates(
         _partition_key(),
@@ -617,8 +587,8 @@ def test_mix_of_valid_and_invalid_pivots_returns_only_valid_candidates():
 # -- _deduplicate_candidates -----------------------------------------------
 
 def test_exact_duplicate_candidates_collapse_to_one():
-    pivot = _record()
-    investigation = _record()
+    pivot = make_break_record()
+    investigation = make_break_record()
     candidate = _BreakCaseCandidate(
         topology=BreakTopology.ONE_TO_ONE,
         pivot=pivot,
@@ -639,9 +609,9 @@ def test_exact_duplicate_candidates_collapse_to_one():
 
 
 def test_same_investigation_records_in_different_order_are_still_duplicates():
-    pivot = _record()
-    first = _record()
-    second = _record()
+    pivot = make_break_record()
+    first = make_break_record()
+    second = make_break_record()
     candidate = _BreakCaseCandidate(
         topology=BreakTopology.MANY_TO_ONE,
         pivot=pivot,
@@ -661,8 +631,8 @@ def test_same_investigation_records_in_different_order_are_still_duplicates():
 
 
 def test_same_records_with_different_relaxed_segments_remain_separate():
-    pivot = _record()
-    investigation = _record()
+    pivot = make_break_record()
+    investigation = make_break_record()
     department_relaxed = _BreakCaseCandidate(
         topology=BreakTopology.ONE_TO_ONE,
         pivot=pivot,
@@ -684,14 +654,14 @@ def test_same_records_with_different_relaxed_segments_remain_separate():
 def test_different_record_sets_remain_separate():
     first = _BreakCaseCandidate(
         topology=BreakTopology.ONE_TO_ONE,
-        pivot=_record(),
-        investigation_records=(_record(),),
+        pivot=make_break_record(),
+        investigation_records=(make_break_record(),),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
     second = _BreakCaseCandidate(
         topology=BreakTopology.ONE_TO_ONE,
-        pivot=_record(),
-        investigation_records=(_record(),),
+        pivot=make_break_record(),
+        investigation_records=(make_break_record(),),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
 
@@ -709,8 +679,8 @@ def test_empty_candidates_returns_empty_tuple():
 # -- _resolve_candidates -----------------------------------------------------
 
 def test_single_candidate_is_accepted_unchanged():
-    pivot = _record()
-    investigation = _record()
+    pivot = make_break_record()
+    investigation = make_break_record()
     candidate = _BreakCaseCandidate(
         topology=BreakTopology.ONE_TO_ONE,
         pivot=pivot,
@@ -731,8 +701,8 @@ def test_single_candidate_is_accepted_unchanged():
 
 
 def test_multiple_non_overlapping_candidates_are_accepted_independently():
-    pivot_a, first = _record(), _record()
-    pivot_b, second = _record(), _record()
+    pivot_a, first = make_break_record(), make_break_record()
+    pivot_b, second = make_break_record(), make_break_record()
     candidate_a = _BreakCaseCandidate(
         topology=BreakTopology.ONE_TO_ONE,
         pivot=pivot_a,
@@ -766,9 +736,9 @@ def test_multiple_non_overlapping_candidates_are_accepted_independently():
 
 
 def test_two_overlapping_candidates_yield_one_ambiguous_result():
-    shared_pivot = _record()
-    only_in_a = _record()
-    only_in_b = _record()
+    shared_pivot = make_break_record()
+    only_in_a = make_break_record()
+    only_in_b = make_break_record()
     candidate_a = _BreakCaseCandidate(
         topology=BreakTopology.ONE_TO_ONE,
         pivot=shared_pivot,
@@ -790,10 +760,10 @@ def test_two_overlapping_candidates_yield_one_ambiguous_result():
 
 
 def test_transitively_overlapping_candidates_yield_one_ambiguous_result():
-    only_in_a = _record()
-    shared_ab = _record()
-    shared_bc = _record()
-    only_in_c = _record()
+    only_in_a = make_break_record()
+    shared_ab = make_break_record()
+    shared_bc = make_break_record()
+    only_in_c = make_break_record()
     # candidate_a and candidate_c share no record directly, but both
     # overlap with candidate_b, so all three must merge transitively.
     candidate_a = _BreakCaseCandidate(
@@ -823,9 +793,9 @@ def test_transitively_overlapping_candidates_yield_one_ambiguous_result():
 
 
 def test_ambiguous_result_contains_union_of_records_without_duplicates():
-    shared_pivot = _record()
-    only_in_a = _record()
-    only_in_b = _record()
+    shared_pivot = make_break_record()
+    only_in_a = make_break_record()
+    only_in_b = make_break_record()
     candidate_a = _BreakCaseCandidate(
         topology=BreakTopology.ONE_TO_ONE,
         pivot=shared_pivot,
@@ -855,7 +825,7 @@ def test_empty_candidates_returns_empty_tuple_for_resolve():
 # -- _to_break_cases ----------------------------------------------------------
 
 def test_resolved_normal_candidate_becomes_break_case_with_evidence():
-    pivot, investigation = _record(), _record()
+    pivot, investigation = make_break_record(), make_break_record()
     resolved = _ResolvedCandidate(
         topology=BreakTopology.ONE_TO_ONE,
         pivot=pivot,
@@ -874,7 +844,7 @@ def test_resolved_normal_candidate_becomes_break_case_with_evidence():
 
 
 def test_ambiguous_candidate_becomes_break_case_with_no_evidence():
-    first, second = _record(), _record()
+    first, second = make_break_record(), make_break_record()
     resolved = _ResolvedCandidate(
         topology=BreakTopology.AMBIGUOUS,
         pivot=None,
@@ -891,14 +861,14 @@ def test_ambiguous_candidate_becomes_break_case_with_no_evidence():
 def test_each_case_gets_a_case_id():
     first_resolved = _ResolvedCandidate(
         topology=BreakTopology.ONE_TO_ONE,
-        pivot=_record(),
-        investigation_records=(_record(),),
+        pivot=make_break_record(),
+        investigation_records=(make_break_record(),),
         relaxed_segments=(GLSegmentType.DEPARTMENT,),
     )
     second_resolved = _ResolvedCandidate(
         topology=BreakTopology.ONE_TO_ONE,
-        pivot=_record(),
-        investigation_records=(_record(),),
+        pivot=make_break_record(),
+        investigation_records=(make_break_record(),),
         relaxed_segments=(GLSegmentType.SUB_ACCOUNT,),
     )
 
@@ -914,7 +884,7 @@ def test_each_case_gets_a_case_id():
 # -- _classify_leftovers -------------------------------------------------
 
 def test_classify_leftovers_interface_balance_only_yields_interface_only():
-    record = _record(
+    record = make_break_record(
         interface_balance=Decimal('100.00'),
         gl_balance=Decimal('0.00'),
         difference_amount=Decimal('100.00'),
@@ -928,7 +898,7 @@ def test_classify_leftovers_interface_balance_only_yields_interface_only():
 
 
 def test_classify_leftovers_gl_balance_only_yields_gl_only():
-    record = _record(
+    record = make_break_record(
         interface_balance=Decimal('0.00'),
         gl_balance=Decimal('100.00'),
         difference_amount=Decimal('-100.00'),
@@ -941,7 +911,7 @@ def test_classify_leftovers_gl_balance_only_yields_gl_only():
 
 
 def test_classify_leftovers_both_sides_populated_yields_unmatched():
-    record = _record(
+    record = make_break_record(
         interface_balance=Decimal('100.00'),
         gl_balance=Decimal('80.00'),
         difference_amount=Decimal('20.00'),
@@ -960,8 +930,8 @@ def test_build_known_one_to_one_scenario_yields_one_case():
         _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
     )
     builder = _builder(segment_defaults)
-    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
-    partner_record = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    partner_record = make_break_record(segments=make_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
 
     cases = builder.build([pivot_record, partner_record])
 
@@ -976,9 +946,9 @@ def test_build_known_many_to_one_scenario_yields_one_case():
         _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
     )
     builder = _builder(segment_defaults)
-    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
-    first = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-20.00'))
-    second = _record(segments=_segments(dept_cd='0001'), difference_amount=Decimal('-30.00'))
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    first = make_break_record(segments=make_segments(dept_cd='4000'), difference_amount=Decimal('-20.00'))
+    second = make_break_record(segments=make_segments(dept_cd='0001'), difference_amount=Decimal('-30.00'))
 
     cases = builder.build([pivot_record, first, second])
 
@@ -993,10 +963,10 @@ def test_build_multiple_independent_cases_in_same_partition_remain_separate():
         _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
     )
     builder = _builder(segment_defaults)
-    pivot_a = _record(segments=_segments(branch_cd='100', dept_cd='9999'), difference_amount=Decimal('50.00'))
-    partner_a = _record(segments=_segments(branch_cd='100', dept_cd='4000'), difference_amount=Decimal('-50.00'))
-    pivot_b = _record(segments=_segments(branch_cd='200', dept_cd='9999'), difference_amount=Decimal('30.00'))
-    partner_b = _record(segments=_segments(branch_cd='200', dept_cd='4000'), difference_amount=Decimal('-30.00'))
+    pivot_a = make_break_record(segments=make_segments(branch_cd='100', dept_cd='9999'), difference_amount=Decimal('50.00'))
+    partner_a = make_break_record(segments=make_segments(branch_cd='100', dept_cd='4000'), difference_amount=Decimal('-50.00'))
+    pivot_b = make_break_record(segments=make_segments(branch_cd='200', dept_cd='9999'), difference_amount=Decimal('30.00'))
+    partner_b = make_break_record(segments=make_segments(branch_cd='200', dept_cd='4000'), difference_amount=Decimal('-30.00'))
 
     cases = builder.build([pivot_a, partner_a, pivot_b, partner_b])
 
@@ -1014,14 +984,14 @@ def test_build_cases_across_different_partitions_remain_separate():
         _entity_default(GLSegmentType.DEPARTMENT, 'CAM', '9999'),
     )
     builder = _builder(segment_defaults)
-    pivot_usm = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
-    partner_usm = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
-    pivot_cam = _record(
-        segments=_segments(entity_cd='CAM', dept_cd='9999'),
+    pivot_usm = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    partner_usm = make_break_record(segments=make_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
+    pivot_cam = make_break_record(
+        segments=make_segments(entity_cd='CAM', dept_cd='9999'),
         difference_amount=Decimal('30.00'),
     )
-    partner_cam = _record(
-        segments=_segments(entity_cd='CAM', dept_cd='4000'),
+    partner_cam = make_break_record(
+        segments=make_segments(entity_cd='CAM', dept_cd='4000'),
         difference_amount=Decimal('-30.00'),
     )
 
@@ -1042,9 +1012,9 @@ def test_build_overlapping_candidates_yield_ambiguous_case():
     builder = _builder(segment_defaults)
     # Each pivot closes independently against the same shared record, so
     # the two candidates overlap and must merge into one AMBIGUOUS case.
-    pivot_a = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
-    pivot_b = _record(segments=_segments(sub_account='UNASSIGNED'), difference_amount=Decimal('50.00'))
-    shared_partner = _record(difference_amount=Decimal('-50.00'))
+    pivot_a = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    pivot_b = make_break_record(segments=make_segments(sub_account='UNASSIGNED'), difference_amount=Decimal('50.00'))
+    shared_partner = make_break_record(difference_amount=Decimal('-50.00'))
 
     cases = builder.build([pivot_a, pivot_b, shared_partner])
 
@@ -1057,7 +1027,7 @@ def test_build_overlapping_candidates_yield_ambiguous_case():
 
 def test_build_classifies_unconsumed_records_as_leftovers():
     builder = _builder()
-    interface_only = _record(
+    interface_only = make_break_record(
         interface_balance=Decimal('100.00'),
         gl_balance=Decimal('0.00'),
         difference_amount=Decimal('100.00'),
@@ -1077,9 +1047,9 @@ def test_build_every_input_record_appears_in_exactly_one_case():
         _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
     )
     builder = _builder(segment_defaults)
-    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
-    partner_record = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
-    leftover = _record(
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    partner_record = make_break_record(segments=make_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
+    leftover = make_break_record(
         interface_balance=Decimal('20.00'),
         gl_balance=Decimal('0.00'),
         difference_amount=Decimal('20.00'),
@@ -1114,12 +1084,12 @@ def test_build_logs_topology_breakdown_and_duration(caplog):
         _entity_default(GLSegmentType.DEPARTMENT, 'USM', '9999'),
     )
     builder = _builder(segment_defaults)
-    pivot_record = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
-    partner_record = _record(segments=_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
+    pivot_record = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    partner_record = make_break_record(segments=make_segments(dept_cd='4000'), difference_amount=Decimal('-50.00'))
     # Distinct branch_cd keeps this outside the pivot/partner neighborhood
     # (effective anchors), so it surfaces as an unconsumed leftover.
-    leftover = _record(
-        segments=_segments(branch_cd='999'),
+    leftover = make_break_record(
+        segments=make_segments(branch_cd='999'),
         interface_balance=Decimal('20.00'),
         gl_balance=Decimal('0.00'),
         difference_amount=Decimal('20.00'),
@@ -1146,9 +1116,9 @@ def test_build_logs_ambiguous_case_as_warning(caplog):
         _entity_default(GLSegmentType.SUB_ACCOUNT, 'USM', 'UNASSIGNED'),
     )
     builder = _builder(segment_defaults)
-    pivot_a = _record(segments=_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
-    pivot_b = _record(segments=_segments(sub_account='UNASSIGNED'), difference_amount=Decimal('50.00'))
-    shared_partner = _record(difference_amount=Decimal('-50.00'))
+    pivot_a = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
+    pivot_b = make_break_record(segments=make_segments(sub_account='UNASSIGNED'), difference_amount=Decimal('50.00'))
+    shared_partner = make_break_record(difference_amount=Decimal('-50.00'))
 
     with caplog.at_level('INFO', logger='break_analysis.builder'):
         [case] = builder.build([pivot_a, pivot_b, shared_partner])

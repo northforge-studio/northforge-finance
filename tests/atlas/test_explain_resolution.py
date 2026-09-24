@@ -4,16 +4,7 @@ from atlas.manager import MappingManager
 from atlas.models import MappingCandidateType
 from atlas.repository import AtlasRepository
 
-
-class _FakeStore:
-    """A minimal Store stand-in with full control over STATUS/WEIGHTAGE,
-    so diagnostic scenarios don't depend on data/atlas/*.csv fixtures."""
-
-    def __init__(self, tables):
-        self._tables = tables
-
-    def read(self, table_name, schema=None):
-        return self._tables[table_name]
+from tests.support.fakes import FakeStore
 
 
 _MAPPING_NAME = 'TEST_MAPPING'
@@ -51,7 +42,7 @@ def _manager(spark, data_rows: list[tuple]) -> MappingManager:
     meta_df = spark.createDataFrame(_META_ROWS, _META_COLUMNS)
     data_df = spark.createDataFrame(data_rows, _DATA_COLUMNS)
 
-    store = _FakeStore({
+    store = FakeStore({
         'MAPPING_META': meta_df,
         'MAPPING_DATA': data_df,
     })

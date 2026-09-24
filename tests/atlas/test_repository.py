@@ -3,6 +3,8 @@ import pytest
 from atlas.repository import AtlasRepository
 from core.store import CsvStore
 
+from tests.support.fakes import FakeStore
+
 
 @pytest.fixture(scope='module')
 def repository(spark, atlas_meta_path, atlas_data_path):
@@ -68,16 +70,6 @@ def test_reconstruct_entity_mapping_data(repository):
     ]
 
 
-class _FakeStore:
-    """A minimal Store stand-in, to prove AtlasRepository is backend-agnostic."""
-
-    def __init__(self, tables):
-        self._tables = tables
-
-    def read(self, table_name, schema=None):
-        return self._tables[table_name]
-
-
 def test_get_definition_works_against_a_fake_store(spark):
     meta_df = spark.createDataFrame(
         [
@@ -96,7 +88,7 @@ def test_get_definition_works_against_a_fake_store(spark):
         ],
     )
 
-    store = _FakeStore({'MAPPING_META': meta_df})
+    store = FakeStore({'MAPPING_META': meta_df})
     repository = AtlasRepository(store)
 
     definition = repository.get_definition('ENTITY_MAPPING')

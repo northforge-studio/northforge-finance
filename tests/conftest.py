@@ -1,6 +1,8 @@
 import pytest
 from pyspark.sql import SparkSession
 
+from tests.support.fakes import make_run_tracker
+
 
 @pytest.fixture(scope='session')
 def spark():
@@ -14,3 +16,8 @@ def spark():
     yield spark
 
     spark.stop()
+
+
+@pytest.fixture
+def run_tracker():
+    return make_run_tracker()
