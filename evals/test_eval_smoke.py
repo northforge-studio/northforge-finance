@@ -20,20 +20,14 @@ from break_analysis.tools.registry import (
     SegmentValidationResult,
     SegmentDetailsResult
 )
-from break_analysis import BreakAnalysisAgent
 
-from evals.fake_tools import (
-    FakeAtlasTools,
-    FakeRegistryTools
-)
 from evals.models import (
     ToolFixture,
     EvalScenario,
     EvalExpectation,
     ExpectedFinding
 )
-from evals.graders import grade_scenario
-from evals.fixtures import ToolFixtureStore
+from evals.runner import EvalRunner
 
 
 def test_registry_inactive_account(llm):
@@ -146,24 +140,11 @@ def test_registry_inactive_account(llm):
         ),
     )
 
-    store = ToolFixtureStore(scenario.tool_fixtures)
-
-    agent = BreakAnalysisAgent(
-        llm=llm,
-        registry_tools=FakeRegistryTools(store),
-        atlas_tools=FakeAtlasTools(store),
-    )
-
-    result = agent.analyze(scenario.break_case)
-    grade = grade_scenario(
-        scenario=scenario,
-        result=result,
-        calls=store.calls,
-    )
-
+    runner = EvalRunner(llm)
+    result = runner.run(scenario)
+    
     print(result)
-    print(store.calls)
-    print(grade)
+
 
 
 if __name__ == "__main__":

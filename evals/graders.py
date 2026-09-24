@@ -5,8 +5,8 @@ from break_analysis.models import BreakAnalysisResult
 from evals.models import (
     EvalScenario,
     EvalGrade,
+    ToolCallRecord,
 )
-from evals.fixtures import ToolCallRecord
 
 
 def grade_scenario(

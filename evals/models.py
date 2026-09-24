@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from break_analysis.models import (
     BreakCase,
     RootCause,
+    BreakAnalysisResult,
     BreakAnalysisStatus
 )
 
@@ -16,6 +17,12 @@ class ToolFixture:
     tool_name: str
     args: dict[str, Any]
     result: object
+
+
+@dataclass(frozen=True)
+class ToolCallRecord:
+    tool_name: str
+    args: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -51,4 +58,12 @@ class EvalScenario:
 class EvalGrade:
     passed: bool
     failures: tuple[str, ...]
-    
+
+
+@dataclass(frozen=True)
+class EvalRunResult:
+    scenario_name: str
+    grade: EvalGrade
+    result: BreakAnalysisResult | None
+    calls: tuple[ToolCallRecord, ...]
+    error: str | None = None

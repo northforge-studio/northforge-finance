@@ -1,13 +1,6 @@
 from typing import Any
-from dataclasses import dataclass
 
-from evals.models import ToolFixture
-
-
-@dataclass(frozen=True)
-class ToolCallRecord:
-    tool_name: str
-    args: dict[str, Any]
+from evals.models import ToolFixture, ToolCallRecord
 
 
 class ToolFixtureStore:
