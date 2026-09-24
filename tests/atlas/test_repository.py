@@ -18,7 +18,7 @@ def repository(spark, atlas_meta_path, atlas_data_path):
     return AtlasRepository(store)
 
 
-def test_reconstruct_entity_mapping_definition(repository):
+def test_get_definition_reconstructs_entity_mapping_definition(repository):
     definition = repository.get_definition(
         'ENTITY_MAPPING',
     )
@@ -51,7 +51,7 @@ def test_reconstruct_entity_mapping_definition(repository):
     ]
 
 
-def test_reconstruct_entity_mapping_data(repository):
+def test_get_mapping_reconstructs_entity_mapping_data(repository):
     mapping = repository.get_mapping(
         'ENTITY_MAPPING',
     )

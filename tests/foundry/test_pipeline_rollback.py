@@ -72,7 +72,7 @@ def test_rollback_execution_unknown_operation_is_a_no_op():
     repository.delete_interface.assert_not_called()
 
 
-def test_repository_delete_methods_filter_by_workflow_run_id_not_business_dt_or_batch():
+def test_repository_delete_methods_filter_by_workflow_run_id_only():
     store = MagicMock()
     repository = TrialBalanceRepository(store)
     workflow_run_id = uuid4()

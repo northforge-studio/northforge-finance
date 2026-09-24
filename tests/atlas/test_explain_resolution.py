@@ -50,7 +50,7 @@ def _manager(spark, data_rows: list[tuple]) -> MappingManager:
     return MappingManager(AtlasRepository(store))
 
 
-def test_specific_candidate_has_no_wildcard_fields(spark):
+def test_explain_resolution_specific_candidate_has_no_wildcard_fields(spark):
     manager = _manager(spark, [
         (_MAPPING_NAME, 'US', 'TRD', 'OUT1', '1', 'A'),
     ])
@@ -68,7 +68,7 @@ def test_specific_candidate_has_no_wildcard_fields(spark):
     assert evidence.mapping_output == {'OUTPUT_VAL': 'OUT1'}
 
 
-def test_wildcard_candidate_reports_wildcarded_field(spark):
+def test_explain_resolution_reports_wildcarded_field(spark):
     manager = _manager(spark, [
         (_MAPPING_NAME, 'US', '*', 'OUT2', '1', 'A'),
     ])
@@ -84,7 +84,7 @@ def test_wildcard_candidate_reports_wildcarded_field(spark):
     assert candidate.wildcard_fields == ('FIELD_B',)
 
 
-def test_multiple_wildcard_fields_are_all_reported(spark):
+def test_explain_resolution_reports_every_wildcard_field(spark):
     manager = _manager(spark, [
         (_MAPPING_NAME, '*', '*', 'OUT3', '1', 'A'),
     ])
@@ -100,7 +100,7 @@ def test_multiple_wildcard_fields_are_all_reported(spark):
     assert candidate.wildcard_fields == ('FIELD_A', 'FIELD_B')
 
 
-def test_active_specific_and_active_wildcard_both_appear_highest_weightage_wins(spark):
+def test_explain_resolution_ranks_active_candidates_by_weightage(spark):
     manager = _manager(spark, [
         (_MAPPING_NAME, 'US', 'TRD', 'SPECIFIC_OUT', '9', 'A'),
         (_MAPPING_NAME, 'US', '*', 'WILDCARD_OUT', '1', 'A'),
@@ -116,7 +116,7 @@ def test_active_specific_and_active_wildcard_both_appear_highest_weightage_wins(
     assert evidence.mapping_output == {'OUTPUT_VAL': 'SPECIFIC_OUT'}
 
 
-def test_inactive_specific_and_active_wildcard_resolves_through_wildcard(spark):
+def test_explain_resolution_resolves_through_wildcard_when_specific_inactive(spark):
     manager = _manager(spark, [
         (_MAPPING_NAME, 'US', 'TRD', 'SPECIFIC_OUT', '9', 'I'),
         (_MAPPING_NAME, 'US', '*', 'WILDCARD_OUT', '1', 'A'),
@@ -133,7 +133,7 @@ def test_inactive_specific_and_active_wildcard_resolves_through_wildcard(spark):
     assert evidence.mapping_output == {'OUTPUT_VAL': 'WILDCARD_OUT'}
 
 
-def test_all_matching_candidates_inactive_yields_no_active_candidate(spark):
+def test_explain_resolution_all_candidates_inactive_yields_no_active_candidate(spark):
     manager = _manager(spark, [
         (_MAPPING_NAME, 'US', 'TRD', 'OUT_A', '9', 'I'),
         (_MAPPING_NAME, 'US', '*', 'OUT_B', '1', 'I'),
@@ -150,7 +150,7 @@ def test_all_matching_candidates_inactive_yields_no_active_candidate(spark):
     assert evidence.mapping_output is None
 
 
-def test_no_matching_candidates_at_all(spark):
+def test_explain_resolution_no_matching_candidates(spark):
     manager = _manager(spark, [
         (_MAPPING_NAME, 'GB', 'TRD', 'OUT', '1', 'A'),
     ])
@@ -166,7 +166,7 @@ def test_no_matching_candidates_at_all(spark):
     assert evidence.mapping_output is None
 
 
-def test_wildcard_accidentally_outranks_specific_by_weightage(spark):
+def test_explain_resolution_wildcard_can_outrank_specific_by_weightage(spark):
     # Configuration bug: the wildcard row was accidentally given a higher
     # WEIGHTAGE than the specific row. Atlas's configured rule (highest
     # lexicographic WEIGHTAGE among active candidates) is authoritative,
@@ -186,7 +186,7 @@ def test_wildcard_accidentally_outranks_specific_by_weightage(spark):
     assert evidence.mapping_output == {'OUTPUT_VAL': 'WILDCARD_OUT'}
 
 
-def test_highest_weightage_tie_raises_like_production_apply(spark):
+def test_explain_resolution_highest_weightage_tie_raises(spark):
     manager = _manager(spark, [
         (_MAPPING_NAME, 'US', 'TRD', 'OUT_A', '9', 'A'),
         (_MAPPING_NAME, 'US', '*', 'OUT_B', '9', 'A'),
@@ -199,7 +199,7 @@ def test_highest_weightage_tie_raises_like_production_apply(spark):
         )
 
 
-def test_case_insensitive_exact_matching(spark):
+def test_explain_resolution_matches_case_insensitively(spark):
     manager = _manager(spark, [
         (_MAPPING_NAME, 'us', 'trd', 'OUT', '1', 'A'),
     ])
@@ -214,7 +214,7 @@ def test_case_insensitive_exact_matching(spark):
     assert evidence.resolved is True
 
 
-def test_missing_required_input_raises(spark):
+def test_explain_resolution_missing_required_input_raises(spark):
     manager = _manager(spark, [
         (_MAPPING_NAME, 'US', 'TRD', 'OUT', '1', 'A'),
     ])
@@ -226,7 +226,7 @@ def test_missing_required_input_raises(spark):
         )
 
 
-def test_extra_input_values_are_ignored(spark):
+def test_explain_resolution_ignores_extra_input_values(spark):
     manager = _manager(spark, [
         (_MAPPING_NAME, 'US', 'TRD', 'OUT', '1', 'A'),
     ])
@@ -239,7 +239,7 @@ def test_extra_input_values_are_ignored(spark):
     assert evidence.resolved is True
 
 
-def test_apply_still_ignores_inactive_rows_after_diagnostics_refactor(spark):
+def test_apply_ignores_inactive_rows(spark):
     # Guards against the get_mapping()/get_mapping_details() refactor
     # (shared _read_mapping_data/_fillna_mapping_columns helpers)
     # accidentally letting inactive rows into production apply().

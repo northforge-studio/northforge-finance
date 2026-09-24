@@ -103,7 +103,7 @@ def test_create_and_get_execution_run(repository, workflow_run):
     assert fetched == run
 
 
-def test_execution_run_links_to_parent_and_retry(repository, workflow_run):
+def test_create_and_get_execution_run_links_to_parent_and_retry(repository, workflow_run):
     parent = ExecutionRun(
         run_id=uuid4(),
         workflow_run_id=workflow_run.workflow_run_id,

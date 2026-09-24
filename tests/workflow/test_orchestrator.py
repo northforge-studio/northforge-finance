@@ -105,7 +105,7 @@ def _executions_by_operation(repository: FakeRunRepository, workflow_run_id: UUI
 
 # -- run_foundry: topology -----------------------------------------------
 
-def test_run_foundry_creates_pipeline_and_all_five_zone_executions_under_one_workflow():
+def test_run_foundry_creates_five_zone_executions_under_one_workflow():
     run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
@@ -257,7 +257,7 @@ def test_run_gl_resolves_the_workflows_foundry_interface_execution():
     assert identity.workflow_run_id == workflow_run_id
 
 
-def test_run_gl_creates_gl_import_execution_under_the_same_workflow_with_dependency():
+def test_run_gl_creates_import_execution_with_dependency_under_same_workflow():
     run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
     gl = _FakeGL()

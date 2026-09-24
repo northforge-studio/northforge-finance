@@ -25,7 +25,7 @@ class _FakeReconClient:
         )
 
 
-def _result_row(**overrides) -> dict:
+def _make_result_row(**overrides) -> dict:
     row = dict(
         RECON_RESULT_ID=str(uuid4()),
         RECONCILED_AT=datetime.now(timezone.utc),
@@ -50,17 +50,17 @@ def _result_row(**overrides) -> dict:
     return row
 
 
-def _results_df(spark, rows: list[dict]):
+def _make_results_df(spark, rows: list[dict]):
     return spark.createDataFrame(
         [tuple(row[field.name] for field in RESULT_SCHEMA.fields) for row in rows],
         schema=RESULT_SCHEMA,
     )
 
 
-def test_matching_result_returns_expected_break_record(spark):
+def test_get_break_record_returns_expected_break_record(spark):
     workflow_run_id = uuid4()
-    row = _result_row(WORKFLOW_RUN_ID=str(workflow_run_id))
-    df = _results_df(spark, [row])
+    row = _make_result_row(WORKFLOW_RUN_ID=str(workflow_run_id))
+    df = _make_results_df(spark, [row])
     resolver = ReconBreakRecordResolver(_FakeReconClient(df))
 
     record = resolver.get_break_record(
@@ -79,10 +79,10 @@ def test_matching_result_returns_expected_break_record(spark):
     assert record.difference_amount == Decimal('0.00')
 
 
-def test_missing_recon_result_id_raises(spark):
+def test_get_break_record_missing_recon_result_id_raises(spark):
     workflow_run_id = uuid4()
-    row = _result_row(WORKFLOW_RUN_ID=str(workflow_run_id))
-    df = _results_df(spark, [row])
+    row = _make_result_row(WORKFLOW_RUN_ID=str(workflow_run_id))
+    df = _make_results_df(spark, [row])
     resolver = ReconBreakRecordResolver(_FakeReconClient(df))
 
     with pytest.raises(ValueError, match='No recon.result row found'):
@@ -92,14 +92,14 @@ def test_missing_recon_result_id_raises(spark):
         )
 
 
-def test_duplicate_recon_result_id_raises(spark):
+def test_get_break_record_duplicate_recon_result_id_raises(spark):
     workflow_run_id = uuid4()
     recon_result_id = str(uuid4())
     rows = [
-        _result_row(WORKFLOW_RUN_ID=str(workflow_run_id), RECON_RESULT_ID=recon_result_id),
-        _result_row(WORKFLOW_RUN_ID=str(workflow_run_id), RECON_RESULT_ID=recon_result_id),
+        _make_result_row(WORKFLOW_RUN_ID=str(workflow_run_id), RECON_RESULT_ID=recon_result_id),
+        _make_result_row(WORKFLOW_RUN_ID=str(workflow_run_id), RECON_RESULT_ID=recon_result_id),
     ]
-    df = _results_df(spark, rows)
+    df = _make_results_df(spark, rows)
     resolver = ReconBreakRecordResolver(_FakeReconClient(df))
 
     with pytest.raises(ValueError, match='Multiple recon.result rows found'):

@@ -14,7 +14,7 @@ from recon.repository import ReconRepository
 from tests.support.fakes import FakeStore
 
 
-def _result(**overrides) -> ReconResult:
+def _make_result(**overrides) -> ReconResult:
     fields = dict(
         recon_result_id=uuid4(),
         reconciled_at=datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
@@ -51,7 +51,7 @@ def repository(spark, tmp_path):
 
 
 def test_get_results_returns_a_spark_dataframe(repository):
-    repository.write_results([_result()])
+    repository.write_results([_make_result()])
 
     result = repository.get_results(uuid4())
 
@@ -59,7 +59,7 @@ def test_get_results_returns_a_spark_dataframe(repository):
 
 
 def test_write_results_persists_all_fields(repository):
-    result = _result()
+    result = _make_result()
 
     repository.write_results([result])
 
@@ -88,8 +88,8 @@ def test_write_results_persists_all_fields(repository):
 
 def test_write_results_persists_multiple_rows_in_one_call(repository):
     workflow_run_id = uuid4()
-    first = _result(workflow_run_id=workflow_run_id, gl_account='111111')
-    second = _result(workflow_run_id=workflow_run_id, gl_account='222222')
+    first = _make_result(workflow_run_id=workflow_run_id, gl_account='111111')
+    second = _make_result(workflow_run_id=workflow_run_id, gl_account='222222')
 
     repository.write_results([first, second])
 
@@ -109,8 +109,8 @@ def test_get_results_excludes_rows_from_other_workflows(repository):
     other_workflow_run_id = uuid4()
 
     repository.write_results([
-        _result(workflow_run_id=kept_workflow_run_id),
-        _result(workflow_run_id=other_workflow_run_id),
+        _make_result(workflow_run_id=kept_workflow_run_id),
+        _make_result(workflow_run_id=other_workflow_run_id),
     ])
 
     rows = repository.get_results(kept_workflow_run_id).collect()
@@ -120,7 +120,7 @@ def test_get_results_excludes_rows_from_other_workflows(repository):
 
 
 def test_write_results_preserves_decimal_precision(repository):
-    result = _result(
+    result = _make_result(
         interface_balance=Decimal('12345.123456789012'),
         gl_balance=Decimal('12345.123456789000'),
         difference_amount=Decimal('0.000000000012'),
@@ -137,7 +137,7 @@ def test_write_results_preserves_decimal_precision(repository):
 
 
 def test_write_results_preserves_negative_difference_amount(repository):
-    result = _result(difference_amount=Decimal('-500.00'))
+    result = _make_result(difference_amount=Decimal('-500.00'))
 
     repository.write_results([result])
 
@@ -148,7 +148,7 @@ def test_write_results_preserves_negative_difference_amount(repository):
 
 def test_get_results_works_against_a_fake_store(spark):
     workflow_run_id = uuid4()
-    result = _result(workflow_run_id=workflow_run_id)
+    result = _make_result(workflow_run_id=workflow_run_id)
 
     store = FakeStore({})
     repository = ReconRepository(store, spark)

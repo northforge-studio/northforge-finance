@@ -42,7 +42,7 @@ VALID_SEGMENTS = {
 }
 
 
-def _instruction(workflow_run_id: UUID, **overrides) -> GLInstruction:
+def _make_instruction(workflow_run_id: UUID, **overrides) -> GLInstruction:
     fields = dict(
         workflow_run_id=workflow_run_id,
         producer_run_id=uuid4(),
@@ -76,7 +76,7 @@ def _instruction(workflow_run_id: UUID, **overrides) -> GLInstruction:
     return GLInstruction(**fields)
 
 
-def _interface_row(instruction: GLInstruction) -> tuple:
+def _make_interface_row(instruction: GLInstruction) -> tuple:
     values = dict(
         WORKFLOW_RUN_ID=str(instruction.workflow_run_id),
         PRODUCER_RUN_ID=str(instruction.producer_run_id),
@@ -135,7 +135,7 @@ def recon(spark, tmp_path, run_tracker, gl):
     )
 
 
-def _seed_interface(spark, tmp_path, instructions):
+def _write_interface(spark, tmp_path, instructions):
     store = CsvStore(
         spark=spark,
         table_locations={
@@ -143,7 +143,7 @@ def _seed_interface(spark, tmp_path, instructions):
         },
     )
     df = spark.createDataFrame(
-        [_interface_row(instruction) for instruction in instructions],
+        [_make_interface_row(instruction) for instruction in instructions],
         schema=INTERFACE_TRIAL_BALANCE_SCHEMA,
     )
     store.write(df, table_name='INTERFACE_TRIAL_BALANCE')
@@ -151,24 +151,24 @@ def _seed_interface(spark, tmp_path, instructions):
 
 # -- balanced flow: Foundry(seeded) -> Interface -> GL -> Recon -----------
 
-def test_balanced_interface_and_gl_population_reconciles_with_zero_differences(
+def test_reconcile_balanced_interface_and_gl_yields_zero_differences(
     spark, tmp_path, run_tracker, gl, recon,
 ):
     workflow_run_id = run_tracker.start_workflow(
         dataclass='TRIAL_BALANCE', business_dt=BUSINESS_DT,
     ).workflow_run_id
 
-    cash = _instruction(
+    cash = _make_instruction(
         workflow_run_id,
         posting_id='POST-1', gl_account='123456', accounted_amount=Decimal('90000.00'),
     )
-    payable = _instruction(
+    payable = _make_instruction(
         workflow_run_id,
         posting_id='POST-2', gl_account='223456', accounted_amount=Decimal('-65000.00'),
         cr_dr_ind='CR',
     )
 
-    _seed_interface(spark, tmp_path, [cash, payable])
+    _write_interface(spark, tmp_path, [cash, payable])
 
     for instruction in (cash, payable):
         result = gl.process_instruction(instruction)
@@ -213,19 +213,19 @@ def test_balanced_interface_and_gl_population_reconciles_with_zero_differences(
 
 # -- controlled break: a duplicated GL posting produces a real break ------
 
-def test_a_duplicated_gl_posting_produces_a_non_zero_difference(
+def test_reconcile_duplicated_gl_posting_yields_non_zero_difference(
     spark, tmp_path, run_tracker, gl, recon,
 ):
     workflow_run_id = run_tracker.start_workflow(
         dataclass='TRIAL_BALANCE', business_dt=BUSINESS_DT,
     ).workflow_run_id
 
-    instruction = _instruction(
+    instruction = _make_instruction(
         workflow_run_id,
         posting_id='POST-3', gl_account='123456', accounted_amount=Decimal('500.00'),
     )
 
-    _seed_interface(spark, tmp_path, [instruction])
+    _write_interface(spark, tmp_path, [instruction])
 
     # Foundry/Interface produced exactly one accounting instruction, but
     # GL erroneously posts it twice -- the "duplicated posting" break
@@ -251,7 +251,7 @@ def test_a_duplicated_gl_posting_produces_a_non_zero_difference(
 
 # -- workflow scoping across multiple recon executions in one store -------
 
-def test_recon_results_from_different_workflows_stay_isolated_in_the_shared_store(
+def test_reconcile_isolates_results_across_workflows_in_a_shared_store(
     spark, tmp_path, run_tracker, gl, recon,
 ):
     balanced_workflow_run_id = run_tracker.start_workflow(
@@ -261,14 +261,14 @@ def test_recon_results_from_different_workflows_stay_isolated_in_the_shared_stor
         dataclass='TRIAL_BALANCE', business_dt=BUSINESS_DT,
     ).workflow_run_id
 
-    balanced_instruction = _instruction(
+    balanced_instruction = _make_instruction(
         balanced_workflow_run_id, posting_id='POST-4', accounted_amount=Decimal('42.00'),
     )
-    broken_instruction = _instruction(
+    broken_instruction = _make_instruction(
         broken_workflow_run_id, posting_id='POST-5', accounted_amount=Decimal('10.00'),
     )
 
-    _seed_interface(spark, tmp_path, [balanced_instruction, broken_instruction])
+    _write_interface(spark, tmp_path, [balanced_instruction, broken_instruction])
 
     gl.process_instruction(balanced_instruction)
     gl.process_instruction(broken_instruction)

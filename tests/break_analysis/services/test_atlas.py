@@ -80,7 +80,7 @@ class _FakeFoundryRepository:
         return self._df
 
 
-def _mapping_definition(
+def _make_mapping_definition(
     mapping_name: str = 'TEST_MAPPING',
     input_field_names: tuple[str, ...] = ('COUNTRY_CD', 'COUNTERPARTY_CD'),
 ) -> MappingDefinition:
@@ -114,7 +114,7 @@ def _mapping_definition(
     )
 
 
-def _posting_row(**overrides) -> dict:
+def _make_posting_row(**overrides) -> dict:
     row = dict(
         AS_OF_DT=AS_OF_DATE,
         POSTING_MEASURE_FUNC_CCY_CD='USD',
@@ -126,14 +126,14 @@ def _posting_row(**overrides) -> dict:
     return row
 
 
-def _postings_df(spark, rows: list[dict]):
+def _make_postings_df(spark, rows: list[dict]):
     return spark.createDataFrame(
         [tuple(row[field.name] for field in _POSTING_SCHEMA.fields) for row in rows],
         schema=_POSTING_SCHEMA,
     )
 
 
-def _service(
+def _make_service(
     definition: MappingDefinition,
     df,
     resolutions: dict[tuple, MappingResolutionEvidence] | None = None,
@@ -144,7 +144,7 @@ def _service(
     )
 
 
-def _resolution(mapping_name: str, values: dict[str, str], output: str) -> MappingResolutionEvidence:
+def _make_resolution(mapping_name: str, values: dict[str, str], output: str) -> MappingResolutionEvidence:
     return MappingResolutionEvidence(
         mapping_name=mapping_name,
         input_values=values,
@@ -155,12 +155,12 @@ def _resolution(mapping_name: str, values: dict[str, str], output: str) -> Mappi
     )
 
 
-def test_input_field_discovery_uses_exact_canonical_names(spark):
-    definition = _mapping_definition(
+def test_get_foundry_mapping_input_values_uses_exact_canonical_input_names(spark):
+    definition = _make_mapping_definition(
         input_field_names=('COUNTRY_CD', 'COUNTERPARTY_CD'),
     )
-    df = _postings_df(spark, [_posting_row()])
-    service = _service(definition, df)
+    df = _make_postings_df(spark, [_make_posting_row()])
+    service = _make_service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
         make_break_record(), mapping_name='TEST_MAPPING',
@@ -170,10 +170,10 @@ def test_input_field_discovery_uses_exact_canonical_names(spark):
     assert set(result[0].values.keys()) == {'COUNTRY_CD', 'COUNTERPARTY_CD'}
 
 
-def test_single_foundry_match_returns_one_evidence_result(spark):
-    definition = _mapping_definition()
-    df = _postings_df(spark, [_posting_row()])
-    service = _service(definition, df)
+def test_get_foundry_mapping_input_values_single_match_returns_one_result(spark):
+    definition = _make_mapping_definition()
+    df = _make_postings_df(spark, [_make_posting_row()])
+    service = _make_service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
         make_break_record(), mapping_name='TEST_MAPPING',
@@ -184,18 +184,18 @@ def test_single_foundry_match_returns_one_evidence_result(spark):
     assert result[0].source_record_count == 1
 
 
-def test_duplicate_input_combinations_are_collapsed_with_count(spark):
-    definition = _mapping_definition()
-    df = _postings_df(
+def test_get_foundry_mapping_input_values_collapses_duplicates_with_count(spark):
+    definition = _make_mapping_definition()
+    df = _make_postings_df(
         spark,
         [
-            _posting_row(),
-            _posting_row(),
-            _posting_row(),
-            _posting_row(),
+            _make_posting_row(),
+            _make_posting_row(),
+            _make_posting_row(),
+            _make_posting_row(),
         ],
     )
-    service = _service(definition, df)
+    service = _make_service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
         make_break_record(), mapping_name='TEST_MAPPING',
@@ -206,17 +206,17 @@ def test_duplicate_input_combinations_are_collapsed_with_count(spark):
     assert result[0].source_record_count == 4
 
 
-def test_multiple_distinct_input_combinations_produce_multiple_results(spark):
-    definition = _mapping_definition()
-    df = _postings_df(
+def test_get_foundry_mapping_input_values_returns_one_result_per_combination(spark):
+    definition = _make_mapping_definition()
+    df = _make_postings_df(
         spark,
         [
-            _posting_row(COUNTRY_CD='US', COUNTERPARTY_CD='1000'),
-            _posting_row(COUNTRY_CD='US', COUNTERPARTY_CD='1000'),
-            _posting_row(COUNTRY_CD='US', COUNTERPARTY_CD='2000'),
+            _make_posting_row(COUNTRY_CD='US', COUNTERPARTY_CD='1000'),
+            _make_posting_row(COUNTRY_CD='US', COUNTERPARTY_CD='1000'),
+            _make_posting_row(COUNTRY_CD='US', COUNTERPARTY_CD='2000'),
         ],
     )
-    service = _service(definition, df)
+    service = _make_service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
         make_break_record(), mapping_name='TEST_MAPPING',
@@ -228,14 +228,14 @@ def test_multiple_distinct_input_combinations_produce_multiple_results(spark):
     assert by_counterparty['2000'].source_record_count == 1
 
 
-def test_blank_gl_segment_matches_empty_string_in_foundry(spark):
-    definition = _mapping_definition()
+def test_get_foundry_mapping_input_values_blank_segment_matches_empty_string(spark):
+    definition = _make_mapping_definition()
     break_record = make_break_record(segments=make_segments(sub_account=''))
-    df = _postings_df(
+    df = _make_postings_df(
         spark,
-        [_posting_row(GL_SUB_ACCOUNT='')],
+        [_make_posting_row(GL_SUB_ACCOUNT='')],
     )
-    service = _service(definition, df)
+    service = _make_service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
         break_record, mapping_name='TEST_MAPPING',
@@ -245,17 +245,17 @@ def test_blank_gl_segment_matches_empty_string_in_foundry(spark):
     assert result[0].source_record_count == 1
 
 
-def test_nonmatching_segments_are_excluded(spark):
-    definition = _mapping_definition()
-    df = _postings_df(
+def test_get_foundry_mapping_input_values_excludes_nonmatching_segments(spark):
+    definition = _make_mapping_definition()
+    df = _make_postings_df(
         spark,
         [
-            _posting_row(),
-            _posting_row(GL_ENTITY_CD='OTHER'),
-            _posting_row(GL_BRANCH_CD='999'),
+            _make_posting_row(),
+            _make_posting_row(GL_ENTITY_CD='OTHER'),
+            _make_posting_row(GL_BRANCH_CD='999'),
         ],
     )
-    service = _service(definition, df)
+    service = _make_service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
         make_break_record(), mapping_name='TEST_MAPPING',
@@ -265,13 +265,13 @@ def test_nonmatching_segments_are_excluded(spark):
     assert result[0].source_record_count == 1
 
 
-def test_no_matching_foundry_rows_raises(spark):
-    definition = _mapping_definition()
-    df = _postings_df(
+def test_get_foundry_mapping_input_values_no_matching_rows_raises(spark):
+    definition = _make_mapping_definition()
+    df = _make_postings_df(
         spark,
-        [_posting_row(GL_ENTITY_CD='UNRELATED')],
+        [_make_posting_row(GL_ENTITY_CD='UNRELATED')],
     )
-    service = _service(definition, df)
+    service = _make_service(definition, df)
 
     with pytest.raises(ValueError):
         service.get_foundry_mapping_input_values(
@@ -279,12 +279,12 @@ def test_no_matching_foundry_rows_raises(spark):
         )
 
 
-def test_missing_required_atlas_input_column_raises(spark):
-    definition = _mapping_definition(
+def test_get_foundry_mapping_input_values_missing_input_column_raises(spark):
+    definition = _make_mapping_definition(
         input_field_names=('COUNTRY_CD', 'MISSING_COLUMN'),
     )
-    df = _postings_df(spark, [_posting_row()])
-    service = _service(definition, df)
+    df = _make_postings_df(spark, [_make_posting_row()])
+    service = _make_service(definition, df)
 
     with pytest.raises(ValueError):
         service.get_foundry_mapping_input_values(
@@ -292,10 +292,10 @@ def test_missing_required_atlas_input_column_raises(spark):
         )
 
 
-def test_mapping_with_no_input_fields_raises(spark):
-    definition = _mapping_definition(input_field_names=())
-    df = _postings_df(spark, [_posting_row()])
-    service = _service(definition, df)
+def test_get_foundry_mapping_input_values_mapping_without_input_fields_raises(spark):
+    definition = _make_mapping_definition(input_field_names=())
+    df = _make_postings_df(spark, [_make_posting_row()])
+    service = _make_service(definition, df)
 
     with pytest.raises(ValueError):
         service.get_foundry_mapping_input_values(
@@ -306,11 +306,11 @@ def test_mapping_with_no_input_fields_raises(spark):
 def test_investigate_resolution_wraps_single_foundry_input_with_its_resolution(spark):
     # investigate_resolution() derives the mapping name from segment_type
     # (SEGMENT_MAPPING_NAMES); GLSegmentType.ENTITY maps to ENTITY_MAPPING.
-    definition = _mapping_definition(mapping_name='ENTITY_MAPPING')
-    df = _postings_df(spark, [_posting_row()])
+    definition = _make_mapping_definition(mapping_name='ENTITY_MAPPING')
+    df = _make_postings_df(spark, [_make_posting_row()])
     values = {'COUNTRY_CD': 'US', 'COUNTERPARTY_CD': '1000'}
-    resolution = _resolution('ENTITY_MAPPING', values, output='RESOLVED_A')
-    service = _service(
+    resolution = _make_resolution('ENTITY_MAPPING', values, output='RESOLVED_A')
+    service = _make_service(
         definition, df,
         resolutions={tuple(sorted(values.items())): resolution},
     )
@@ -330,19 +330,19 @@ def test_investigate_resolution_wraps_single_foundry_input_with_its_resolution(s
 
 
 def test_investigate_resolution_pairs_each_foundry_input_with_its_own_resolution(spark):
-    definition = _mapping_definition(mapping_name='ENTITY_MAPPING')
-    df = _postings_df(
+    definition = _make_mapping_definition(mapping_name='ENTITY_MAPPING')
+    df = _make_postings_df(
         spark,
         [
-            _posting_row(COUNTRY_CD='US', COUNTERPARTY_CD='1000'),
-            _posting_row(COUNTRY_CD='US', COUNTERPARTY_CD='2000'),
+            _make_posting_row(COUNTRY_CD='US', COUNTERPARTY_CD='1000'),
+            _make_posting_row(COUNTRY_CD='US', COUNTERPARTY_CD='2000'),
         ],
     )
     values_a = {'COUNTRY_CD': 'US', 'COUNTERPARTY_CD': '1000'}
     values_b = {'COUNTRY_CD': 'US', 'COUNTERPARTY_CD': '2000'}
-    resolution_a = _resolution('ENTITY_MAPPING', values_a, output='RESOLVED_A')
-    resolution_b = _resolution('ENTITY_MAPPING', values_b, output='RESOLVED_B')
-    service = _service(
+    resolution_a = _make_resolution('ENTITY_MAPPING', values_a, output='RESOLVED_A')
+    resolution_b = _make_resolution('ENTITY_MAPPING', values_b, output='RESOLVED_B')
+    service = _make_service(
         definition, df,
         resolutions={
             tuple(sorted(values_a.items())): resolution_a,
@@ -365,12 +365,12 @@ def test_investigate_resolution_pairs_each_foundry_input_with_its_own_resolution
 
 
 def test_investigate_resolution_propagates_foundry_lookup_error(spark):
-    definition = _mapping_definition(mapping_name='ENTITY_MAPPING')
-    df = _postings_df(
+    definition = _make_mapping_definition(mapping_name='ENTITY_MAPPING')
+    df = _make_postings_df(
         spark,
-        [_posting_row(GL_ENTITY_CD='UNRELATED')],
+        [_make_posting_row(GL_ENTITY_CD='UNRELATED')],
     )
-    service = _service(definition, df)
+    service = _make_service(definition, df)
 
     with pytest.raises(ValueError):
         service.investigate_resolution(

@@ -18,7 +18,7 @@ from tests.support.constants import AS_OF_DATE
 from tests.break_analysis.factories import make_break_record
 
 
-def _break_case(**overrides) -> BreakCase:
+def _make_break_case(**overrides) -> BreakCase:
     defaults = dict(
         case_id=uuid4(),
         topology=BreakTopology.AMBIGUOUS,
@@ -30,7 +30,7 @@ def _break_case(**overrides) -> BreakCase:
     return BreakCase(**defaults)
 
 
-def _tool_call(name='validate_segment', call_id='call_1', **arg_overrides) -> dict:
+def _make_tool_call(name='validate_segment', call_id='call_1', **arg_overrides) -> dict:
     args = dict(
         segment_type=GLSegmentType.ACCOUNT,
         segment_value='123456',
@@ -115,7 +115,7 @@ _CONCLUSION = BreakAnalysisConclusion(
 )
 
 
-def _agent(
+def _make_agent(
     responses,
     registry_client=None,
     atlas_tools=None,
@@ -146,8 +146,8 @@ def _agent(
 # -- logging --------------------------------------------------------------
 
 def test_analyze_logs_start_line_with_case_context(caplog):
-    break_case = _break_case()
-    agent = _agent(responses=[_FakeMessage()])
+    break_case = _make_break_case()
+    agent = _make_agent(responses=[_FakeMessage()])
 
     with caplog.at_level('INFO', logger='break_analysis.agent'):
         agent.analyze(break_case)
@@ -165,11 +165,11 @@ def test_analyze_logs_start_line_with_case_context(caplog):
 
 
 def test_analyze_logs_end_summary_with_status_and_counts(caplog):
-    break_case = _break_case()
-    agent = _agent(
+    break_case = _make_break_case()
+    agent = _make_agent(
         responses=[
             _FakeMessage(
-                tool_calls=[_tool_call()],
+                tool_calls=[_make_tool_call()],
                 usage_metadata={'input_tokens': 100, 'output_tokens': 20, 'total_tokens': 120},
             ),
             _FakeMessage(
@@ -200,11 +200,11 @@ def test_analyze_logs_end_summary_with_status_and_counts(caplog):
 
 
 def test_analyze_logs_each_llm_invocation_with_usage_and_duration(caplog):
-    break_case = _break_case()
-    agent = _agent(
+    break_case = _make_break_case()
+    agent = _make_agent(
         responses=[
             _FakeMessage(
-                tool_calls=[_tool_call()],
+                tool_calls=[_make_tool_call()],
                 usage_metadata={'input_tokens': 100, 'output_tokens': 20, 'total_tokens': 120},
             ),
             _FakeMessage(
@@ -252,10 +252,10 @@ def test_analyze_logs_each_llm_invocation_with_usage_and_duration(caplog):
     assert 'duration_ms=' in third_message
 
 
-def test_analyze_logs_invoking_llm_before_each_llm_invocation_with_matching_round(caplog):
-    break_case = _break_case()
-    agent = _agent(responses=[
-        _FakeMessage(tool_calls=[_tool_call()]),
+def test_analyze_logs_invoking_llm_before_each_invocation_with_matching_round(caplog):
+    break_case = _make_break_case()
+    agent = _make_agent(responses=[
+        _FakeMessage(tool_calls=[_make_tool_call()]),
         _FakeMessage(),
     ])
 
@@ -283,8 +283,8 @@ def test_analyze_logs_invoking_llm_before_each_llm_invocation_with_matching_roun
 
 
 def test_analyze_logs_llm_invocation_with_none_when_usage_metadata_unavailable(caplog):
-    break_case = _break_case()
-    agent = _agent(responses=[_FakeMessage(usage_metadata=None)])
+    break_case = _make_break_case()
+    agent = _make_agent(responses=[_FakeMessage(usage_metadata=None)])
 
     with caplog.at_level('INFO', logger='break_analysis.agent'):
         agent.analyze(break_case)
@@ -303,9 +303,9 @@ def test_analyze_logs_llm_invocation_with_none_when_usage_metadata_unavailable(c
 
 
 def test_analyze_logs_each_tool_invocation_with_duration(caplog):
-    break_case = _break_case()
-    agent = _agent(responses=[
-        _FakeMessage(tool_calls=[_tool_call()]),
+    break_case = _make_break_case()
+    agent = _make_agent(responses=[
+        _FakeMessage(tool_calls=[_make_tool_call()]),
         _FakeMessage(),
     ])
 
@@ -327,9 +327,9 @@ def test_analyze_logs_each_tool_invocation_with_duration(caplog):
 
 
 def test_analyze_logs_cache_hit_at_debug_level_for_repeated_tool_call(caplog):
-    break_case = _break_case()
-    repeated_call = [_tool_call(call_id='call_1'), _tool_call(call_id='call_2')]
-    agent = _agent(responses=[
+    break_case = _make_break_case()
+    repeated_call = [_make_tool_call(call_id='call_1'), _make_tool_call(call_id='call_2')]
+    agent = _make_agent(responses=[
         _FakeMessage(tool_calls=repeated_call),
         _FakeMessage(),
     ])
@@ -350,9 +350,9 @@ def test_analyze_logs_cache_hit_at_debug_level_for_repeated_tool_call(caplog):
 
 
 def test_analyze_logs_and_raises_on_unknown_tool(caplog):
-    break_case = _break_case()
-    agent = _agent(responses=[
-        _FakeMessage(tool_calls=[_tool_call(name='not_a_real_tool')]),
+    break_case = _make_break_case()
+    agent = _make_agent(responses=[
+        _FakeMessage(tool_calls=[_make_tool_call(name='not_a_real_tool')]),
     ])
 
     with caplog.at_level('INFO', logger='break_analysis.agent'):
@@ -368,9 +368,9 @@ def test_analyze_logs_and_raises_on_unknown_tool(caplog):
 
 
 def test_analyze_logs_exception_and_raises_on_tool_failure(caplog):
-    break_case = _break_case()
-    agent = _agent(
-        responses=[_FakeMessage(tool_calls=[_tool_call()])],
+    break_case = _make_break_case()
+    agent = _make_agent(
+        responses=[_FakeMessage(tool_calls=[_make_tool_call()])],
         registry_client=_FakeRegistryClient(raise_error=True),
     )
 
@@ -387,11 +387,11 @@ def test_analyze_logs_exception_and_raises_on_tool_failure(caplog):
 
 
 def test_analyze_logs_and_raises_on_max_tool_rounds_exceeded(caplog):
-    break_case = _break_case()
-    agent = _agent(
+    break_case = _make_break_case()
+    agent = _make_agent(
         responses=[
-            _FakeMessage(tool_calls=[_tool_call(call_id='call_1')]),
-            _FakeMessage(tool_calls=[_tool_call(call_id='call_2')]),
+            _FakeMessage(tool_calls=[_make_tool_call(call_id='call_1')]),
+            _FakeMessage(tool_calls=[_make_tool_call(call_id='call_2')]),
         ],
         max_tool_rounds=1,
     )
@@ -409,9 +409,9 @@ def test_analyze_logs_and_raises_on_max_tool_rounds_exceeded(caplog):
 
 
 def test_analyze_logs_and_raises_on_structured_output_parsing_error(caplog):
-    break_case = _break_case()
+    break_case = _make_break_case()
     original_error = ValueError('model did not return valid JSON')
-    agent = _agent(
+    agent = _make_agent(
         responses=[_FakeMessage()],
         parsing_error=original_error,
     )

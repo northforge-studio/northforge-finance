@@ -13,13 +13,13 @@ from core.runs.models import (
 from tests.support.constants import BUSINESS_DT
 
 
-def _tracker():
+def _make_tracker():
     repository = MagicMock(spec=RunRepository)
     return RunTracker(repository), repository
 
 
 def test_start_workflow_persists_running_run_and_returns_it():
-    tracker, repository = _tracker()
+    tracker, repository = _make_tracker()
 
     run = tracker.start_workflow(
         dataclass='TRIAL_BALANCE',
@@ -38,7 +38,7 @@ def test_start_workflow_persists_running_run_and_returns_it():
 
 
 def test_start_workflow_generates_unique_ids():
-    tracker, _ = _tracker()
+    tracker, _ = _make_tracker()
 
     first = tracker.start_workflow(
         dataclass='TRIAL_BALANCE',
@@ -53,7 +53,7 @@ def test_start_workflow_generates_unique_ids():
 
 
 def test_start_execution_persists_running_run_and_returns_it():
-    tracker, repository = _tracker()
+    tracker, repository = _make_tracker()
     workflow_run_id = uuid4()
 
     run = tracker.start_execution(
@@ -77,7 +77,7 @@ def test_start_execution_persists_running_run_and_returns_it():
 
 
 def test_start_execution_links_parent_and_retry():
-    tracker, _ = _tracker()
+    tracker, _ = _make_tracker()
     workflow_run_id = uuid4()
     parent_run_id = uuid4()
     retry_of_run_id = uuid4()
@@ -95,7 +95,7 @@ def test_start_execution_links_parent_and_retry():
 
 
 def test_complete_workflow_sets_succeeded_with_completed_at():
-    tracker, repository = _tracker()
+    tracker, repository = _make_tracker()
     workflow_run_id = uuid4()
 
     tracker.complete_workflow(workflow_run_id)
@@ -109,7 +109,7 @@ def test_complete_workflow_sets_succeeded_with_completed_at():
 
 
 def test_fail_workflow_sets_failed_with_completed_at():
-    tracker, repository = _tracker()
+    tracker, repository = _make_tracker()
     workflow_run_id = uuid4()
 
     tracker.fail_workflow(workflow_run_id)
@@ -123,7 +123,7 @@ def test_fail_workflow_sets_failed_with_completed_at():
 
 
 def test_complete_execution_sets_succeeded_with_completed_at():
-    tracker, repository = _tracker()
+    tracker, repository = _make_tracker()
     run_id = uuid4()
 
     tracker.complete_execution(run_id)
@@ -137,7 +137,7 @@ def test_complete_execution_sets_succeeded_with_completed_at():
 
 
 def test_fail_execution_sets_failed_with_completed_at():
-    tracker, repository = _tracker()
+    tracker, repository = _make_tracker()
     run_id = uuid4()
 
     tracker.fail_execution(run_id)
@@ -151,7 +151,7 @@ def test_fail_execution_sets_failed_with_completed_at():
 
 
 def test_add_dependency_persists_run_dependency():
-    tracker, repository = _tracker()
+    tracker, repository = _make_tracker()
     consumer_run_id = uuid4()
     producer_run_id = uuid4()
 
@@ -171,7 +171,7 @@ def test_add_dependency_persists_run_dependency():
 
 
 def test_add_dependency_input_role_defaults_to_none():
-    tracker, repository = _tracker()
+    tracker, repository = _make_tracker()
     consumer_run_id = uuid4()
     producer_run_id = uuid4()
 

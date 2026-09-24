@@ -1,8 +1,6 @@
 from datetime import date
 from decimal import Decimal
 
-import pytest
-
 from pyspark.sql.types import (
     DateType,
     DecimalType,
@@ -60,7 +58,7 @@ _DEFAULT_KEY = dict(
 )
 
 
-def _row(amount, cr_dr_ind=None, **key_overrides):
+def _make_row(amount, cr_dr_ind=None, **key_overrides):
     key = dict(_DEFAULT_KEY)
     key.update(key_overrides)
 
@@ -71,22 +69,22 @@ def _row(amount, cr_dr_ind=None, **key_overrides):
     return values
 
 
-def _df(spark, rows, with_cr_dr_ind=False):
+def _make_df(spark, rows, with_cr_dr_ind=False):
     schema = _SIDE_SCHEMA_WITH_CR_DR_IND if with_cr_dr_ind else _SIDE_SCHEMA
     return spark.createDataFrame(list(rows), schema=schema)
 
 
-def _result_rows(spark, interface_rows, gl_rows, with_cr_dr_ind=False):
-    interface_df = _df(spark, interface_rows, with_cr_dr_ind)
-    gl_df = _df(spark, gl_rows, with_cr_dr_ind)
+def _calculate_result_rows(spark, interface_rows, gl_rows, with_cr_dr_ind=False):
+    interface_df = _make_df(spark, interface_rows, with_cr_dr_ind)
+    gl_df = _make_df(spark, gl_rows, with_cr_dr_ind)
 
     return calculate_recon(interface_df, gl_df).collect()
 
 
-def test_output_has_recon_keys_plus_balance_columns(spark):
+def test_calculate_recon_output_has_recon_keys_plus_balance_columns(spark):
     rows = calculate_recon(
-        _df(spark, [_row(Decimal('100.00'))]),
-        _df(spark, [_row(Decimal('100.00'))]),
+        _make_df(spark, [_make_row(Decimal('100.00'))]),
+        _make_df(spark, [_make_row(Decimal('100.00'))]),
     )
 
     assert rows.columns == list(RECON_KEYS) + [
@@ -94,11 +92,11 @@ def test_output_has_recon_keys_plus_balance_columns(spark):
     ]
 
 
-def test_perfect_match_yields_zero_difference(spark):
-    rows = _result_rows(
+def test_calculate_recon_perfect_match_yields_zero_difference(spark):
+    rows = _calculate_result_rows(
         spark,
-        interface_rows=[_row(Decimal('100.00'))],
-        gl_rows=[_row(Decimal('100.00'))],
+        interface_rows=[_make_row(Decimal('100.00'))],
+        gl_rows=[_make_row(Decimal('100.00'))],
     )
 
     assert len(rows) == 1
@@ -107,10 +105,10 @@ def test_perfect_match_yields_zero_difference(spark):
     assert rows[0]['DIFFERENCE_AMOUNT'] == Decimal('0.00')
 
 
-def test_interface_only_balance(spark):
-    rows = _result_rows(
+def test_calculate_recon_interface_only_balance(spark):
+    rows = _calculate_result_rows(
         spark,
-        interface_rows=[_row(Decimal('250.00'))],
+        interface_rows=[_make_row(Decimal('250.00'))],
         gl_rows=[],
     )
 
@@ -120,11 +118,11 @@ def test_interface_only_balance(spark):
     assert rows[0]['DIFFERENCE_AMOUNT'] == Decimal('250.00')
 
 
-def test_gl_only_balance(spark):
-    rows = _result_rows(
+def test_calculate_recon_gl_only_balance(spark):
+    rows = _calculate_result_rows(
         spark,
         interface_rows=[],
-        gl_rows=[_row(Decimal('75.00'))],
+        gl_rows=[_make_row(Decimal('75.00'))],
     )
 
     assert len(rows) == 1
@@ -133,11 +131,11 @@ def test_gl_only_balance(spark):
     assert rows[0]['DIFFERENCE_AMOUNT'] == Decimal('-75.00')
 
 
-def test_non_zero_difference(spark):
-    rows = _result_rows(
+def test_calculate_recon_non_zero_difference(spark):
+    rows = _calculate_result_rows(
         spark,
-        interface_rows=[_row(Decimal('100.00'))],
-        gl_rows=[_row(Decimal('90.00'))],
+        interface_rows=[_make_row(Decimal('100.00'))],
+        gl_rows=[_make_row(Decimal('90.00'))],
     )
 
     assert len(rows) == 1
@@ -146,13 +144,13 @@ def test_non_zero_difference(spark):
     assert rows[0]['DIFFERENCE_AMOUNT'] == Decimal('10.00')
 
 
-def test_multiple_source_rows_collapse_into_one_recon_grain(spark):
+def test_calculate_recon_multiple_source_rows_collapse_into_one_recon_grain(spark):
     # Two Interface rows and two GL rows share the same RECON_KEYS grain;
     # each side must be summed down to a single balance before joining.
-    rows = _result_rows(
+    rows = _calculate_result_rows(
         spark,
-        interface_rows=[_row(Decimal('60.00')), _row(Decimal('40.00'))],
-        gl_rows=[_row(Decimal('30.00')), _row(Decimal('70.00'))],
+        interface_rows=[_make_row(Decimal('60.00')), _make_row(Decimal('40.00'))],
+        gl_rows=[_make_row(Decimal('30.00')), _make_row(Decimal('70.00'))],
     )
 
     assert len(rows) == 1
@@ -161,15 +159,15 @@ def test_multiple_source_rows_collapse_into_one_recon_grain(spark):
     assert rows[0]['DIFFERENCE_AMOUNT'] == Decimal('0.00')
 
 
-def test_different_recon_key_combinations_remain_separate(spark):
-    rows = _result_rows(
+def test_calculate_recon_different_recon_key_combinations_remain_separate(spark):
+    rows = _calculate_result_rows(
         spark,
         interface_rows=[
-            _row(Decimal('100.00'), GL_ACCOUNT='111111'),
-            _row(Decimal('200.00'), GL_ACCOUNT='222222'),
+            _make_row(Decimal('100.00'), GL_ACCOUNT='111111'),
+            _make_row(Decimal('200.00'), GL_ACCOUNT='222222'),
         ],
         gl_rows=[
-            _row(Decimal('100.00'), GL_ACCOUNT='111111'),
+            _make_row(Decimal('100.00'), GL_ACCOUNT='111111'),
         ],
     )
 
@@ -184,14 +182,14 @@ def test_different_recon_key_combinations_remain_separate(spark):
     assert by_account['222222']['DIFFERENCE_AMOUNT'] == Decimal('200.00')
 
 
-def test_preserves_exact_decimal_precision(spark):
-    rows = _result_rows(
+def test_calculate_recon_preserves_exact_decimal_precision(spark):
+    rows = _calculate_result_rows(
         spark,
         interface_rows=[
-            _row(Decimal('100.123456789012')),
-            _row(Decimal('100.123456789012')),
+            _make_row(Decimal('100.123456789012')),
+            _make_row(Decimal('100.123456789012')),
         ],
-        gl_rows=[_row(Decimal('200.246913578023'))],
+        gl_rows=[_make_row(Decimal('200.246913578023'))],
     )
 
     assert len(rows) == 1
@@ -201,18 +199,18 @@ def test_preserves_exact_decimal_precision(spark):
     assert rows[0]['DIFFERENCE_AMOUNT'] == Decimal('0.000000000001')
 
 
-def test_ignores_cr_dr_ind_in_grouping_and_calculation(spark):
+def test_calculate_recon_ignores_cr_dr_ind_in_grouping_and_calculation(spark):
     # Same RECON_KEYS grain, contradictory CR_DR_IND values: if CR_DR_IND
     # were used for grouping or sign derivation this would either split
     # into two rows or produce a different balance than the plain sum of
     # ACCOUNTED_AMOUNT.
-    rows = _result_rows(
+    rows = _calculate_result_rows(
         spark,
         interface_rows=[
-            _row(Decimal('100.00'), cr_dr_ind='DR'),
-            _row(Decimal('-40.00'), cr_dr_ind='CR'),
+            _make_row(Decimal('100.00'), cr_dr_ind='DR'),
+            _make_row(Decimal('-40.00'), cr_dr_ind='CR'),
         ],
-        gl_rows=[_row(Decimal('60.00'), cr_dr_ind='DR')],
+        gl_rows=[_make_row(Decimal('60.00'), cr_dr_ind='DR')],
         with_cr_dr_ind=True,
     )
 
@@ -222,7 +220,7 @@ def test_ignores_cr_dr_ind_in_grouping_and_calculation(spark):
     assert rows[0]['DIFFERENCE_AMOUNT'] == Decimal('0.00')
 
 
-def test_both_sides_empty_yields_no_rows(spark):
-    rows = _result_rows(spark, interface_rows=[], gl_rows=[])
+def test_calculate_recon_both_sides_empty_yields_no_rows(spark):
+    rows = _calculate_result_rows(spark, interface_rows=[], gl_rows=[])
 
     assert rows == []

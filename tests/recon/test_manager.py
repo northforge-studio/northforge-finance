@@ -45,17 +45,17 @@ class _FakeReconRepository:
 
 # -- row builders ---------------------------------------------------------
 
-def _interface_df(spark, rows):
+def _make_interface_df(spark, rows):
     return spark.createDataFrame(list(rows), schema=INTERFACE_TRIAL_BALANCE_SCHEMA)
 
 
-def _posting_df(spark, rows):
+def _make_posting_df(spark, rows):
     return spark.createDataFrame(list(rows), schema=POSTING_SCHEMA)
 
 
 # -- helpers ---------------------------------------------------------------
 
-def _manager(run_tracker, interface_df, gl_df, raise_on_write=False):
+def _make_manager(run_tracker, interface_df, gl_df, raise_on_write=False):
     workflow_run_id = list(run_tracker._repository.workflows)[0]
 
     repository = _FakeReconRepository(
@@ -70,9 +70,9 @@ def _manager(run_tracker, interface_df, gl_df, raise_on_write=False):
 # -- successful execution -----------------------------------------------
 
 def test_reconcile_returns_a_recon_run_result(spark, run_tracker, workflow):
-    interface_df = _interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
-    gl_df = _posting_df(spark, [make_posting_values(workflow.workflow_run_id)])
-    manager, _, _ = _manager(run_tracker, interface_df, gl_df)
+    interface_df = _make_interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
+    gl_df = _make_posting_df(spark, [make_posting_values(workflow.workflow_run_id)])
+    manager, _, _ = _make_manager(run_tracker, interface_df, gl_df)
 
     result = manager.reconcile(workflow.workflow_run_id)
 
@@ -85,9 +85,9 @@ def test_reconcile_returns_a_recon_run_result(spark, run_tracker, workflow):
 def test_reconcile_persists_a_balanced_result_with_zero_difference(
     spark, run_tracker, workflow,
 ):
-    interface_df = _interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
-    gl_df = _posting_df(spark, [make_posting_values(workflow.workflow_run_id)])
-    manager, repository, _ = _manager(run_tracker, interface_df, gl_df)
+    interface_df = _make_interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
+    gl_df = _make_posting_df(spark, [make_posting_values(workflow.workflow_run_id)])
+    manager, repository, _ = _make_manager(run_tracker, interface_df, gl_df)
 
     manager.reconcile(workflow.workflow_run_id)
 
@@ -99,13 +99,13 @@ def test_reconcile_persists_a_balanced_result_with_zero_difference(
 
 
 def test_reconcile_flags_a_non_zero_difference_as_a_break(spark, run_tracker, workflow):
-    interface_df = _interface_df(
+    interface_df = _make_interface_df(
         spark, [make_interface_values(workflow.workflow_run_id, ACCOUNTED_AMOUNT=Decimal('100.00'))],
     )
-    gl_df = _posting_df(
+    gl_df = _make_posting_df(
         spark, [make_posting_values(workflow.workflow_run_id, ACCOUNTED_AMOUNT=Decimal('90.00'))],
     )
-    manager, repository, _ = _manager(run_tracker, interface_df, gl_df)
+    manager, repository, _ = _make_manager(run_tracker, interface_df, gl_df)
 
     result = manager.reconcile(workflow.workflow_run_id)
 
@@ -113,12 +113,12 @@ def test_reconcile_flags_a_non_zero_difference_as_a_break(spark, run_tracker, wo
     assert repository.written[0].difference_amount == Decimal('10.00')
 
 
-def test_reconcile_stamps_workflow_run_id_and_the_recon_executions_run_id_as_producer(
+def test_reconcile_stamps_workflow_run_id_and_execution_run_id_as_producer(
     spark, run_tracker, workflow,
 ):
-    interface_df = _interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
-    gl_df = _posting_df(spark, [make_posting_values(workflow.workflow_run_id)])
-    manager, repository, _ = _manager(run_tracker, interface_df, gl_df)
+    interface_df = _make_interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
+    gl_df = _make_posting_df(spark, [make_posting_values(workflow.workflow_run_id)])
+    manager, repository, _ = _make_manager(run_tracker, interface_df, gl_df)
 
     result = manager.reconcile(workflow.workflow_run_id)
 
@@ -133,9 +133,9 @@ def test_reconcile_stamps_workflow_run_id_and_the_recon_executions_run_id_as_pro
 def test_reconcile_reads_interface_and_gl_scoped_to_the_workflow_run_id(
     spark, run_tracker, workflow,
 ):
-    interface_df = _interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
-    gl_df = _posting_df(spark, [make_posting_values(workflow.workflow_run_id)])
-    manager, repository, gl = _manager(run_tracker, interface_df, gl_df)
+    interface_df = _make_interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
+    gl_df = _make_posting_df(spark, [make_posting_values(workflow.workflow_run_id)])
+    manager, repository, gl = _make_manager(run_tracker, interface_df, gl_df)
 
     manager.reconcile(workflow.workflow_run_id)
 
@@ -161,9 +161,9 @@ def test_get_results_delegates_to_the_repository(spark, run_tracker, workflow):
 def test_reconcile_creates_a_recon_execution_under_the_workflow(
     spark, run_tracker, workflow,
 ):
-    interface_df = _interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
-    gl_df = _posting_df(spark, [make_posting_values(workflow.workflow_run_id)])
-    manager, _, _ = _manager(run_tracker, interface_df, gl_df)
+    interface_df = _make_interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
+    gl_df = _make_posting_df(spark, [make_posting_values(workflow.workflow_run_id)])
+    manager, _, _ = _make_manager(run_tracker, interface_df, gl_df)
 
     manager.reconcile(workflow.workflow_run_id)
 
@@ -175,9 +175,9 @@ def test_reconcile_creates_a_recon_execution_under_the_workflow(
 
 
 def test_reconcile_completes_the_execution_on_success(spark, run_tracker, workflow):
-    interface_df = _interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
-    gl_df = _posting_df(spark, [make_posting_values(workflow.workflow_run_id)])
-    manager, _, _ = _manager(run_tracker, interface_df, gl_df)
+    interface_df = _make_interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
+    gl_df = _make_posting_df(spark, [make_posting_values(workflow.workflow_run_id)])
+    manager, _, _ = _make_manager(run_tracker, interface_df, gl_df)
 
     manager.reconcile(workflow.workflow_run_id)
 
@@ -191,9 +191,9 @@ def test_reconcile_completes_the_execution_on_success(spark, run_tracker, workfl
 def test_reconcile_fails_the_execution_and_reraises_on_a_technical_failure(
     spark, run_tracker, workflow,
 ):
-    interface_df = _interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
-    gl_df = _posting_df(spark, [make_posting_values(workflow.workflow_run_id)])
-    manager, _, _ = _manager(run_tracker, interface_df, gl_df, raise_on_write=True)
+    interface_df = _make_interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
+    gl_df = _make_posting_df(spark, [make_posting_values(workflow.workflow_run_id)])
+    manager, _, _ = _make_manager(run_tracker, interface_df, gl_df, raise_on_write=True)
 
     with pytest.raises(RuntimeError, match='write boom'):
         manager.reconcile(workflow.workflow_run_id)

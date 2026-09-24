@@ -62,7 +62,7 @@ def test_get_segment_default_returns_none_for_unknown_combination(repository):
     assert result is None
 
 
-def test_get_segment_default_does_not_fall_back_from_contextual_request_to_global_row(
+def test_get_segment_default_does_not_fall_back_from_contextual_to_global(
     repository,
 ):
     # AFFILIATE_CD only has a global (*, *) row configured.
@@ -71,7 +71,7 @@ def test_get_segment_default_does_not_fall_back_from_contextual_request_to_globa
     assert result is None
 
 
-def test_get_segment_default_does_not_fall_back_from_global_request_to_contextual_row(
+def test_get_segment_default_does_not_fall_back_from_global_to_contextual(
     repository,
 ):
     # DEPT_CD only has ENTITY_CD-contextual rows configured.
@@ -106,7 +106,7 @@ def test_get_segment_default_works_against_a_fake_store(spark):
 
 # -- write_posting / get_postings ----------------------------------------
 
-def _posting(**overrides) -> GLPosting:
+def _make_posting(**overrides) -> GLPosting:
     fields = dict(
         gl_posting_id=uuid4(),
         posted_at=datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
@@ -154,7 +154,7 @@ def posting_repository(spark, tmp_path):
 
 
 def test_get_postings_returns_a_spark_dataframe(posting_repository):
-    posting_repository.write_posting(_posting())
+    posting_repository.write_posting(_make_posting())
 
     result = posting_repository.get_postings(uuid4())
 
@@ -162,7 +162,7 @@ def test_get_postings_returns_a_spark_dataframe(posting_repository):
 
 
 def test_write_posting_persists_all_lineage_and_accounting_fields(posting_repository):
-    posting = _posting()
+    posting = _make_posting()
 
     posting_repository.write_posting(posting)
 
@@ -192,7 +192,7 @@ def test_write_posting_persists_all_lineage_and_accounting_fields(posting_reposi
 
 
 def test_write_posting_persists_resolved_gl_segments(posting_repository):
-    posting = _posting(
+    posting = _make_posting(
         entity_cd='USM',
         dept_cd='9999',
         branch_cd='9999',
@@ -223,8 +223,8 @@ def test_get_postings_returns_only_the_named_workflows_rows(posting_repository):
     # The same business_dt can be processed by multiple GL workflows.
     # get_postings must isolate a single workflow's output by
     # workflow_run_id, never by business_dt.
-    kept = _posting()
-    other = _posting(business_date=kept.business_date)
+    kept = _make_posting()
+    other = _make_posting(business_date=kept.business_date)
 
     posting_repository.write_posting(kept)
     posting_repository.write_posting(other)
@@ -235,7 +235,7 @@ def test_get_postings_returns_only_the_named_workflows_rows(posting_repository):
     assert UUID(rows[0]['WORKFLOW_RUN_ID']) == kept.workflow_run_id
 
 
-def test_get_postings_returns_rows_from_multiple_producer_runs_under_the_same_workflow(
+def test_get_postings_returns_rows_from_multiple_producer_runs(
     posting_repository,
 ):
     # V1 has exactly one producer execution per workflow for a given
@@ -245,8 +245,8 @@ def test_get_postings_returns_rows_from_multiple_producer_runs_under_the_same_wo
     # PRODUCER_RUN_IDs are still both selected together.
     shared_workflow_run_id = uuid4()
 
-    g1 = _posting(workflow_run_id=shared_workflow_run_id)
-    g2 = _posting(workflow_run_id=shared_workflow_run_id)
+    g1 = _make_posting(workflow_run_id=shared_workflow_run_id)
+    g2 = _make_posting(workflow_run_id=shared_workflow_run_id)
 
     posting_repository.write_posting(g1)
     posting_repository.write_posting(g2)
@@ -261,8 +261,8 @@ def test_get_postings_returns_rows_from_multiple_producer_runs_under_the_same_wo
 
 def test_get_postings_allows_more_than_one_row_for_same_posting_id(posting_repository):
     workflow_run_id = uuid4()
-    first = _posting(gl_posting_id=uuid4(), posting_id='DUP', workflow_run_id=workflow_run_id)
-    second = _posting(gl_posting_id=uuid4(), posting_id='DUP', workflow_run_id=workflow_run_id)
+    first = _make_posting(gl_posting_id=uuid4(), posting_id='DUP', workflow_run_id=workflow_run_id)
+    second = _make_posting(gl_posting_id=uuid4(), posting_id='DUP', workflow_run_id=workflow_run_id)
 
     posting_repository.write_posting(first)
     posting_repository.write_posting(second)
@@ -278,7 +278,7 @@ def test_get_postings_allows_more_than_one_row_for_same_posting_id(posting_repos
 
 
 def test_write_posting_preserves_decimal_precision(posting_repository):
-    posting = _posting(
+    posting = _make_posting(
         transaction_amount=Decimal('12345.123456789012'),
         fx_rate=Decimal('1.123456789012'),
     )
@@ -294,7 +294,7 @@ def test_write_posting_preserves_decimal_precision(posting_repository):
 
 # -- write_rejection / get_rejections -------------------------------------
 
-def _rejection(**overrides) -> GLRejection:
+def _make_rejection(**overrides) -> GLRejection:
     fields = dict(
         gl_rejection_id=uuid4(),
         rejected_at=datetime(2026, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
@@ -329,7 +329,7 @@ def rejection_repository(spark, tmp_path):
 
 
 def test_get_rejections_returns_a_spark_dataframe(rejection_repository):
-    rejection_repository.write_rejection(_rejection())
+    rejection_repository.write_rejection(_make_rejection())
 
     result = rejection_repository.get_rejections(uuid4())
 
@@ -337,7 +337,7 @@ def test_get_rejections_returns_a_spark_dataframe(rejection_repository):
 
 
 def test_write_rejection_persists_lineage_and_diagnostics(rejection_repository):
-    rejection = _rejection()
+    rejection = _make_rejection()
 
     rejection_repository.write_rejection(rejection)
 
@@ -366,8 +366,8 @@ def test_get_rejections_returns_only_the_named_workflows_rows(rejection_reposito
     # Same regression scenario as postings: the same business_dt can be
     # processed by multiple GL workflows, so business_dt must never be
     # the selector for a specific workflow's rejections.
-    kept = _rejection()
-    other = _rejection(business_date=kept.business_date)
+    kept = _make_rejection()
+    other = _make_rejection(business_date=kept.business_date)
 
     rejection_repository.write_rejection(kept)
     rejection_repository.write_rejection(other)
@@ -378,7 +378,7 @@ def test_get_rejections_returns_only_the_named_workflows_rows(rejection_reposito
     assert UUID(rows[0]['WORKFLOW_RUN_ID']) == kept.workflow_run_id
 
 
-def test_get_rejections_returns_rows_from_multiple_producer_runs_under_the_same_workflow(
+def test_get_rejections_returns_rows_from_multiple_producer_runs(
     rejection_repository,
 ):
     # Same lookup semantics as postings: WORKFLOW_RUN_ID is the
@@ -386,8 +386,8 @@ def test_get_rejections_returns_rows_from_multiple_producer_runs_under_the_same_
     # different PRODUCER_RUN_IDs are still both selected together.
     shared_workflow_run_id = uuid4()
 
-    g1 = _rejection(workflow_run_id=shared_workflow_run_id)
-    g2 = _rejection(workflow_run_id=shared_workflow_run_id)
+    g1 = _make_rejection(workflow_run_id=shared_workflow_run_id)
+    g2 = _make_rejection(workflow_run_id=shared_workflow_run_id)
 
     rejection_repository.write_rejection(g1)
     rejection_repository.write_rejection(g2)
@@ -406,7 +406,7 @@ WORKFLOW_RUN_ID = uuid4()
 PRODUCER_RUN_ID = uuid4()
 
 
-def _instruction(**overrides) -> GLInstruction:
+def _make_instruction(**overrides) -> GLInstruction:
     fields = dict(
         workflow_run_id=WORKFLOW_RUN_ID,
         producer_run_id=PRODUCER_RUN_ID,
@@ -487,7 +487,7 @@ def _write_instruction_row(repository, instruction: GLInstruction) -> None:
 
 
 def test_get_instructions_returns_correct_partition(interface_repository):
-    _write_instruction_row(interface_repository, _instruction())
+    _write_instruction_row(interface_repository, _make_instruction())
 
     results = interface_repository.get_instructions(WORKFLOW_RUN_ID)
 
@@ -499,10 +499,10 @@ def test_get_instructions_returns_correct_partition(interface_repository):
 
 def test_get_instructions_excludes_other_workflow_runs(interface_repository):
     other_workflow_run_id = uuid4()
-    _write_instruction_row(interface_repository, _instruction())
+    _write_instruction_row(interface_repository, _make_instruction())
     _write_instruction_row(
         interface_repository,
-        _instruction(workflow_run_id=other_workflow_run_id),
+        _make_instruction(workflow_run_id=other_workflow_run_id),
     )
 
     results = interface_repository.get_instructions(WORKFLOW_RUN_ID)
@@ -511,17 +511,17 @@ def test_get_instructions_excludes_other_workflow_runs(interface_repository):
     assert results[0].workflow_run_id == WORKFLOW_RUN_ID
 
 
-def test_get_instructions_returns_rows_from_multiple_producer_runs_under_the_same_workflow(
+def test_get_instructions_returns_rows_from_multiple_producer_runs(
     interface_repository,
 ):
     # WORKFLOW_RUN_ID is the operational key: rows sharing a
     # WORKFLOW_RUN_ID but carrying different PRODUCER_RUN_IDs are still
     # both selected together.
     other_producer_run_id = uuid4()
-    _write_instruction_row(interface_repository, _instruction())
+    _write_instruction_row(interface_repository, _make_instruction())
     _write_instruction_row(
         interface_repository,
-        _instruction(producer_run_id=other_producer_run_id),
+        _make_instruction(producer_run_id=other_producer_run_id),
     )
 
     results = interface_repository.get_instructions(WORKFLOW_RUN_ID)
@@ -531,7 +531,7 @@ def test_get_instructions_returns_rows_from_multiple_producer_runs_under_the_sam
 
 
 def test_get_instructions_maps_all_fields(interface_repository):
-    instruction = _instruction()
+    instruction = _make_instruction()
     _write_instruction_row(interface_repository, instruction)
 
     result = interface_repository.get_instructions(WORKFLOW_RUN_ID)[0]
@@ -570,15 +570,15 @@ def test_get_instructions_maps_all_fields(interface_repository):
 def test_get_instructions_orders_deterministically(interface_repository):
     _write_instruction_row(
         interface_repository,
-        _instruction(transaction_number='TXN-2', line_number='1', posting_id='POST-A'),
+        _make_instruction(transaction_number='TXN-2', line_number='1', posting_id='POST-A'),
     )
     _write_instruction_row(
         interface_repository,
-        _instruction(transaction_number='TXN-1', line_number='2', posting_id='POST-B'),
+        _make_instruction(transaction_number='TXN-1', line_number='2', posting_id='POST-B'),
     )
     _write_instruction_row(
         interface_repository,
-        _instruction(transaction_number='TXN-1', line_number='1', posting_id='POST-C'),
+        _make_instruction(transaction_number='TXN-1', line_number='1', posting_id='POST-C'),
     )
 
     results = interface_repository.get_instructions(WORKFLOW_RUN_ID)
@@ -611,10 +611,10 @@ def test_delete_postings_removes_only_rows_for_the_named_workflow_run(
     deleted_workflow_run_id = uuid4()
 
     posting_and_rejection_repository.write_posting(
-        _posting(workflow_run_id=kept_workflow_run_id)
+        _make_posting(workflow_run_id=kept_workflow_run_id)
     )
     posting_and_rejection_repository.write_posting(
-        _posting(workflow_run_id=deleted_workflow_run_id)
+        _make_posting(workflow_run_id=deleted_workflow_run_id)
     )
 
     posting_and_rejection_repository.delete_postings(deleted_workflow_run_id)
@@ -634,10 +634,10 @@ def test_delete_rejections_removes_only_rows_for_the_named_workflow_run(
     deleted_workflow_run_id = uuid4()
 
     posting_and_rejection_repository.write_rejection(
-        _rejection(workflow_run_id=kept_workflow_run_id)
+        _make_rejection(workflow_run_id=kept_workflow_run_id)
     )
     posting_and_rejection_repository.write_rejection(
-        _rejection(workflow_run_id=deleted_workflow_run_id)
+        _make_rejection(workflow_run_id=deleted_workflow_run_id)
     )
 
     posting_and_rejection_repository.delete_rejections(deleted_workflow_run_id)
@@ -648,7 +648,7 @@ def test_delete_rejections_removes_only_rows_for_the_named_workflow_run(
     assert {UUID(row['WORKFLOW_RUN_ID']) for row in remaining} == {kept_workflow_run_id}
 
 
-def test_resolve_prefers_entity_default():
+def test_segment_defaults_resolve_prefers_entity_default():
     defaults = GLSegmentDefaults(
         values=(
             GLSegmentDefault(
@@ -672,7 +672,7 @@ def test_resolve_prefers_entity_default():
     ) == '990101'
 
 
-def test_resolve_falls_back_to_global():
+def test_segment_defaults_resolve_falls_back_to_global():
     defaults = GLSegmentDefaults(
         values=(
             GLSegmentDefault(
@@ -690,7 +690,7 @@ def test_resolve_falls_back_to_global():
     ) == '999999'
 
 
-def test_resolve_returns_none_when_no_default():
+def test_segment_defaults_resolve_returns_none_when_no_default():
     defaults = GLSegmentDefaults(values=())
 
     assert defaults.resolve(

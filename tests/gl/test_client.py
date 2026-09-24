@@ -91,7 +91,7 @@ def test_resolve_segment_delegates_to_manager_for_valid_supplied_value(gl):
     )
 
 
-def _valid_segments() -> GLSegments:
+def _make_valid_segments() -> GLSegments:
     return GLSegments(
         entity_cd='USMKTS',
         dept_cd='USGL99',
@@ -106,20 +106,20 @@ def _valid_segments() -> GLSegments:
 
 
 def test_resolve_segments_delegates_to_manager_when_all_supplied_valid(gl):
-    result = gl.resolve_segments(_valid_segments(), business_dt=BUSINESS_DT)
+    result = gl.resolve_segments(_make_valid_segments(), business_dt=BUSINESS_DT)
 
     assert result.resolved is True
-    assert result.segments == _valid_segments()
+    assert result.segments == _make_valid_segments()
     assert len(result.resolutions) == 9
 
 
 def test_resolve_segments_delegates_to_manager_for_invalid_defaultable_segment(gl):
-    supplied = replace(_valid_segments(), dept_cd='BOGUS')
+    supplied = replace(_make_valid_segments(), dept_cd='BOGUS')
 
     result = gl.resolve_segments(supplied, business_dt=BUSINESS_DT)
 
     assert result.resolved is True
-    assert result.segments == _valid_segments()
+    assert result.segments == _make_valid_segments()
 
     dept_resolution = next(
         r for r in result.resolutions if r.segment_type == GLSegmentType.DEPARTMENT
@@ -129,7 +129,7 @@ def test_resolve_segments_delegates_to_manager_for_invalid_defaultable_segment(g
     assert dept_resolution.defaulted is True
 
 
-def _valid_instruction() -> GLInstruction:
+def _make_valid_instruction() -> GLInstruction:
     return GLInstruction(
         workflow_run_id=uuid4(),
         producer_run_id=uuid4(),
@@ -162,14 +162,14 @@ def _valid_instruction() -> GLInstruction:
 
 
 def test_validate_instruction_delegates_to_manager_for_valid_instruction(gl):
-    result = gl.validate_instruction(_valid_instruction())
+    result = gl.validate_instruction(_make_valid_instruction())
 
     assert result.valid is True
     assert result.errors == ()
 
 
 def test_validate_instruction_delegates_to_manager_for_invalid_instruction(gl):
-    instruction = replace(_valid_instruction(), cr_dr_ind='XX')
+    instruction = replace(_make_valid_instruction(), cr_dr_ind='XX')
 
     result = gl.validate_instruction(instruction)
 
@@ -194,7 +194,7 @@ def gl_with_posting_support(spark, registry, tmp_path):
 def test_process_instruction_delegates_to_manager_for_valid_instruction(
     gl_with_posting_support,
 ):
-    result = gl_with_posting_support.process_instruction(_valid_instruction())
+    result = gl_with_posting_support.process_instruction(_make_valid_instruction())
 
     assert result.posted is True
     assert result.posting is not None
@@ -204,7 +204,7 @@ def test_process_instruction_delegates_to_manager_for_valid_instruction(
 def test_process_instruction_delegates_to_manager_for_invalid_instruction(
     gl_with_posting_support,
 ):
-    instruction = replace(_valid_instruction(), cr_dr_ind='XX')
+    instruction = replace(_make_valid_instruction(), cr_dr_ind='XX')
 
     result = gl_with_posting_support.process_instruction(instruction)
 
@@ -221,7 +221,7 @@ def test_rollback_execution_delegates_to_manager(gl_with_posting_support):
 
 
 def test_import_instructions_delegates_to_manager(spark, tmp_path, gl_with_posting_support):
-    instruction = _valid_instruction()
+    instruction = _make_valid_instruction()
     row = (
         str(instruction.workflow_run_id),
         str(instruction.producer_run_id),
@@ -282,9 +282,9 @@ def test_import_instructions_delegates_to_manager(spark, tmp_path, gl_with_posti
 def test_get_postings_returns_a_dataframe_of_only_the_named_workflows_rows(
     gl_with_posting_support,
 ):
-    kept = _valid_instruction()
+    kept = _make_valid_instruction()
     other = replace(
-        _valid_instruction(),
+        _make_valid_instruction(),
         transaction_number='TXN-2',
         workflow_run_id=uuid4(),
         producer_run_id=uuid4(),
@@ -307,9 +307,9 @@ def test_get_postings_returns_a_dataframe_of_only_the_named_workflows_rows(
 def test_get_rejections_returns_a_dataframe_of_only_the_named_workflows_rows(
     gl_with_posting_support,
 ):
-    kept = replace(_valid_instruction(), cr_dr_ind='XX')
+    kept = replace(_make_valid_instruction(), cr_dr_ind='XX')
     other = replace(
-        _valid_instruction(),
+        _make_valid_instruction(),
         transaction_number='TXN-2',
         cr_dr_ind='XX',
         workflow_run_id=uuid4(),

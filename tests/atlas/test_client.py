@@ -12,7 +12,7 @@ def atlas(spark, atlas_meta_path, atlas_data_path):
     )
 
 
-def test_atlas_client_from_csv(atlas):
+def test_from_csv_loads_mapping_definition_and_data(atlas):
     mapping = atlas.get_mapping(
         'ENTITY_MAPPING'
     )
@@ -25,7 +25,7 @@ def test_atlas_client_from_csv(atlas):
     assert mapping.data.count() > 0
 
 
-def test_atlas_client_apply(spark, atlas):
+def test_apply_adds_mapping_output_columns(spark, atlas):
     mapping = atlas.get_mapping(
         'ENTITY_MAPPING'
     )
