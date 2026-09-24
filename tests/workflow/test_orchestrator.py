@@ -20,6 +20,8 @@ from tests.support.fakes import FakeRunRepository, make_run_tracker
 ZONES = ('staging', 'enrichment', 'reporting', 'posting', 'interface')
 
 
+# -- fakes -----------------------------------------------------------------
+
 class _FakePipeline:
     '''A stand-in for BasePipeline: implements the zone(identity) API and
     rollback_execution(operation, identity), with no Spark/DataFrame
@@ -100,6 +102,8 @@ class _FakeGL:
         self.rollback_calls.append(identity)
 
 
+# -- helpers ---------------------------------------------------------------
+
 def _executions_by_operation(
     repository: FakeRunRepository, workflow_run_id: UUID,
 ) -> dict[str, ExecutionRun]:
@@ -109,7 +113,7 @@ def _executions_by_operation(
     }
 
 
-# -- run_foundry: topology -----------------------------------------------
+# -- run_foundry: topology -------------------------------------------------
 
 def test_run_foundry_creates_five_zone_executions_under_one_workflow():
     run_tracker = make_run_tracker()
@@ -234,7 +238,7 @@ def test_run_foundry_passes_the_zones_own_identity_into_each_zone_call():
         assert identity.parent_run_id == execution.parent_run_id
 
 
-# -- run_gl -----------------------------------------------------------------
+# -- run_gl ----------------------------------------------------------------
 
 def test_run_gl_requires_an_existing_workflow():
     run_tracker = make_run_tracker()
@@ -364,7 +368,7 @@ def test_run_gl_continuing_an_already_succeeded_workflow_keeps_it_succeeded():
     assert repository.get_workflow_run(workflow_run_id).status == RunStatus.SUCCEEDED
 
 
-# -- logging --------------------------------------------------------------
+# -- logging ---------------------------------------------------------------
 
 def test_run_foundry_zone_success_logs_operation_run_id_and_record_count(caplog):
     run_tracker = make_run_tracker()
@@ -464,7 +468,7 @@ def test_run_gl_failure_logs_rollback_warning_and_one_exception(caplog):
     assert len(exception_records) == 1
 
 
-# -- run_workflow -------------------------------------------------------
+# -- run_workflow ----------------------------------------------------------
 
 def test_run_workflow_creates_exactly_one_workflow_with_foundry_and_gl():
     run_tracker = make_run_tracker()

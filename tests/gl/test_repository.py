@@ -22,6 +22,8 @@ from tests.support.fakes import FakeStore
 from tests.support.paths import GL_SEGMENT_DEFAULT_PATH
 
 
+# -- fixtures --------------------------------------------------------------
+
 @pytest.fixture(scope='module')
 def repository(spark):
     store = CsvStore(
@@ -32,6 +34,183 @@ def repository(spark):
     )
     return GLRepository(store, spark)
 
+
+@pytest.fixture
+def posting_repository(spark, tmp_path):
+    store = CsvStore(
+        spark=spark,
+        table_locations={
+            'POSTING': tmp_path / 'POSTING',
+        },
+    )
+    return GLRepository(store, spark)
+
+
+@pytest.fixture
+def rejection_repository(spark, tmp_path):
+    store = CsvStore(
+        spark=spark,
+        table_locations={
+            'REJECTION': tmp_path / 'REJECTION',
+        },
+    )
+    return GLRepository(store, spark)
+
+
+@pytest.fixture
+def interface_repository(spark, tmp_path):
+    store = CsvStore(
+        spark=spark,
+        table_locations={
+            'INTERFACE_TRIAL_BALANCE': tmp_path / 'INTERFACE_TRIAL_BALANCE',
+        },
+    )
+    return GLRepository(store, spark)
+
+
+@pytest.fixture
+def posting_and_rejection_repository(spark, tmp_path):
+    store = CsvStore(
+        spark=spark,
+        table_locations={
+            'POSTING': tmp_path / 'POSTING',
+            'REJECTION': tmp_path / 'REJECTION',
+        },
+    )
+    return GLRepository(store, spark)
+
+
+# -- helpers ---------------------------------------------------------------
+
+def _make_posting(**overrides) -> GLPosting:
+    fields = dict(
+        gl_posting_id=uuid4(),
+        posted_at=TIMESTAMP,
+        workflow_run_id=uuid4(),
+        producer_run_id=uuid4(),
+        dataclass='TRIAL_BALANCE',
+        transaction_number='TXN-1',
+        line_number='1',
+        foundry_rule_id='RULE-1',
+        posting_id='POST-1',
+        posting_stream='STREAM-1',
+        src_record_id='REC-1',
+        src_app_cd='NFM',
+        entity_cd='USM',
+        dept_cd='4000',
+        branch_cd='100',
+        gl_account='123456',
+        sub_account='001',
+        affiliate_cd='AFF1',
+        product_cd='PRD1',
+        book_cd='BK1',
+        source_cd='SRC1',
+        cr_dr_ind='DR',
+        transaction_currency='USD',
+        transaction_amount=Decimal('100.00'),
+        accounted_currency='USD',
+        accounted_amount=Decimal('100.00'),
+        fx_rate=Decimal('1.0'),
+        as_of_date=date(2026, 1, 1),
+        business_date=date(2026, 1, 1),
+    )
+    fields.update(overrides)
+    return GLPosting(**fields)
+
+
+def _make_rejection(**overrides) -> GLRejection:
+    fields = dict(
+        gl_rejection_id=uuid4(),
+        rejected_at=TIMESTAMP,
+        workflow_run_id=uuid4(),
+        producer_run_id=uuid4(),
+        dataclass='TRIAL_BALANCE',
+        transaction_number='TXN-1',
+        line_number='1',
+        foundry_rule_id='RULE-1',
+        posting_id='POST-1',
+        posting_stream='STREAM-1',
+        src_record_id='REC-1',
+        src_app_cd='NFM',
+        business_date=date(2026, 1, 1),
+        as_of_date=date(2026, 1, 1),
+        rejection_type='STRUCTURAL_VALIDATION',
+        rejection_detail='MISSING_POSTING_ID',
+    )
+    fields.update(overrides)
+    return GLRejection(**fields)
+
+
+def _make_instruction(**overrides) -> GLInstruction:
+    fields = dict(
+        workflow_run_id=WORKFLOW_RUN_ID,
+        producer_run_id=PRODUCER_RUN_ID,
+        dataclass='TRIAL_BALANCE',
+        transaction_number='TXN-1',
+        line_number='1',
+        foundry_rule_id='RULE-1',
+        posting_id='POST-1',
+        posting_stream='STREAM-1',
+        src_record_id='REC-1',
+        src_app_cd='NFM',
+        entity_cd='USM',
+        dept_cd='4000',
+        branch_cd='100',
+        gl_account='123456',
+        sub_account='001',
+        affiliate_cd='AFF1',
+        product_cd='PRD1',
+        book_cd='BK1',
+        source_cd='SRC1',
+        cr_dr_ind='DR',
+        transaction_currency='USD',
+        transaction_amount=Decimal('100.00'),
+        accounted_currency='USD',
+        accounted_amount=Decimal('100.00'),
+        fx_rate=Decimal('1.0'),
+        as_of_date=date(2026, 1, 1),
+        business_date=date(2026, 1, 1),
+    )
+    fields.update(overrides)
+    return GLInstruction(**fields)
+
+
+def _write_instruction_row(repository, instruction: GLInstruction) -> None:
+    row = (
+        str(instruction.workflow_run_id),
+        str(instruction.producer_run_id),
+        instruction.dataclass,
+        instruction.transaction_number,
+        instruction.line_number,
+        instruction.entity_cd,
+        instruction.branch_cd,
+        instruction.dept_cd,
+        instruction.gl_account,
+        instruction.sub_account,
+        instruction.affiliate_cd,
+        instruction.product_cd,
+        instruction.book_cd,
+        instruction.source_cd,
+        instruction.cr_dr_ind,
+        instruction.foundry_rule_id,
+        instruction.posting_id,
+        instruction.posting_stream,
+        instruction.src_record_id,
+        instruction.src_app_cd,
+        instruction.transaction_currency,
+        instruction.transaction_amount,
+        instruction.accounted_currency,
+        instruction.accounted_amount,
+        instruction.fx_rate,
+        instruction.as_of_date,
+        instruction.business_date,
+    )
+
+    df = repository._spark.createDataFrame([row], schema=INTERFACE_TRIAL_BALANCE_SCHEMA)
+    repository._store.write(df, table_name='INTERFACE_TRIAL_BALANCE')
+
+
+# -- get_segment_default ---------------------------------------------------
 
 def test_get_segment_default_returns_contextual_default(repository):
     result = repository.get_segment_default(GLSegmentType.DEPARTMENT, 'ENTITY_CD', 'USMKTS')
@@ -103,54 +282,60 @@ def test_get_segment_default_works_against_a_fake_store(spark):
     assert isinstance(result.default_value, str)
 
 
-# -- write_posting / get_postings ----------------------------------------
+# -- GLSegmentDefaults.resolve ---------------------------------------------
 
-def _make_posting(**overrides) -> GLPosting:
-    fields = dict(
-        gl_posting_id=uuid4(),
-        posted_at=TIMESTAMP,
-        workflow_run_id=uuid4(),
-        producer_run_id=uuid4(),
-        dataclass='TRIAL_BALANCE',
-        transaction_number='TXN-1',
-        line_number='1',
-        foundry_rule_id='RULE-1',
-        posting_id='POST-1',
-        posting_stream='STREAM-1',
-        src_record_id='REC-1',
-        src_app_cd='NFM',
-        entity_cd='USM',
-        dept_cd='4000',
-        branch_cd='100',
-        gl_account='123456',
-        sub_account='001',
-        affiliate_cd='AFF1',
-        product_cd='PRD1',
-        book_cd='BK1',
-        source_cd='SRC1',
-        cr_dr_ind='DR',
-        transaction_currency='USD',
-        transaction_amount=Decimal('100.00'),
-        accounted_currency='USD',
-        accounted_amount=Decimal('100.00'),
-        fx_rate=Decimal('1.0'),
-        as_of_date=date(2026, 1, 1),
-        business_date=date(2026, 1, 1),
+def test_segment_defaults_resolve_prefers_entity_default():
+    defaults = GLSegmentDefaults(
+        values=(
+            GLSegmentDefault(
+                GLSegmentType.ACCOUNT,
+                '*',
+                '*',
+                '999999',
+            ),
+            GLSegmentDefault(
+                GLSegmentType.ACCOUNT,
+                'ENTITY_CD',
+                'USMKTS',
+                '990101',
+            ),
+        )
     )
-    fields.update(overrides)
-    return GLPosting(**fields)
+
+    assert defaults.resolve(
+        GLSegmentType.ACCOUNT,
+        entity_cd='USMKTS',
+    ) == '990101'
 
 
-@pytest.fixture
-def posting_repository(spark, tmp_path):
-    store = CsvStore(
-        spark=spark,
-        table_locations={
-            'POSTING': tmp_path / 'POSTING',
-        },
+def test_segment_defaults_resolve_falls_back_to_global():
+    defaults = GLSegmentDefaults(
+        values=(
+            GLSegmentDefault(
+                GLSegmentType.ACCOUNT,
+                '*',
+                '*',
+                '999999',
+            ),
+        )
     )
-    return GLRepository(store, spark)
 
+    assert defaults.resolve(
+        GLSegmentType.ACCOUNT,
+        entity_cd='CAMKTS',
+    ) == '999999'
+
+
+def test_segment_defaults_resolve_returns_none_when_no_default():
+    defaults = GLSegmentDefaults(values=())
+
+    assert defaults.resolve(
+        GLSegmentType.ACCOUNT,
+        entity_cd='USMKTS',
+    ) is None
+
+
+# -- write_posting / get_postings ------------------------------------------
 
 def test_get_postings_returns_a_spark_dataframe(posting_repository):
     posting_repository.write_posting(_make_posting())
@@ -291,41 +476,7 @@ def test_write_posting_preserves_decimal_precision(posting_repository):
     assert isinstance(row['FX_RATE'], Decimal)
 
 
-# -- write_rejection / get_rejections -------------------------------------
-
-def _make_rejection(**overrides) -> GLRejection:
-    fields = dict(
-        gl_rejection_id=uuid4(),
-        rejected_at=TIMESTAMP,
-        workflow_run_id=uuid4(),
-        producer_run_id=uuid4(),
-        dataclass='TRIAL_BALANCE',
-        transaction_number='TXN-1',
-        line_number='1',
-        foundry_rule_id='RULE-1',
-        posting_id='POST-1',
-        posting_stream='STREAM-1',
-        src_record_id='REC-1',
-        src_app_cd='NFM',
-        business_date=date(2026, 1, 1),
-        as_of_date=date(2026, 1, 1),
-        rejection_type='STRUCTURAL_VALIDATION',
-        rejection_detail='MISSING_POSTING_ID',
-    )
-    fields.update(overrides)
-    return GLRejection(**fields)
-
-
-@pytest.fixture
-def rejection_repository(spark, tmp_path):
-    store = CsvStore(
-        spark=spark,
-        table_locations={
-            'REJECTION': tmp_path / 'REJECTION',
-        },
-    )
-    return GLRepository(store, spark)
-
+# -- write_rejection / get_rejections --------------------------------------
 
 def test_get_rejections_returns_a_spark_dataframe(rejection_repository):
     rejection_repository.write_rejection(_make_rejection())
@@ -399,87 +550,7 @@ def test_get_rejections_returns_rows_from_multiple_producer_runs(
     }
 
 
-# -- get_instructions -------------------------------------------------------
-
-def _make_instruction(**overrides) -> GLInstruction:
-    fields = dict(
-        workflow_run_id=WORKFLOW_RUN_ID,
-        producer_run_id=PRODUCER_RUN_ID,
-        dataclass='TRIAL_BALANCE',
-        transaction_number='TXN-1',
-        line_number='1',
-        foundry_rule_id='RULE-1',
-        posting_id='POST-1',
-        posting_stream='STREAM-1',
-        src_record_id='REC-1',
-        src_app_cd='NFM',
-        entity_cd='USM',
-        dept_cd='4000',
-        branch_cd='100',
-        gl_account='123456',
-        sub_account='001',
-        affiliate_cd='AFF1',
-        product_cd='PRD1',
-        book_cd='BK1',
-        source_cd='SRC1',
-        cr_dr_ind='DR',
-        transaction_currency='USD',
-        transaction_amount=Decimal('100.00'),
-        accounted_currency='USD',
-        accounted_amount=Decimal('100.00'),
-        fx_rate=Decimal('1.0'),
-        as_of_date=date(2026, 1, 1),
-        business_date=date(2026, 1, 1),
-    )
-    fields.update(overrides)
-    return GLInstruction(**fields)
-
-
-@pytest.fixture
-def interface_repository(spark, tmp_path):
-    store = CsvStore(
-        spark=spark,
-        table_locations={
-            'INTERFACE_TRIAL_BALANCE': tmp_path / 'INTERFACE_TRIAL_BALANCE',
-        },
-    )
-    return GLRepository(store, spark)
-
-
-def _write_instruction_row(repository, instruction: GLInstruction) -> None:
-    row = (
-        str(instruction.workflow_run_id),
-        str(instruction.producer_run_id),
-        instruction.dataclass,
-        instruction.transaction_number,
-        instruction.line_number,
-        instruction.entity_cd,
-        instruction.branch_cd,
-        instruction.dept_cd,
-        instruction.gl_account,
-        instruction.sub_account,
-        instruction.affiliate_cd,
-        instruction.product_cd,
-        instruction.book_cd,
-        instruction.source_cd,
-        instruction.cr_dr_ind,
-        instruction.foundry_rule_id,
-        instruction.posting_id,
-        instruction.posting_stream,
-        instruction.src_record_id,
-        instruction.src_app_cd,
-        instruction.transaction_currency,
-        instruction.transaction_amount,
-        instruction.accounted_currency,
-        instruction.accounted_amount,
-        instruction.fx_rate,
-        instruction.as_of_date,
-        instruction.business_date,
-    )
-
-    df = repository._spark.createDataFrame([row], schema=INTERFACE_TRIAL_BALANCE_SCHEMA)
-    repository._store.write(df, table_name='INTERFACE_TRIAL_BALANCE')
-
+# -- get_instructions ------------------------------------------------------
 
 def test_get_instructions_returns_correct_partition(interface_repository):
     _write_instruction_row(interface_repository, _make_instruction())
@@ -585,19 +656,7 @@ def test_get_instructions_orders_deterministically(interface_repository):
     ]
 
 
-# -- rollback (delete_postings / delete_rejections) -------------------------
-
-@pytest.fixture
-def posting_and_rejection_repository(spark, tmp_path):
-    store = CsvStore(
-        spark=spark,
-        table_locations={
-            'POSTING': tmp_path / 'POSTING',
-            'REJECTION': tmp_path / 'REJECTION',
-        },
-    )
-    return GLRepository(store, spark)
-
+# -- delete_postings / delete_rejections -----------------------------------
 
 def test_delete_postings_removes_only_rows_for_the_named_workflow_run(
     posting_and_rejection_repository,
@@ -641,54 +700,3 @@ def test_delete_rejections_removes_only_rows_for_the_named_workflow_run(
 
     remaining = posting_and_rejection_repository.get_rejections(kept_workflow_run_id).collect()
     assert {UUID(row['WORKFLOW_RUN_ID']) for row in remaining} == {kept_workflow_run_id}
-
-
-def test_segment_defaults_resolve_prefers_entity_default():
-    defaults = GLSegmentDefaults(
-        values=(
-            GLSegmentDefault(
-                GLSegmentType.ACCOUNT,
-                '*',
-                '*',
-                '999999',
-            ),
-            GLSegmentDefault(
-                GLSegmentType.ACCOUNT,
-                'ENTITY_CD',
-                'USMKTS',
-                '990101',
-            ),
-        )
-    )
-
-    assert defaults.resolve(
-        GLSegmentType.ACCOUNT,
-        entity_cd='USMKTS',
-    ) == '990101'
-
-
-def test_segment_defaults_resolve_falls_back_to_global():
-    defaults = GLSegmentDefaults(
-        values=(
-            GLSegmentDefault(
-                GLSegmentType.ACCOUNT,
-                '*',
-                '*',
-                '999999',
-            ),
-        )
-    )
-
-    assert defaults.resolve(
-        GLSegmentType.ACCOUNT,
-        entity_cd='CAMKTS',
-    ) == '999999'
-
-
-def test_segment_defaults_resolve_returns_none_when_no_default():
-    defaults = GLSegmentDefaults(values=())
-
-    assert defaults.resolve(
-        GLSegmentType.ACCOUNT,
-        entity_cd='USMKTS',
-    ) is None

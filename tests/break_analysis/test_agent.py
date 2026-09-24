@@ -16,27 +16,14 @@ from tests.break_analysis.factories import make_break_record
 from tests.support.constants import AS_OF_DATE
 
 
-def _make_break_case(**overrides) -> BreakCase:
-    defaults = dict(
-        case_id=uuid4(),
-        topology=BreakTopology.AMBIGUOUS,
-        investigation_records=(make_break_record(), make_break_record()),
-        pivot=None,
-        evidence=None,
-    )
-    defaults.update(overrides)
-    return BreakCase(**defaults)
+_CONCLUSION = BreakAnalysisConclusion(
+    status='EXPLAINED',
+    findings=(),
+    explanation='Segment is valid; break explained by timing.',
+)
 
 
-def _make_tool_call(name='validate_segment', call_id='call_1', **arg_overrides) -> dict:
-    args = dict(
-        segment_type=GLSegmentType.ACCOUNT,
-        segment_value='123456',
-        business_dt=AS_OF_DATE,
-    )
-    args.update(arg_overrides)
-    return {'name': name, 'args': args, 'id': call_id}
-
+# -- fakes -----------------------------------------------------------------
 
 class _FakeMessage:
     '''A minimal LLM response message carrying tool calls and usage metadata.'''
@@ -124,11 +111,28 @@ class _FakeAtlasTools:
         return self._evidence
 
 
-_CONCLUSION = BreakAnalysisConclusion(
-    status='EXPLAINED',
-    findings=(),
-    explanation='Segment is valid; break explained by timing.',
-)
+# -- helpers ---------------------------------------------------------------
+
+def _make_break_case(**overrides) -> BreakCase:
+    defaults = dict(
+        case_id=uuid4(),
+        topology=BreakTopology.AMBIGUOUS,
+        investigation_records=(make_break_record(), make_break_record()),
+        pivot=None,
+        evidence=None,
+    )
+    defaults.update(overrides)
+    return BreakCase(**defaults)
+
+
+def _make_tool_call(name='validate_segment', call_id='call_1', **arg_overrides) -> dict:
+    args = dict(
+        segment_type=GLSegmentType.ACCOUNT,
+        segment_value='123456',
+        business_dt=AS_OF_DATE,
+    )
+    args.update(arg_overrides)
+    return {'name': name, 'args': args, 'id': call_id}
 
 
 def _make_agent(
@@ -159,7 +163,7 @@ def _make_agent(
     )
 
 
-# -- logging --------------------------------------------------------------
+# -- analyze: logging ------------------------------------------------------
 
 def test_analyze_logs_start_line_with_case_context(caplog):
     break_case = _make_break_case()

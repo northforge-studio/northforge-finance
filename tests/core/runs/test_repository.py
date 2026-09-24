@@ -16,6 +16,8 @@ from core.runs.models import (
 from tests.support.constants import TIMESTAMP
 
 
+# -- fixtures --------------------------------------------------------------
+
 @pytest.fixture(scope='module')
 def executor():
     return PostgresExecutor(PostgresConfig.from_env())
@@ -60,6 +62,26 @@ def workflow_run(repository, executor):
     )
 
 
+# -- helpers ---------------------------------------------------------------
+
+def _make_execution_run(workflow_run_id, **overrides) -> ExecutionRun:
+    defaults = dict(
+        run_id=uuid4(),
+        workflow_run_id=workflow_run_id,
+        parent_run_id=None,
+        component='foundry',
+        operation='enrich',
+        status=RunStatus.SUCCEEDED,
+        started_at=TIMESTAMP,
+        completed_at=TIMESTAMP,
+        retry_of_run_id=None,
+    )
+    defaults.update(overrides)
+    return ExecutionRun(**defaults)
+
+
+# -- workflow runs ---------------------------------------------------------
+
 def test_create_and_get_workflow_run(repository, workflow_run):
     fetched = repository.get_workflow_run(workflow_run.workflow_run_id)
 
@@ -85,6 +107,8 @@ def test_update_workflow_status(repository, workflow_run):
     assert fetched.status == RunStatus.SUCCEEDED
     assert fetched.completed_at == completed_at
 
+
+# -- execution runs --------------------------------------------------------
 
 def test_create_and_get_execution_run(repository, workflow_run):
     run = ExecutionRun(
@@ -154,103 +178,6 @@ def test_create_and_get_execution_run_links_to_parent_and_retry(repository, work
 def test_get_execution_run_unknown_id_raises(repository):
     with pytest.raises(KeyError, match='Unknown run_id'):
         repository.get_execution_run(uuid4())
-
-
-def _make_execution_run(workflow_run_id, **overrides) -> ExecutionRun:
-    defaults = dict(
-        run_id=uuid4(),
-        workflow_run_id=workflow_run_id,
-        parent_run_id=None,
-        component='foundry',
-        operation='enrich',
-        status=RunStatus.SUCCEEDED,
-        started_at=TIMESTAMP,
-        completed_at=TIMESTAMP,
-        retry_of_run_id=None,
-    )
-    defaults.update(overrides)
-    return ExecutionRun(**defaults)
-
-
-def test_create_and_get_dependency(repository, workflow_run):
-    consumer = _make_execution_run(workflow_run.workflow_run_id)
-    producer = _make_execution_run(workflow_run.workflow_run_id)
-    repository.create_execution_run(consumer)
-    repository.create_execution_run(producer)
-
-    dependency = RunDependency(
-        consumer_run_id=consumer.run_id,
-        producer_run_id=producer.run_id,
-        input_role='posting',
-    )
-    repository.create_dependency(dependency)
-
-    fetched = repository.get_dependencies(consumer.run_id)
-
-    assert fetched == (dependency,)
-
-
-def test_get_dependencies_supports_multiple_producers(repository, workflow_run):
-    consumer = _make_execution_run(
-        workflow_run.workflow_run_id,
-        component='recon',
-        operation='reconcile',
-    )
-    posting_producer = _make_execution_run(
-        workflow_run.workflow_run_id,
-        component='foundry',
-        operation='posting',
-    )
-    oracle_producer = _make_execution_run(
-        workflow_run.workflow_run_id,
-        component='oracle',
-        operation='accounting',
-    )
-    repository.create_execution_run(consumer)
-    repository.create_execution_run(posting_producer)
-    repository.create_execution_run(oracle_producer)
-
-    posting_dependency = RunDependency(
-        consumer_run_id=consumer.run_id,
-        producer_run_id=posting_producer.run_id,
-        input_role='posting',
-    )
-    oracle_dependency = RunDependency(
-        consumer_run_id=consumer.run_id,
-        producer_run_id=oracle_producer.run_id,
-        input_role='oracle_accounting',
-    )
-    repository.create_dependency(posting_dependency)
-    repository.create_dependency(oracle_dependency)
-
-    fetched = repository.get_dependencies(consumer.run_id)
-
-    assert set(fetched) == {posting_dependency, oracle_dependency}
-
-
-def test_get_dependencies_defaults_input_role_to_none(repository, workflow_run):
-    consumer = _make_execution_run(workflow_run.workflow_run_id)
-    producer = _make_execution_run(workflow_run.workflow_run_id)
-    repository.create_execution_run(consumer)
-    repository.create_execution_run(producer)
-
-    dependency = RunDependency(
-        consumer_run_id=consumer.run_id,
-        producer_run_id=producer.run_id,
-    )
-    repository.create_dependency(dependency)
-
-    fetched = repository.get_dependencies(consumer.run_id)
-
-    assert fetched == (dependency,)
-    assert fetched[0].input_role is None
-
-
-def test_get_dependencies_returns_empty_tuple_when_none_exist(repository, workflow_run):
-    consumer = _make_execution_run(workflow_run.workflow_run_id)
-    repository.create_execution_run(consumer)
-
-    assert repository.get_dependencies(consumer.run_id) == ()
 
 
 def test_get_execution_runs_returns_all_executions_for_workflow(repository, workflow_run):
@@ -331,6 +258,89 @@ def test_update_execution_status(repository, workflow_run):
 
     assert fetched.status == RunStatus.FAILED
     assert fetched.completed_at == completed_at
+
+
+# -- dependencies ----------------------------------------------------------
+
+def test_create_and_get_dependency(repository, workflow_run):
+    consumer = _make_execution_run(workflow_run.workflow_run_id)
+    producer = _make_execution_run(workflow_run.workflow_run_id)
+    repository.create_execution_run(consumer)
+    repository.create_execution_run(producer)
+
+    dependency = RunDependency(
+        consumer_run_id=consumer.run_id,
+        producer_run_id=producer.run_id,
+        input_role='posting',
+    )
+    repository.create_dependency(dependency)
+
+    fetched = repository.get_dependencies(consumer.run_id)
+
+    assert fetched == (dependency,)
+
+
+def test_get_dependencies_supports_multiple_producers(repository, workflow_run):
+    consumer = _make_execution_run(
+        workflow_run.workflow_run_id,
+        component='recon',
+        operation='reconcile',
+    )
+    posting_producer = _make_execution_run(
+        workflow_run.workflow_run_id,
+        component='foundry',
+        operation='posting',
+    )
+    oracle_producer = _make_execution_run(
+        workflow_run.workflow_run_id,
+        component='oracle',
+        operation='accounting',
+    )
+    repository.create_execution_run(consumer)
+    repository.create_execution_run(posting_producer)
+    repository.create_execution_run(oracle_producer)
+
+    posting_dependency = RunDependency(
+        consumer_run_id=consumer.run_id,
+        producer_run_id=posting_producer.run_id,
+        input_role='posting',
+    )
+    oracle_dependency = RunDependency(
+        consumer_run_id=consumer.run_id,
+        producer_run_id=oracle_producer.run_id,
+        input_role='oracle_accounting',
+    )
+    repository.create_dependency(posting_dependency)
+    repository.create_dependency(oracle_dependency)
+
+    fetched = repository.get_dependencies(consumer.run_id)
+
+    assert set(fetched) == {posting_dependency, oracle_dependency}
+
+
+def test_get_dependencies_defaults_input_role_to_none(repository, workflow_run):
+    consumer = _make_execution_run(workflow_run.workflow_run_id)
+    producer = _make_execution_run(workflow_run.workflow_run_id)
+    repository.create_execution_run(consumer)
+    repository.create_execution_run(producer)
+
+    dependency = RunDependency(
+        consumer_run_id=consumer.run_id,
+        producer_run_id=producer.run_id,
+    )
+    repository.create_dependency(dependency)
+
+    fetched = repository.get_dependencies(consumer.run_id)
+
+    assert fetched == (dependency,)
+    assert fetched[0].input_role is None
+
+
+def test_get_dependencies_returns_empty_tuple_when_none_exist(repository, workflow_run):
+    consumer = _make_execution_run(workflow_run.workflow_run_id)
+    repository.create_execution_run(consumer)
+
+    assert repository.get_dependencies(consumer.run_id) == ()
 
 
 def test_get_workflow_dependencies_returns_dependencies_for_workflow(
@@ -418,6 +428,8 @@ def test_get_workflow_dependencies_returns_empty_tuple_when_none_exist(
 
     assert repository.get_workflow_dependencies(workflow_run.workflow_run_id) == ()
 
+
+# -- get_workflow_summary --------------------------------------------------
 
 def test_get_workflow_summary_returns_workflow_executions_and_dependencies(
     repository, workflow_run,

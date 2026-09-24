@@ -18,6 +18,8 @@ from tests.support.constants import BUSINESS_DT, TIMESTAMP
 from tests.support.fakes import FakeRegistryClient
 
 
+# -- fakes -----------------------------------------------------------------
+
 class _FakeRepository:
     '''An in-memory GLRepository stand-in that records every read, write and delete.'''
 
@@ -74,10 +76,89 @@ class _FakeRepository:
         return self._rejections_by_workflow.get(workflow_run_id, ())
 
 
+# -- helpers ---------------------------------------------------------------
+
 def _make_unused_registry() -> FakeRegistryClient:
     '''A registry stub for get_segment_default tests, which never touch Registry.'''
     return FakeRegistryClient(set())
 
+
+def _make_valid_segments() -> GLSegments:
+    return GLSegments(
+        entity_cd='USM',
+        dept_cd='4000',
+        branch_cd='100',
+        gl_account='123456',
+        sub_account='001',
+        affiliate_cd='AFF1',
+        product_cd='PRD1',
+        book_cd='BK1',
+        source_cd='SRC1',
+    )
+
+
+def _make_valid_registry_entries() -> set:
+    segments = _make_valid_segments()
+    return {
+        (GLSegmentType.ENTITY, BUSINESS_DT, segments.entity_cd),
+        (GLSegmentType.DEPARTMENT, BUSINESS_DT, segments.dept_cd),
+        (GLSegmentType.BRANCH, BUSINESS_DT, segments.branch_cd),
+        (GLSegmentType.ACCOUNT, BUSINESS_DT, segments.gl_account),
+        (GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, segments.sub_account),
+        (GLSegmentType.AFFILIATE, BUSINESS_DT, segments.affiliate_cd),
+        (GLSegmentType.PRODUCT, BUSINESS_DT, segments.product_cd),
+        (GLSegmentType.BOOK, BUSINESS_DT, segments.book_cd),
+        (GLSegmentType.SOURCE, BUSINESS_DT, segments.source_cd),
+    }
+
+
+def _make_valid_instruction() -> GLInstruction:
+    return GLInstruction(
+        workflow_run_id=uuid4(),
+        producer_run_id=uuid4(),
+        dataclass='TRIAL_BALANCE',
+        transaction_number='TXN-1',
+        line_number='1',
+        foundry_rule_id='RULE-1',
+        posting_id='POST-1',
+        posting_stream='STREAM-1',
+        src_record_id='REC-1',
+        src_app_cd='NFM',
+        entity_cd='USM',
+        dept_cd='4000',
+        branch_cd='100',
+        gl_account='123456',
+        sub_account='001',
+        affiliate_cd='AFF1',
+        product_cd='PRD1',
+        book_cd='BK1',
+        source_cd='SRC1',
+        cr_dr_ind='DR',
+        transaction_currency='USD',
+        transaction_amount=Decimal('100.00'),
+        accounted_currency='USD',
+        accounted_amount=Decimal('100.00'),
+        fx_rate=Decimal('1.0'),
+        as_of_date=date(2026, 1, 1),
+        business_date=date(2026, 1, 1),
+    )
+
+
+def _make_manager() -> GLManager:
+    return GLManager(_FakeRepository({}), _make_unused_registry())
+
+
+def _make_gl_identity(**overrides) -> RunIdentity:
+    defaults = dict(
+        workflow_run_id=uuid4(),
+        run_id=uuid4(),
+        parent_run_id=None,
+    )
+    defaults.update(overrides)
+    return RunIdentity(**defaults)
+
+
+# -- get_segment_default ---------------------------------------------------
 
 def test_get_segment_default_returns_contextual_default_when_configured():
     repository = _FakeRepository({
@@ -169,7 +250,7 @@ def test_get_segment_default_prefers_contextual_over_global():
     assert repository.calls == [(GLSegmentType.BOOK, 'ENTITY_CD', 'CAM')]
 
 
-# -- resolve_segment ---------------------------------------------------
+# -- resolve_segment -------------------------------------------------------
 
 def test_resolve_segment_returns_supplied_value_unchanged_when_registry_valid():
     repository = _FakeRepository({})
@@ -420,36 +501,7 @@ def test_resolve_segment_preserves_numeric_looking_values_as_strings():
     assert isinstance(result.supplied_value, str)
 
 
-# -- resolve_segments ---------------------------------------------------
-
-def _make_valid_segments() -> GLSegments:
-    return GLSegments(
-        entity_cd='USM',
-        dept_cd='4000',
-        branch_cd='100',
-        gl_account='123456',
-        sub_account='001',
-        affiliate_cd='AFF1',
-        product_cd='PRD1',
-        book_cd='BK1',
-        source_cd='SRC1',
-    )
-
-
-def _make_valid_registry_entries() -> set:
-    segments = _make_valid_segments()
-    return {
-        (GLSegmentType.ENTITY, BUSINESS_DT, segments.entity_cd),
-        (GLSegmentType.DEPARTMENT, BUSINESS_DT, segments.dept_cd),
-        (GLSegmentType.BRANCH, BUSINESS_DT, segments.branch_cd),
-        (GLSegmentType.ACCOUNT, BUSINESS_DT, segments.gl_account),
-        (GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, segments.sub_account),
-        (GLSegmentType.AFFILIATE, BUSINESS_DT, segments.affiliate_cd),
-        (GLSegmentType.PRODUCT, BUSINESS_DT, segments.product_cd),
-        (GLSegmentType.BOOK, BUSINESS_DT, segments.book_cd),
-        (GLSegmentType.SOURCE, BUSINESS_DT, segments.source_cd),
-    }
-
+# -- resolve_segments ------------------------------------------------------
 
 def test_resolve_segments_all_valid_returns_final_set_unchanged():
     repository = _FakeRepository({})
@@ -658,43 +710,7 @@ def test_resolve_segments_empty_value_is_defaulted():
     assert result.segments == replace(_make_valid_segments(), dept_cd='9999')
 
 
-# -- validate_instruction -------------------------------------------------
-
-def _make_valid_instruction() -> GLInstruction:
-    return GLInstruction(
-        workflow_run_id=uuid4(),
-        producer_run_id=uuid4(),
-        dataclass='TRIAL_BALANCE',
-        transaction_number='TXN-1',
-        line_number='1',
-        foundry_rule_id='RULE-1',
-        posting_id='POST-1',
-        posting_stream='STREAM-1',
-        src_record_id='REC-1',
-        src_app_cd='NFM',
-        entity_cd='USM',
-        dept_cd='4000',
-        branch_cd='100',
-        gl_account='123456',
-        sub_account='001',
-        affiliate_cd='AFF1',
-        product_cd='PRD1',
-        book_cd='BK1',
-        source_cd='SRC1',
-        cr_dr_ind='DR',
-        transaction_currency='USD',
-        transaction_amount=Decimal('100.00'),
-        accounted_currency='USD',
-        accounted_amount=Decimal('100.00'),
-        fx_rate=Decimal('1.0'),
-        as_of_date=date(2026, 1, 1),
-        business_date=date(2026, 1, 1),
-    )
-
-
-def _make_manager() -> GLManager:
-    return GLManager(_FakeRepository({}), _make_unused_registry())
-
+# -- validate_instruction --------------------------------------------------
 
 def test_validate_instruction_fully_valid_has_no_errors():
     result = _make_manager().validate_instruction(_make_valid_instruction())
@@ -786,6 +802,8 @@ def test_validate_instruction_allows_registry_invalid_looking_segment():
     assert result.errors == ()
 
 
+# -- GLInstruction.to_segments ---------------------------------------------
+
 def test_instruction_to_segments_produces_matching_gl_segments():
     instruction = _make_valid_instruction()
 
@@ -802,7 +820,7 @@ def test_instruction_to_segments_produces_matching_gl_segments():
     )
 
 
-# -- GLPosting.from_resolution --------------------------------------------
+# -- GLPosting.from_resolution ---------------------------------------------
 
 def test_posting_from_resolution_stamps_the_supplied_gl_execution_lineage():
     # GL output lineage is the GL execution's own identity, not a copy of
@@ -1098,17 +1116,7 @@ def test_process_instruction_never_writes_both_posting_and_rejection():
     assert len(repository.rejections) == 1
 
 
-# -- import_instructions -----------------------------------------------
-
-def _make_gl_identity(**overrides) -> RunIdentity:
-    defaults = dict(
-        workflow_run_id=uuid4(),
-        run_id=uuid4(),
-        parent_run_id=None,
-    )
-    defaults.update(overrides)
-    return RunIdentity(**defaults)
-
+# -- import_instructions ---------------------------------------------------
 
 def test_import_instructions_all_valid_partition_all_posted():
     valid_1 = _make_valid_instruction()
@@ -1283,7 +1291,7 @@ def test_import_instructions_reads_by_workflow_not_source_producer_run_id():
     assert repository.get_instructions_calls == [identity.workflow_run_id]
 
 
-# -- rollback_execution ------------------------------------------------
+# -- rollback_execution ----------------------------------------------------
 
 def test_rollback_execution_deletes_only_the_workflows_postings_and_rejections():
     repository = _FakeRepository({})
@@ -1297,7 +1305,7 @@ def test_rollback_execution_deletes_only_the_workflows_postings_and_rejections()
     assert repository.deleted_rejection_workflow_run_ids == [identity.workflow_run_id]
 
 
-# -- get_postings / get_rejections --------------------------------------
+# -- get_postings / get_rejections -----------------------------------------
 
 def test_get_postings_delegates_to_repository_by_workflow_run_id():
     workflow_run_id = uuid4()

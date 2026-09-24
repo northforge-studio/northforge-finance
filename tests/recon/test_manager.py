@@ -14,7 +14,7 @@ from tests.recon.fakes import FakeGL
 from tests.support.constants import BUSINESS_DT
 
 
-# -- fakes --------------------------------------------------------------
+# -- fakes -----------------------------------------------------------------
 
 class _FakeReconRepository:
     '''An in-memory ReconRepository stand-in, optionally failing on write.'''
@@ -44,7 +44,7 @@ class _FakeReconRepository:
         return self._results_by_workflow[workflow_run_id]
 
 
-# -- row builders ---------------------------------------------------------
+# -- helpers ---------------------------------------------------------------
 
 def _make_interface_df(spark, rows) -> DataFrame:
     return spark.createDataFrame(list(rows), schema=INTERFACE_TRIAL_BALANCE_SCHEMA)
@@ -53,8 +53,6 @@ def _make_interface_df(spark, rows) -> DataFrame:
 def _make_posting_df(spark, rows) -> DataFrame:
     return spark.createDataFrame(list(rows), schema=POSTING_SCHEMA)
 
-
-# -- helpers ---------------------------------------------------------------
 
 def _make_manager(
     run_tracker, interface_df, gl_df, raise_on_write=False,
@@ -70,7 +68,7 @@ def _make_manager(
     return ReconManager(repository, run_tracker, gl), repository, gl
 
 
-# -- successful execution -----------------------------------------------
+# -- reconcile: results ----------------------------------------------------
 
 def test_reconcile_returns_a_recon_run_result(spark, run_tracker, workflow):
     interface_df = _make_interface_df(spark, [make_interface_values(workflow.workflow_run_id)])
@@ -146,6 +144,8 @@ def test_reconcile_reads_interface_and_gl_scoped_to_the_workflow_run_id(
     assert gl.get_postings_calls == [workflow.workflow_run_id]
 
 
+# -- get_results -----------------------------------------------------------
+
 def test_get_results_delegates_to_the_repository(spark, run_tracker, workflow):
     sentinel_df = spark.createDataFrame([(1,)], schema=['X'])
     repository = _FakeReconRepository(
@@ -159,7 +159,7 @@ def test_get_results_delegates_to_the_repository(spark, run_tracker, workflow):
     assert repository.get_results_calls == [workflow.workflow_run_id]
 
 
-# -- execution lifecycle ---------------------------------------------------
+# -- reconcile: execution lifecycle ----------------------------------------
 
 def test_reconcile_creates_a_recon_execution_under_the_workflow(
     spark, run_tracker, workflow,
@@ -208,7 +208,7 @@ def test_reconcile_fails_the_execution_and_reraises_on_a_technical_failure(
     assert recon_execution.completed_at is not None
 
 
-# -- dataclass/workflow validation ------------------------------------------
+# -- reconcile: validation -------------------------------------------------
 
 def test_reconcile_raises_for_unknown_workflow_run_id(run_tracker):
     manager = ReconManager(_FakeReconRepository(), run_tracker, FakeGL())

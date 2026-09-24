@@ -17,6 +17,8 @@ from tests.break_analysis.factories import make_break_record, make_segments
 from tests.support.constants import AS_OF_DATE
 
 
+# -- helpers ---------------------------------------------------------------
+
 def _make_partition_key(entity_cd='USM') -> BreakPartitionKey:
     return BreakPartitionKey(
         as_of_date=AS_OF_DATE,
@@ -53,6 +55,8 @@ def _make_segment_defaults(*entries: GLSegmentDefault) -> GLSegmentDefaults:
 def _make_builder(segment_defaults: GLSegmentDefaults | None = None) -> BreakCaseBuilder:
     return BreakCaseBuilder(segment_defaults if segment_defaults is not None else _make_segment_defaults())
 
+
+# -- _partition ------------------------------------------------------------
 
 def test_partition_groups_records_with_identical_hard_anchors():
     first = make_break_record()
@@ -168,7 +172,7 @@ def test_partition_builds_one_partition_per_hard_anchor_combination():
     assert set(result.keys()) == expected_keys
 
 
-# -- _resolve_applicable_defaults ---------------------------------------
+# -- _resolve_applicable_defaults ------------------------------------------
 
 def test_resolve_applicable_defaults_uses_entity_specific_default():
     segment_defaults = _make_segment_defaults(
@@ -204,7 +208,7 @@ def test_resolve_applicable_defaults_excludes_segment_without_default():
     assert GLSegmentType.BRANCH not in result
 
 
-# -- _find_pivots ---------------------------------------------------------
+# -- _find_pivots ----------------------------------------------------------
 
 def test_find_pivots_relaxes_every_segment_with_a_matching_default():
     segment_defaults = _make_segment_defaults(
@@ -405,7 +409,7 @@ def test_find_neighborhood_excludes_pivot_with_wider_relaxed_segments():
     assert neighborhood == (account_pivot_record,)
 
 
-# -- _is_closed -------------------------------------------------------------
+# -- _is_closed ------------------------------------------------------------
 
 def test_is_closed_true_for_offsetting_differences():
     first = make_break_record(difference_amount=Decimal('50.00'))
@@ -425,7 +429,7 @@ def test_is_closed_true_for_empty_records():
     assert _make_builder()._is_closed([]) is True
 
 
-# -- _build_candidate ---------------------------------------------------------
+# -- _build_candidate ------------------------------------------------------
 
 def test_build_candidate_two_record_neighborhood_yields_one_to_one():
     pivot_record = make_break_record(segments=make_segments(dept_cd='9999'), difference_amount=Decimal('50.00'))
@@ -491,7 +495,7 @@ def test_build_candidate_preserves_pivot_relaxed_segments():
     assert candidate.relaxed_segments == (GLSegmentType.DEPARTMENT, GLSegmentType.SUB_ACCOUNT)
 
 
-# -- _find_candidates -----------------------------------------------------
+# -- _find_candidates ------------------------------------------------------
 
 def test_find_candidates_builds_one_candidate_per_valid_pivot():
     segment_defaults = _make_segment_defaults(
@@ -676,7 +680,7 @@ def test_deduplicate_candidates_empty_returns_empty_tuple():
     assert result == ()
 
 
-# -- _resolve_candidates -----------------------------------------------------
+# -- _resolve_candidates ---------------------------------------------------
 
 def test_resolve_candidates_accepts_single_candidate_unchanged():
     pivot = make_break_record()
@@ -822,7 +826,7 @@ def test_resolve_candidates_empty_returns_empty_tuple():
     assert resolved == ()
 
 
-# -- _to_break_cases ----------------------------------------------------------
+# -- _to_break_cases -------------------------------------------------------
 
 def test_to_break_cases_resolved_candidate_carries_evidence():
     pivot, investigation = make_break_record(), make_break_record()
@@ -881,7 +885,7 @@ def test_to_break_cases_assigns_a_case_id_to_each_case():
     assert cases[0].case_id != cases[1].case_id
 
 
-# -- _classify_leftovers -------------------------------------------------
+# -- _classify_leftovers ---------------------------------------------------
 
 def test_classify_leftovers_interface_balance_only_yields_interface_only():
     record = make_break_record(
@@ -923,7 +927,7 @@ def test_classify_leftovers_both_sides_populated_yields_unmatched():
     assert case.investigation_records == (record,)
 
 
-# -- build ------------------------------------------------------------------
+# -- build -----------------------------------------------------------------
 
 def test_build_known_one_to_one_scenario_yields_one_case():
     segment_defaults = _make_segment_defaults(
@@ -1077,7 +1081,7 @@ def test_build_empty_input_returns_empty_tuple():
     assert cases == ()
 
 
-# -- logging ------------------------------------------------------------
+# -- build: logging --------------------------------------------------------
 
 def test_build_logs_topology_breakdown_and_duration(caplog):
     segment_defaults = _make_segment_defaults(

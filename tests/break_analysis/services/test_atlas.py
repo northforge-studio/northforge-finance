@@ -28,6 +28,7 @@ _POSTING_SEGMENT_COLUMNS = dict(
     GL_COA_SRC_SEGMENT='SRC1',
 )
 
+
 _POSTING_SCHEMA = StructType([
     StructField('AS_OF_DT', DateType(), False),
     StructField('POSTING_MEASURE_FUNC_CCY_CD', StringType(), False),
@@ -44,6 +45,8 @@ _POSTING_SCHEMA = StructType([
     StructField('COUNTERPARTY_CD', StringType(), False),
 ])
 
+
+# -- fakes -----------------------------------------------------------------
 
 class _FakeAtlasClient:
     '''Duck-types AtlasClient, serving a canned definition and resolutions.'''
@@ -83,6 +86,8 @@ class _FakeFoundryRepository:
     def read_posting(self, workflow_run_id):
         return self._df
 
+
+# -- helpers ---------------------------------------------------------------
 
 def _make_mapping_definition(
     mapping_name: str = 'TEST_MAPPING',
@@ -160,6 +165,8 @@ def _make_resolution(
         mapping_output={'OUTPUT_VALUE': output},
     )
 
+
+# -- get_foundry_mapping_input_values --------------------------------------
 
 def test_get_foundry_mapping_input_values_uses_exact_canonical_input_names(spark):
     definition = _make_mapping_definition(
@@ -308,6 +315,8 @@ def test_get_foundry_mapping_input_values_mapping_without_input_fields_raises(sp
             make_break_record(), mapping_name='TEST_MAPPING',
         )
 
+
+# -- investigate_resolution ------------------------------------------------
 
 def test_investigate_resolution_wraps_single_foundry_input_with_its_resolution(spark):
     # investigate_resolution() derives the mapping name from segment_type

@@ -41,6 +41,36 @@ VALID_SEGMENTS = {
 }
 
 
+# -- fixtures --------------------------------------------------------------
+
+@pytest.fixture
+def registry():
+    return FakeRegistryClient(VALID_SEGMENTS)
+
+
+@pytest.fixture
+def gl(spark, tmp_path, registry):
+    return GLClient.from_csv(
+        spark=spark,
+        segment_default_path=GL_SEGMENT_DEFAULT_PATH,
+        registry=registry,
+        posting_path=tmp_path / 'POSTING',
+    )
+
+
+@pytest.fixture
+def recon(spark, tmp_path, run_tracker, gl):
+    return ReconClient.from_csv(
+        spark=spark,
+        run_tracker=run_tracker,
+        gl=gl,
+        result_path=tmp_path / 'RESULT',
+        interface_trial_balance_path=tmp_path / 'INTERFACE_TRIAL_BALANCE',
+    )
+
+
+# -- helpers ---------------------------------------------------------------
+
 def _make_instruction(workflow_run_id: UUID, **overrides) -> GLInstruction:
     fields = dict(
         workflow_run_id=workflow_run_id,
@@ -108,32 +138,6 @@ def _make_interface_row(instruction: GLInstruction) -> tuple:
     return tuple(values[name] for name in INTERFACE_TRIAL_BALANCE_SCHEMA.fieldNames())
 
 
-@pytest.fixture
-def registry():
-    return FakeRegistryClient(VALID_SEGMENTS)
-
-
-@pytest.fixture
-def gl(spark, tmp_path, registry):
-    return GLClient.from_csv(
-        spark=spark,
-        segment_default_path=GL_SEGMENT_DEFAULT_PATH,
-        registry=registry,
-        posting_path=tmp_path / 'POSTING',
-    )
-
-
-@pytest.fixture
-def recon(spark, tmp_path, run_tracker, gl):
-    return ReconClient.from_csv(
-        spark=spark,
-        run_tracker=run_tracker,
-        gl=gl,
-        result_path=tmp_path / 'RESULT',
-        interface_trial_balance_path=tmp_path / 'INTERFACE_TRIAL_BALANCE',
-    )
-
-
 def _write_interface(spark, tmp_path, instructions) -> None:
     store = CsvStore(
         spark=spark,
@@ -148,7 +152,7 @@ def _write_interface(spark, tmp_path, instructions) -> None:
     store.write(df, table_name='INTERFACE_TRIAL_BALANCE')
 
 
-# -- balanced flow: Foundry(seeded) -> Interface -> GL -> Recon -----------
+# -- balanced flow: Foundry(seeded) -> Interface -> GL -> Recon ------------
 
 def test_reconcile_balanced_interface_and_gl_yields_zero_differences(
     spark, tmp_path, run_tracker, gl, recon,
@@ -210,7 +214,7 @@ def test_reconcile_balanced_interface_and_gl_yields_zero_differences(
     assert balances['223456']['GL_BALANCE'] == Decimal('-65000.00')
 
 
-# -- controlled break: a duplicated GL posting produces a real break ------
+# -- controlled break: a duplicated GL posting produces a real break -------
 
 def test_reconcile_duplicated_gl_posting_yields_non_zero_difference(
     spark, tmp_path, run_tracker, gl, recon,
@@ -248,7 +252,7 @@ def test_reconcile_duplicated_gl_posting_yields_non_zero_difference(
     assert row['DIFFERENCE_AMOUNT'] == Decimal('-500.00')
 
 
-# -- workflow scoping across multiple recon executions in one store -------
+# -- workflow scoping across multiple recon executions in one store --------
 
 def test_reconcile_isolates_results_across_workflows_in_a_shared_store(
     spark, tmp_path, run_tracker, gl, recon,

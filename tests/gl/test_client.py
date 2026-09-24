@@ -18,6 +18,8 @@ from tests.support.fakes import FakeRegistryClient
 from tests.support.paths import GL_SEGMENT_DEFAULT_PATH
 
 
+# -- fixtures --------------------------------------------------------------
+
 @pytest.fixture(scope='module')
 def registry():
     return FakeRegistryClient({
@@ -42,52 +44,19 @@ def gl(spark, registry):
     )
 
 
-def test_get_segment_default_returns_contextual_default(gl):
-    assert gl.get_segment_default(GLSegmentType.DEPARTMENT, entity_cd='USMKTS') == 'USGL99'
-
-
-def test_get_segment_default_falls_back_to_global(gl):
-    assert gl.get_segment_default(GLSegmentType.SUB_ACCOUNT, entity_cd='USMKTS') == '990001'
-
-
-def test_get_segment_default_without_entity_cd_uses_global_only(gl):
-    assert gl.get_segment_default(GLSegmentType.PRODUCT) == '990003'
-
-
-def test_get_segment_default_returns_none_for_non_defaultable_segments(gl):
-    assert gl.get_segment_default(GLSegmentType.ENTITY, entity_cd='USMKTS') is None
-    assert gl.get_segment_default(GLSegmentType.SOURCE, entity_cd='USMKTS') is None
-
-
-def test_resolve_segment_delegates_to_manager_for_invalid_supplied_value(gl):
-    result = gl.resolve_segment(
-        GLSegmentType.DEPARTMENT, 'BOGUS',
-        business_dt=BUSINESS_DT,
-        entity_cd='USMKTS',
-    )
-
-    assert result == GLSegmentResolution(
-        segment_type=GLSegmentType.DEPARTMENT,
-        supplied_value='BOGUS',
-        resolved_value='USGL99',
-        defaulted=True,
+@pytest.fixture
+def gl_with_posting_support(spark, registry, tmp_path):
+    return GLClient.from_csv(
+        spark=spark,
+        segment_default_path=GL_SEGMENT_DEFAULT_PATH,
+        registry=registry,
+        posting_path=tmp_path / 'POSTING',
+        rejection_path=tmp_path / 'REJECTION',
+        interface_trial_balance_path=tmp_path / 'INTERFACE_TRIAL_BALANCE',
     )
 
 
-def test_resolve_segment_delegates_to_manager_for_valid_supplied_value(gl):
-    result = gl.resolve_segment(
-        GLSegmentType.DEPARTMENT, 'USGL99',
-        business_dt=BUSINESS_DT,
-        entity_cd='USMKTS',
-    )
-
-    assert result == GLSegmentResolution(
-        segment_type=GLSegmentType.DEPARTMENT,
-        supplied_value='USGL99',
-        resolved_value='USGL99',
-        defaulted=False,
-    )
-
+# -- helpers ---------------------------------------------------------------
 
 def _make_valid_segments() -> GLSegments:
     return GLSegments(
@@ -101,30 +70,6 @@ def _make_valid_segments() -> GLSegments:
         book_cd='BK1',
         source_cd='SRC1',
     )
-
-
-def test_resolve_segments_delegates_to_manager_when_all_supplied_valid(gl):
-    result = gl.resolve_segments(_make_valid_segments(), business_dt=BUSINESS_DT)
-
-    assert result.resolved is True
-    assert result.segments == _make_valid_segments()
-    assert len(result.resolutions) == 9
-
-
-def test_resolve_segments_delegates_to_manager_for_invalid_defaultable_segment(gl):
-    supplied = replace(_make_valid_segments(), dept_cd='BOGUS')
-
-    result = gl.resolve_segments(supplied, business_dt=BUSINESS_DT)
-
-    assert result.resolved is True
-    assert result.segments == _make_valid_segments()
-
-    dept_resolution = next(
-        r for r in result.resolutions if r.segment_type == GLSegmentType.DEPARTMENT
-    )
-    assert dept_resolution.supplied_value == 'BOGUS'
-    assert dept_resolution.resolved_value == 'USGL99'
-    assert dept_resolution.defaulted is True
 
 
 def _make_valid_instruction() -> GLInstruction:
@@ -159,6 +104,85 @@ def _make_valid_instruction() -> GLInstruction:
     )
 
 
+# -- get_segment_default ---------------------------------------------------
+
+def test_get_segment_default_returns_contextual_default(gl):
+    assert gl.get_segment_default(GLSegmentType.DEPARTMENT, entity_cd='USMKTS') == 'USGL99'
+
+
+def test_get_segment_default_falls_back_to_global(gl):
+    assert gl.get_segment_default(GLSegmentType.SUB_ACCOUNT, entity_cd='USMKTS') == '990001'
+
+
+def test_get_segment_default_without_entity_cd_uses_global_only(gl):
+    assert gl.get_segment_default(GLSegmentType.PRODUCT) == '990003'
+
+
+def test_get_segment_default_returns_none_for_non_defaultable_segments(gl):
+    assert gl.get_segment_default(GLSegmentType.ENTITY, entity_cd='USMKTS') is None
+    assert gl.get_segment_default(GLSegmentType.SOURCE, entity_cd='USMKTS') is None
+
+
+# -- resolve_segment -------------------------------------------------------
+
+def test_resolve_segment_delegates_to_manager_for_invalid_supplied_value(gl):
+    result = gl.resolve_segment(
+        GLSegmentType.DEPARTMENT, 'BOGUS',
+        business_dt=BUSINESS_DT,
+        entity_cd='USMKTS',
+    )
+
+    assert result == GLSegmentResolution(
+        segment_type=GLSegmentType.DEPARTMENT,
+        supplied_value='BOGUS',
+        resolved_value='USGL99',
+        defaulted=True,
+    )
+
+
+def test_resolve_segment_delegates_to_manager_for_valid_supplied_value(gl):
+    result = gl.resolve_segment(
+        GLSegmentType.DEPARTMENT, 'USGL99',
+        business_dt=BUSINESS_DT,
+        entity_cd='USMKTS',
+    )
+
+    assert result == GLSegmentResolution(
+        segment_type=GLSegmentType.DEPARTMENT,
+        supplied_value='USGL99',
+        resolved_value='USGL99',
+        defaulted=False,
+    )
+
+
+# -- resolve_segments ------------------------------------------------------
+
+def test_resolve_segments_delegates_to_manager_when_all_supplied_valid(gl):
+    result = gl.resolve_segments(_make_valid_segments(), business_dt=BUSINESS_DT)
+
+    assert result.resolved is True
+    assert result.segments == _make_valid_segments()
+    assert len(result.resolutions) == 9
+
+
+def test_resolve_segments_delegates_to_manager_for_invalid_defaultable_segment(gl):
+    supplied = replace(_make_valid_segments(), dept_cd='BOGUS')
+
+    result = gl.resolve_segments(supplied, business_dt=BUSINESS_DT)
+
+    assert result.resolved is True
+    assert result.segments == _make_valid_segments()
+
+    dept_resolution = next(
+        r for r in result.resolutions if r.segment_type == GLSegmentType.DEPARTMENT
+    )
+    assert dept_resolution.supplied_value == 'BOGUS'
+    assert dept_resolution.resolved_value == 'USGL99'
+    assert dept_resolution.defaulted is True
+
+
+# -- validate_instruction --------------------------------------------------
+
 def test_validate_instruction_delegates_to_manager_for_valid_instruction(gl):
     result = gl.validate_instruction(_make_valid_instruction())
 
@@ -175,19 +199,7 @@ def test_validate_instruction_delegates_to_manager_for_invalid_instruction(gl):
     assert 'INVALID_CR_DR_IND' in result.errors
 
 
-# -- process_instruction / import_instructions -----------------------------
-
-@pytest.fixture
-def gl_with_posting_support(spark, registry, tmp_path):
-    return GLClient.from_csv(
-        spark=spark,
-        segment_default_path=GL_SEGMENT_DEFAULT_PATH,
-        registry=registry,
-        posting_path=tmp_path / 'POSTING',
-        rejection_path=tmp_path / 'REJECTION',
-        interface_trial_balance_path=tmp_path / 'INTERFACE_TRIAL_BALANCE',
-    )
-
+# -- process_instruction ---------------------------------------------------
 
 def test_process_instruction_delegates_to_manager_for_valid_instruction(
     gl_with_posting_support,
@@ -211,12 +223,16 @@ def test_process_instruction_delegates_to_manager_for_invalid_instruction(
     assert result.rejection.rejection_type == 'STRUCTURAL_VALIDATION'
 
 
+# -- rollback_execution ----------------------------------------------------
+
 def test_rollback_execution_delegates_to_manager(gl_with_posting_support):
     identity = RunIdentity(workflow_run_id=uuid4(), run_id=uuid4(), parent_run_id=None)
 
     # Should not raise even with nothing written for this run yet.
     gl_with_posting_support.rollback_execution(identity)
 
+
+# -- import_instructions ---------------------------------------------------
 
 def test_import_instructions_delegates_to_manager(spark, tmp_path, gl_with_posting_support):
     instruction = _make_valid_instruction()
@@ -275,7 +291,7 @@ def test_import_instructions_delegates_to_manager(spark, tmp_path, gl_with_posti
     assert result.rejected_count == 0
 
 
-# -- get_postings / get_rejections --------------------------------------
+# -- get_postings / get_rejections -----------------------------------------
 
 def test_get_postings_returns_a_dataframe_of_only_the_named_workflows_rows(
     gl_with_posting_support,
