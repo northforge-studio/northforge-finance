@@ -68,7 +68,7 @@ class BreakAnalysisAgent:
             )
         ]
 
-        self._llm_with_tools = llm.bind_tools(self._tools, reasoning=False)
+        self._llm_with_tools = llm.bind_tools(self._tools, reasoning=True)
         self._tool_registry = {tool.name: tool for tool in self._tools}
 
         self._llm_with_structure = llm.with_structured_output(

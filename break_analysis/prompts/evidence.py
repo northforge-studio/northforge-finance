@@ -23,10 +23,10 @@ NONBLANK VALUE:
 - Call validate_segment.
 - If validate_segment reports invalid, call get_segment_details for that same
   segment type, value, and business date.
-- Never call investigate_atlas_resolution.
+- Never call investigate_resolution.
 
 BLANK, NULL, OR WHITESPACE-ONLY VALUE:
-- Use investigate_atlas_resolution only.
+- Use investigate_resolution only.
 - Supply workflow_run_id, recon_result_id, and segment_type from the
   investigation record.
 - Never call validate_segment or get_segment_details.
