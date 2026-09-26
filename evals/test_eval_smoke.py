@@ -5,6 +5,7 @@ from evals.scenarios.registry import (
     registry_inactive_account,
     registry_missing_account,
 )
+from evals.scenarios.atlas import atlas_unresolved_account
 
 
 def test_registry_inactive_account(llm):
@@ -18,6 +19,15 @@ def test_registry_inactive_account(llm):
 
 def test_registry_missing_account(llm):
     scenario = registry_missing_account()
+
+    runner = EvalRunner(llm)
+    result = runner.run(scenario)
+
+    print(result)
+
+
+def test_atlas_unresolved_account(llm):
+    scenario = atlas_unresolved_account()
 
     runner = EvalRunner(llm)
     result = runner.run(scenario)
@@ -40,3 +50,4 @@ if __name__ == "__main__":
 
     test_registry_inactive_account(llm)
     test_registry_missing_account(llm)
+    test_atlas_unresolved_account(llm)
