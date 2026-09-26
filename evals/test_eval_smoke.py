@@ -7,6 +7,7 @@ from evals.scenarios.registry import (
 )
 from evals.scenarios.atlas import atlas_unresolved_account
 from evals.scenarios.mixed import mixed_registry_and_atlas
+from evals.scenarios.unexplained import interface_only_no_supported_cause
 
 
 def test_registry_inactive_account(llm):
@@ -45,6 +46,15 @@ def test_mixed_registry_and_atlas(llm):
     print(result)
 
 
+def test_interface_only_no_supported_cause(llm):
+    scenario = interface_only_no_supported_cause()
+
+    runner = EvalRunner(llm)
+    result = runner.run(scenario)
+
+    print(result)
+
+
 
 if __name__ == "__main__":
 
@@ -61,4 +71,5 @@ if __name__ == "__main__":
     # test_registry_inactive_account(llm)
     # test_registry_missing_account(llm)
     # test_atlas_unresolved_account(llm)
-    test_mixed_registry_and_atlas(llm)
+    # test_mixed_registry_and_atlas(llm)
+    test_interface_only_no_supported_cause(llm)
