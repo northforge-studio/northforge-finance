@@ -1,7 +1,10 @@
 from langchain_ollama import ChatOllama
 
 from evals.runner import EvalRunner
-from evals.scenarios.registry import registry_inactive_account
+from evals.scenarios.registry import (
+    registry_inactive_account,
+    registry_missing_account,
+)
 
 
 def test_registry_inactive_account(llm):
@@ -10,6 +13,15 @@ def test_registry_inactive_account(llm):
     runner = EvalRunner(llm)
     result = runner.run(scenario)
     
+    print(result)
+
+
+def test_registry_missing_account(llm):
+    scenario = registry_missing_account()
+
+    runner = EvalRunner(llm)
+    result = runner.run(scenario)
+
     print(result)
 
 
@@ -27,3 +39,4 @@ if __name__ == "__main__":
     )
 
     test_registry_inactive_account(llm)
+    test_registry_missing_account(llm)
