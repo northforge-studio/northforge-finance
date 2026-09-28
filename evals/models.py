@@ -67,3 +67,12 @@ class EvalRunResult:
     result: BreakAnalysisResult | None
     calls: tuple[ToolCallRecord, ...]
     error: str | None = None
+
+
+@dataclass(frozen=True)
+class ScenarioSummary:
+    scenario_name: str
+    passed_runs: int
+    total_runs: int
+    avg_duration: float
+    avg_tool_calls: float
