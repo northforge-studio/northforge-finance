@@ -1,3 +1,5 @@
+import time
+
 from langchain_ollama import ChatOllama
 
 from evals.runner import EvalRunner
@@ -11,30 +13,40 @@ def main():
     )
 
     runner = EvalRunner(llm)
-
-    results = [
-        runner.run(scenario)
-        for scenario in v1_scenarios()
-    ]
+    scenarios = v1_scenarios()
+    total = len(scenarios)
 
     print()
     print('V1 Break Analysis Eval Suite')
-    print('-' * 80)
+    print('-' * 60)
 
-    for result in results:
+    passed = 0
+    suite_start = time.monotonic()
+
+    for index, scenario in enumerate(scenarios, start=1):
+        print()
+        print(f'[{index}/{total}] {scenario.name}', flush=True)
+
+        start = time.monotonic()
+        result = runner.run(scenario)
+        duration = time.monotonic() - start
+
         outcome = 'PASS' if result.grade.passed else 'FAIL'
 
-        print(
-            f'{result.scenario_name:<40} {outcome}'
-        )
+        print(f'      {outcome}  {duration:>7.1f}s', flush=True)
 
         for failure in result.grade.failures:
-            print(f'  - {failure}')
+            print(f'      - {failure}', flush=True)
 
-    passed = sum(result.grade.passed for result in results)
+        passed += result.grade.passed
 
-    print('-' * 80)
-    print(f'{passed}/{len(results)} scenarios passed')
+    suite_duration = time.monotonic() - suite_start
+
+    print()
+    print('-' * 60)
+    print(f'Passed: {passed}/{total}')
+    print(f'Failed: {total - passed}/{total}')
+    print(f'Total: {suite_duration:.1f}s')
 
 
 if __name__ == '__main__':
