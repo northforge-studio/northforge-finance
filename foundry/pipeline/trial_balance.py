@@ -304,7 +304,7 @@ class TrialBalancePipeline(BasePipeline):
             df.groupBy(*group_by_columns)
             .pivot(
                 'POSTING_MEASURE_NM',
-                posting_measure_names,
+                list(posting_measure_names),
             )
             .agg(*[F.first(column).alias(column) for column in value_columns])
         )

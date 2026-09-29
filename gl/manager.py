@@ -182,7 +182,9 @@ class GLManager:
         final_segments = GLSegments(
             **{
                 field: resolution.resolved_value
-                for (field, _), resolution in zip(_SEGMENT_FIELD_TYPES, resolutions, strict=True)
+                for (field, _), resolution in zip(
+                    _SEGMENT_FIELD_TYPES, resolutions, strict=True
+                )
             }
         )
 
@@ -256,7 +258,7 @@ class GLManager:
             business_dt=instruction.business_date,
         )
 
-        if not segment_resolution.resolved:
+        if not segment_resolution.resolved or segment_resolution.segments is None:
             unresolved = ','.join(
                 resolution.segment_type.field_name.upper()
                 for resolution in segment_resolution.resolutions

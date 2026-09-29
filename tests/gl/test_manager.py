@@ -1,6 +1,7 @@
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import Any
 from uuid import UUID, uuid4
 
 from core.runs.models import RunIdentity
@@ -145,7 +146,7 @@ def _make_manager() -> GLManager:
 
 
 def _make_gl_identity(**overrides) -> RunIdentity:
-    defaults = dict(
+    defaults: dict[str, Any] = dict(
         workflow_run_id=uuid4(),
         run_id=uuid4(),
         parent_run_id=None,
@@ -961,6 +962,7 @@ def test_process_instruction_without_identity_falls_back_to_instruction_lineage(
 
     result = manager.process_instruction(instruction)
 
+    assert result.posting is not None
     assert result.posting.workflow_run_id == instruction.workflow_run_id
     assert result.posting.producer_run_id == instruction.producer_run_id
 
@@ -974,6 +976,7 @@ def test_process_instruction_with_identity_stamps_gl_execution_lineage():
 
     result = manager.process_instruction(instruction, identity=identity)
 
+    assert result.posting is not None
     assert result.posting.workflow_run_id == identity.workflow_run_id
     assert result.posting.producer_run_id == identity.run_id
     assert result.posting.producer_run_id != instruction.producer_run_id
@@ -990,6 +993,7 @@ def test_process_instruction_valid_posts_successfully():
     assert result.posted is True
     assert result.rejection is None
     assert result.validation.valid is True
+    assert result.segment_resolution is not None
     assert result.segment_resolution.resolved is True
     assert result.posting is not None
     assert result.posting.dept_cd == instruction.dept_cd
@@ -1018,6 +1022,7 @@ def test_process_instruction_defaulted_segment_posts_resolved_value():
     result = manager.process_instruction(instruction)
 
     assert result.posted is True
+    assert result.posting is not None
     assert result.posting.dept_cd == '9999'
     # Original Interface-supplied value is untouched.
     assert instruction.dept_cd == 'BOGUS'
@@ -1053,6 +1058,7 @@ def test_process_instruction_invalid_entity_rejects_via_segment_resolution():
 
     assert result.posted is False
     assert result.posting is None
+    assert result.rejection is not None
     assert result.rejection.rejection_type == 'SEGMENT_RESOLUTION'
     assert result.rejection.rejection_detail == 'ENTITY_CD'
     assert repository.postings == []
@@ -1069,6 +1075,7 @@ def test_process_instruction_invalid_source_rejects_via_segment_resolution():
     result = manager.process_instruction(instruction)
 
     assert result.posted is False
+    assert result.rejection is not None
     assert result.rejection.rejection_type == 'SEGMENT_RESOLUTION'
     assert 'SOURCE_CD' in result.rejection.rejection_detail
     assert repository.postings == []
@@ -1116,6 +1123,7 @@ def test_process_instruction_multiple_defaults_produce_one_posting():
     result = manager.process_instruction(instruction)
 
     assert result.posted is True
+    assert result.posting is not None
     assert result.posting.dept_cd == '9999'
     assert result.posting.sub_account == 'UNASSIGNED'
     assert result.posting.product_cd == '999999'
@@ -1129,6 +1137,7 @@ def test_process_instruction_generates_uuid_and_utc_timestamp_by_default():
 
     result = manager.process_instruction(_make_valid_instruction())
 
+    assert result.posting is not None
     assert isinstance(result.posting.gl_posting_id, UUID)
     assert isinstance(result.posting.posted_at, datetime)
     assert result.posting.posted_at.tzinfo is not None
@@ -1147,6 +1156,7 @@ def test_process_instruction_accepts_injected_deterministic_ids():
         posted_at=fixed_time,
     )
 
+    assert result.posting is not None
     assert result.posting.gl_posting_id == fixed_id
     assert result.posting.posted_at == fixed_time
 
@@ -1164,6 +1174,7 @@ def test_process_instruction_accepts_injected_deterministic_rejection_ids():
         rejected_at=fixed_time,
     )
 
+    assert result.rejection is not None
     assert result.rejection.gl_rejection_id == fixed_id
     assert result.rejection.rejected_at == fixed_time
 
@@ -1270,7 +1281,8 @@ def test_import_instructions_results_retained_in_deterministic_order():
 
     result = manager.import_instructions(_make_gl_identity(), uuid4())
 
-    assert [r.posting.transaction_number for r in result.results] == [
+    postings = [r.posting for r in result.results]
+    assert [p.transaction_number for p in postings if p is not None] == [
         'TXN-1',
         'TXN-2',
         'TXN-3',
@@ -1297,7 +1309,9 @@ def test_import_instructions_defaulted_segment_appears_in_posting():
 
     result = manager.import_instructions(_make_gl_identity(), uuid4())
 
-    assert result.results[0].posting.dept_cd == '9999'
+    posting = result.results[0].posting
+    assert posting is not None
+    assert posting.dept_cd == '9999'
     assert repository.postings[0].dept_cd == '9999'
 
 

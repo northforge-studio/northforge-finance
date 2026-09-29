@@ -190,15 +190,15 @@ class GLPosting:
             posting_stream=instruction.posting_stream,
             src_record_id=instruction.src_record_id,
             src_app_cd=instruction.src_app_cd,
-            entity_cd=segments.entity_cd,
-            branch_cd=segments.branch_cd,
-            dept_cd=segments.dept_cd,
-            gl_account=segments.gl_account,
-            sub_account=segments.sub_account,
-            affiliate_cd=segments.affiliate_cd,
-            product_cd=segments.product_cd,
-            book_cd=segments.book_cd,
-            source_cd=segments.source_cd,
+            entity_cd=_require_segment(segments.entity_cd, 'entity_cd'),
+            branch_cd=_require_segment(segments.branch_cd, 'branch_cd'),
+            dept_cd=_require_segment(segments.dept_cd, 'dept_cd'),
+            gl_account=_require_segment(segments.gl_account, 'gl_account'),
+            sub_account=_require_segment(segments.sub_account, 'sub_account'),
+            affiliate_cd=_require_segment(segments.affiliate_cd, 'affiliate_cd'),
+            product_cd=_require_segment(segments.product_cd, 'product_cd'),
+            book_cd=_require_segment(segments.book_cd, 'book_cd'),
+            source_cd=_require_segment(segments.source_cd, 'source_cd'),
             cr_dr_ind=instruction.cr_dr_ind,
             transaction_currency=instruction.transaction_currency,
             transaction_amount=instruction.transaction_amount,
@@ -208,6 +208,13 @@ class GLPosting:
             as_of_date=instruction.as_of_date,
             business_date=instruction.business_date,
         )
+
+
+def _require_segment(value: str | None, field_name: str) -> str:
+    if value is None:
+        raise ValueError(f'Cannot post with unresolved segment {field_name!r}.')
+
+    return value
 
 
 @dataclass(frozen=True)

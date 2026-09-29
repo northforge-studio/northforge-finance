@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -13,7 +14,7 @@ from tests.support.fakes import FakeStore
 
 
 def _make_result(**overrides) -> ReconResult:
-    fields = dict(
+    fields: dict[str, Any] = dict(
         recon_result_id=uuid4(),
         reconciled_at=TIMESTAMP,
         workflow_run_id=uuid4(),

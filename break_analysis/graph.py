@@ -18,7 +18,12 @@ class BreakAnalysisGraph:
         self._graph = self._build()
 
     def invoke(self, state: BreakAnalysisGraphState) -> BreakAnalysisGraphState:
-        return self._graph.invoke(state)
+        final_state = self._graph.invoke(state)
+
+        return BreakAnalysisGraphState(
+            break_case=final_state['break_case'],
+            result=final_state['result'],
+        )
 
     def _build(self) -> CompiledStateGraph:
         graph = StateGraph(BreakAnalysisGraphState)

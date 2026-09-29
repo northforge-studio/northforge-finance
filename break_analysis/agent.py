@@ -333,6 +333,12 @@ class BreakAnalysisAgent:
         structured_result = self._llm_with_structure.invoke(messages)
         duration_ms = round((time.monotonic() - start) * 1000)
 
+        if not isinstance(structured_result, dict):
+            raise TypeError(
+                'Expected a dict from structured output with include_raw=True, '
+                f'got {type(structured_result).__name__}.'
+            )
+
         raw = structured_result['raw']
         usage = getattr(raw, 'usage_metadata', None) or {}
         input_tokens = usage.get('input_tokens')

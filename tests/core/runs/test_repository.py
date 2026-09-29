@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -63,7 +64,7 @@ def workflow_run(repository, executor):
 
 
 def _make_execution_run(workflow_run_id, **overrides) -> ExecutionRun:
-    defaults = dict(
+    defaults: dict[str, Any] = dict(
         run_id=uuid4(),
         workflow_run_id=workflow_run_id,
         parent_run_id=None,

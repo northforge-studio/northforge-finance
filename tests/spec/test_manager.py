@@ -29,7 +29,9 @@ def test_apply_adds_configured_output_column(spark):
         stage='PRE',
     )
 
-    assert result.first()['DATACLASS'] == 'TRIAL_BALANCE'
+    row = result.first()
+    assert row is not None
+    assert row['DATACLASS'] == 'TRIAL_BALANCE'
     assert repository.calls == [('TRIAL_BALANCE', 'STG', 'PRE', '')]
 
 
@@ -51,6 +53,7 @@ def test_apply_chains_multiple_transformations_in_order(spark):
     )
 
     row = result.first()
+    assert row is not None
     assert row['A'] == 1
     assert row['B'] == 2
 

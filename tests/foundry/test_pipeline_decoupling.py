@@ -21,7 +21,7 @@ def test_trial_balance_pipeline_no_longer_accepts_a_run_tracker():
             repository=MagicMock(),
             reference=MagicMock(),
             spec=MagicMock(),
-            run_tracker=MagicMock(),
+            run_tracker=MagicMock(),  # pyright: ignore[reportCallIssue]
         )
 
 

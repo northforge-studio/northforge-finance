@@ -14,7 +14,7 @@ class ReferenceRepository:
         self._store = store
 
     def get_reference_data(self, reference_data: ReferenceData) -> DataFrame:
-        schema: StructType = None
+        schema: StructType
 
         if reference_data == ReferenceData.FX_RATE:
             schema = FX_RATE_SCHEMA

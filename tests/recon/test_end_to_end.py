@@ -9,6 +9,7 @@
 # would have produced, then drives the real GLClient and ReconClient
 # public APIs -- nothing about GL or recon itself is faked.
 from decimal import Decimal
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -72,7 +73,7 @@ def recon(spark, tmp_path, run_tracker, gl):
 
 
 def _make_instruction(workflow_run_id: UUID, **overrides) -> GLInstruction:
-    fields = dict(
+    fields: dict[str, Any] = dict(
         workflow_run_id=workflow_run_id,
         producer_run_id=uuid4(),
         dataclass='TRIAL_BALANCE',

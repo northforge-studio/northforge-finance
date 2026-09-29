@@ -1,3 +1,4 @@
+from typing import TypeVar
 from unittest.mock import MagicMock
 
 from foundry.models import PipelineConfig
@@ -27,7 +28,10 @@ class NoOpPipeline(BasePipeline):
     def rollback_execution(self, operation, identity): ...
 
 
-def make_pipeline(pipeline_cls=NoOpPipeline, **kwargs) -> NoOpPipeline:
+P = TypeVar('P', bound=NoOpPipeline)
+
+
+def make_pipeline(pipeline_cls: type[P] = NoOpPipeline, **kwargs) -> P:
     return pipeline_cls(
         config=PipelineConfig(
             dataclass='TRIAL_BALANCE',

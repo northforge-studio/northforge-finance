@@ -146,7 +146,11 @@ class AtlasEvidenceService:
                 f'without a src_field_name: {sorted(missing_src_field_names)}.'
             )
 
-        return tuple(field.src_field_name for field in definition.input_fields)
+        return tuple(
+            field.src_field_name
+            for field in definition.input_fields
+            if field.src_field_name is not None
+        )
 
     def _match_break_record(
         self,

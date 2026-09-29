@@ -1,5 +1,6 @@
 from dataclasses import FrozenInstanceError
 from datetime import date
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -17,7 +18,7 @@ from tests.support.constants import TIMESTAMP
 
 
 def _make_workflow_run(**overrides) -> WorkflowRun:
-    defaults = dict(
+    defaults: dict[str, Any] = dict(
         workflow_run_id=uuid4(),
         dataclass='TRIAL_BALANCE',
         business_dt=date(2026, 8, 24),
@@ -30,7 +31,7 @@ def _make_workflow_run(**overrides) -> WorkflowRun:
 
 
 def _make_execution_run(**overrides) -> ExecutionRun:
-    defaults = dict(
+    defaults: dict[str, Any] = dict(
         run_id=uuid4(),
         workflow_run_id=uuid4(),
         parent_run_id=None,
@@ -49,14 +50,14 @@ def test_workflow_run_is_frozen():
     run = _make_workflow_run()
 
     with pytest.raises(FrozenInstanceError, match='cannot assign to field'):
-        run.status = RunStatus.SUCCEEDED
+        run.status = RunStatus.SUCCEEDED  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_execution_run_is_frozen():
     run = _make_execution_run()
 
     with pytest.raises(FrozenInstanceError, match='cannot assign to field'):
-        run.status = RunStatus.SUCCEEDED
+        run.status = RunStatus.SUCCEEDED  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_execution_run_links_to_parent_and_retry():
@@ -80,7 +81,7 @@ def test_run_dependency_is_frozen():
     )
 
     with pytest.raises(FrozenInstanceError, match='cannot assign to field'):
-        dependency.input_role = 'oracle_accounting'
+        dependency.input_role = 'oracle_accounting'  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_run_dependency_input_role_defaults_to_none():
@@ -103,7 +104,7 @@ def test_run_status_values():
 
 
 def _make_identity(**overrides) -> RunIdentity:
-    defaults = dict(
+    defaults: dict[str, Any] = dict(
         workflow_run_id=uuid4(),
         run_id=uuid4(),
         parent_run_id=None,
@@ -113,7 +114,7 @@ def _make_identity(**overrides) -> RunIdentity:
 
 
 def _make_zone_result(**overrides) -> ZoneResult:
-    defaults = dict(
+    defaults: dict[str, Any] = dict(
         identity=_make_identity(),
         zone='STAGING',
         status=RunStatus.SUCCEEDED,
@@ -127,14 +128,14 @@ def test_run_identity_is_frozen():
     identity = _make_identity()
 
     with pytest.raises(FrozenInstanceError, match='cannot assign to field'):
-        identity.run_id = uuid4()
+        identity.run_id = uuid4()  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_zone_result_is_frozen():
     zone_result = _make_zone_result()
 
     with pytest.raises(FrozenInstanceError, match='cannot assign to field'):
-        zone_result.status = RunStatus.FAILED
+        zone_result.status = RunStatus.FAILED  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_zone_result_carries_its_identity():
@@ -154,7 +155,7 @@ def test_pipeline_result_is_frozen():
     )
 
     with pytest.raises(FrozenInstanceError, match='cannot assign to field'):
-        pipeline_result.status = RunStatus.FAILED
+        pipeline_result.status = RunStatus.FAILED  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_pipeline_result_aggregates_zone_results():

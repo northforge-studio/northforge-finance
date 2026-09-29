@@ -334,4 +334,6 @@ def test_apply_ignores_inactive_rows(spark):
 
     result = manager.apply(df, _MAPPING_NAME)
 
-    assert result.first()['OUTPUT_VAL'] is None
+    row = result.first()
+    assert row is not None
+    assert row['OUTPUT_VAL'] is None

@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
@@ -83,7 +84,7 @@ def posting_and_rejection_repository(spark, tmp_path):
 
 
 def _make_posting(**overrides) -> GLPosting:
-    fields = dict(
+    fields: dict[str, Any] = dict(
         gl_posting_id=uuid4(),
         posted_at=TIMESTAMP,
         workflow_run_id=uuid4(),
@@ -119,7 +120,7 @@ def _make_posting(**overrides) -> GLPosting:
 
 
 def _make_rejection(**overrides) -> GLRejection:
-    fields = dict(
+    fields: dict[str, Any] = dict(
         gl_rejection_id=uuid4(),
         rejected_at=TIMESTAMP,
         workflow_run_id=uuid4(),
@@ -142,7 +143,7 @@ def _make_rejection(**overrides) -> GLRejection:
 
 
 def _make_instruction(**overrides) -> GLInstruction:
-    fields = dict(
+    fields: dict[str, Any] = dict(
         workflow_run_id=WORKFLOW_RUN_ID,
         producer_run_id=PRODUCER_RUN_ID,
         dataclass='TRIAL_BALANCE',
@@ -289,6 +290,7 @@ def test_get_segment_default_works_against_a_fake_store(spark):
         GLSegmentType.DEPARTMENT, 'ENTITY_CD', 'ZZZ'
     )
 
+    assert result is not None
     assert result.default_value == '0099'
     assert isinstance(result.default_value, str)
 

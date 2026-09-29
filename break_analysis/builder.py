@@ -142,10 +142,19 @@ class BreakCaseBuilder:
         partitions: dict[BreakPartitionKey, list[BreakRecord]] = defaultdict(list)
 
         for record in records:
+            entity_cd = record.segments.entity_cd
+            source_cd = record.segments.source_cd
+
+            if entity_cd is None or source_cd is None:
+                raise ValueError(
+                    f'Break record {record.recon_result_id} has no entity_cd '
+                    'or source_cd and cannot be partitioned.'
+                )
+
             key = BreakPartitionKey(
                 as_of_date=record.as_of_date,
-                entity_cd=record.segments.entity_cd,
-                source_cd=record.segments.source_cd,
+                entity_cd=entity_cd,
+                source_cd=source_cd,
                 accounted_currency=record.accounted_currency,
             )
             partitions[key].append(record)
@@ -280,7 +289,7 @@ class BreakCaseBuilder:
         self, candidates: Iterable[_BreakCaseCandidate]
     ) -> tuple[_BreakCaseCandidate, ...]:
         seen: set[
-            tuple[UUID, frozenset[UUID], BreakTopology, tuple[GLSegmentType, ...]]
+            tuple[BreakTopology, UUID, frozenset[UUID], tuple[GLSegmentType, ...]]
         ] = set()
 
         deduplicated: list[_BreakCaseCandidate] = []

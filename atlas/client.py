@@ -39,8 +39,8 @@ class AtlasClient:
     def from_db(
         cls,
         spark: SparkSession,
-        metadata_table: str | Path,
-        data_table: str | Path,
+        metadata_table: str,
+        data_table: str,
     ) -> 'AtlasClient':
         store = PostgresStore(
             spark=spark,

@@ -34,8 +34,8 @@ class ReferenceClient:
     def from_db(
         cls,
         spark: SparkSession,
-        fx_rate_table: str | Path,
-        counterparty_table: str | Path,
+        fx_rate_table: str,
+        counterparty_table: str,
     ) -> 'ReferenceClient':
         store = PostgresStore(
             spark=spark,

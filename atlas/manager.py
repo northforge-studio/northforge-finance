@@ -1,3 +1,4 @@
+from collections import defaultdict
 from functools import reduce
 
 from pyspark.sql import Column, DataFrame, Window
@@ -99,18 +100,14 @@ class MappingManager:
             .collect()
         )
 
-        rule_cfg: dict[str, dict[str, object]] = {}
+        measure_by_gateway: dict[str, str] = {}
+        rules_by_gateway: dict[str, list[PostingRule]] = defaultdict(list)
 
         for row in rows:
-            gateway_cfg = rule_cfg.setdefault(
-                row['GATEWAY_RULE_ID'],
-                {
-                    'POSTING_MEASURE_NM': row['POSTING_MEASURE_NM'],
-                    'POSTING_RULES': [],
-                },
-            )
+            gateway_rule_id = row['GATEWAY_RULE_ID']
 
-            gateway_cfg['POSTING_RULES'].append(
+            measure_by_gateway.setdefault(gateway_rule_id, row['POSTING_MEASURE_NM'])
+            rules_by_gateway[gateway_rule_id].append(
                 PostingRule(
                     id=row['POSTING_RULE_ID'],
                     posting_stream=row['POSTING_STREAM'],
@@ -120,10 +117,10 @@ class MappingManager:
         return [
             GatewayRule(
                 id=gateway_rule_id,
-                posting_measure_nm=gateway_cfg['POSTING_MEASURE_NM'],
-                posting_rules=tuple(gateway_cfg['POSTING_RULES']),
+                posting_measure_nm=posting_measure_nm,
+                posting_rules=tuple(rules_by_gateway[gateway_rule_id]),
             )
-            for gateway_rule_id, gateway_cfg in rule_cfg.items()
+            for gateway_rule_id, posting_measure_nm in measure_by_gateway.items()
         ]
 
     def explain_resolution(
@@ -227,7 +224,9 @@ class MappingManager:
         input_values: dict[str, str],
     ) -> DataFrame:
         source_columns = [
-            field.src_field_name for field in mapping.definition.lookup_fields
+            field.src_field_name
+            for field in mapping.definition.lookup_fields
+            if field.src_field_name is not None
         ]
 
         spark = mapping.data.sparkSession
@@ -397,9 +396,7 @@ class MappingManager:
         source_columns: list[str],
         mapping: Mapping,
     ) -> DataFrame:
-        source_columns = [
-            F.col(f'{source_alias}.{column}') for column in source_columns
-        ]
+        source_cols = [F.col(f'{source_alias}.{column}') for column in source_columns]
 
         output_columns = [
             F.col(f'{mapping_alias}.{field.logical_name}').alias(field.logical_name)
@@ -407,7 +404,7 @@ class MappingManager:
         ]
 
         return joined_df.select(
-            *source_columns,
+            *source_cols,
             *output_columns,
         )
 

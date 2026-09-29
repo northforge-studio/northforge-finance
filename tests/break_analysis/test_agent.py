@@ -1,3 +1,4 @@
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -110,7 +111,7 @@ class _FakeAtlasTools:
 
 
 def _make_break_case(**overrides) -> BreakCase:
-    defaults = dict(
+    defaults: dict[str, Any] = dict(
         case_id=uuid4(),
         topology=BreakTopology.AMBIGUOUS,
         investigation_records=(make_break_record(), make_break_record()),

@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from typing import Any
 
 from pyspark.sql import DataFrame, SparkSession
@@ -12,7 +13,7 @@ class PostgresStore:
     def __init__(
         self,
         spark: SparkSession,
-        table_names: dict[str, str],
+        table_names: Mapping[str, str],
     ):
         self._spark = spark
         self._config = PostgresConfig.from_env()

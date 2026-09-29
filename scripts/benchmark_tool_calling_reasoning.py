@@ -26,6 +26,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
+from typing import Any
 from uuid import uuid4
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -51,7 +52,7 @@ BUSINESS_DT = AS_OF_DATE.isoformat()
 
 
 def _segments(**overrides) -> GLSegments:
-    defaults = dict(
+    defaults: dict[str, Any] = dict(
         entity_cd=None,
         branch_cd=None,
         dept_cd=None,
@@ -67,7 +68,7 @@ def _segments(**overrides) -> GLSegments:
 
 
 def _record(**overrides) -> BreakRecord:
-    defaults = dict(
+    defaults: dict[str, Any] = dict(
         recon_result_id=uuid4(),
         workflow_run_id=uuid4(),
         as_of_date=AS_OF_DATE,
@@ -349,12 +350,16 @@ def build_tools() -> list:
 def evaluate(scenario: Scenario, tool_calls: list) -> tuple:
     missing_required = [
         label
-        for predicate, label in zip(scenario.required, scenario.required_labels, strict=True)
+        for predicate, label in zip(
+            scenario.required, scenario.required_labels, strict=True
+        )
         if not any(predicate(call) for call in tool_calls)
     ]
     forbidden_hit = [
         label
-        for predicate, label in zip(scenario.forbidden, scenario.forbidden_labels, strict=True)
+        for predicate, label in zip(
+            scenario.forbidden, scenario.forbidden_labels, strict=True
+        )
         if any(predicate(call) for call in tool_calls)
     ]
     matched = set()

@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Any
 from uuid import uuid4
 
 from break_analysis.models import BreakRecord
@@ -7,7 +8,7 @@ from tests.support.constants import AS_OF_DATE
 
 
 def make_segments(**overrides) -> GLSegments:
-    defaults = dict(
+    defaults: dict[str, Any] = dict(
         entity_cd='USM',
         branch_cd='100',
         dept_cd='4000',
@@ -23,7 +24,7 @@ def make_segments(**overrides) -> GLSegments:
 
 
 def make_break_record(**overrides) -> BreakRecord:
-    defaults = dict(
+    defaults: dict[str, Any] = dict(
         recon_result_id=uuid4(),
         workflow_run_id=uuid4(),
         as_of_date=AS_OF_DATE,
