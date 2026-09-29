@@ -5,7 +5,6 @@ from sqlalchemy import create_engine, text
 
 from core.db import PostgresConfig
 
-
 SEGMENT_DEFAULT_PATH = Path('data/gl/segment_default.csv')
 
 
@@ -17,23 +16,14 @@ def main() -> None:
         dtype=str,
     )
 
-    df.columns = [
-        column.lower()
-        for column in df.columns
-    ]
+    df.columns = [column.lower() for column in df.columns]
 
     db_config = PostgresConfig.from_env()
 
-    engine = create_engine(
-        db_config.sqlalchemy_url
-    )
+    engine = create_engine(db_config.sqlalchemy_url)
 
     with engine.begin() as connection:
-        connection.execute(
-            text(
-                'TRUNCATE TABLE gl.segment_default'
-            )
-        )
+        connection.execute(text('TRUNCATE TABLE gl.segment_default'))
 
         df.to_sql(
             name='segment_default',
@@ -43,10 +33,7 @@ def main() -> None:
             index=False,
         )
 
-    print(
-        f'Seeded {len(df)} segment defaults into '
-        'gl.segment_default'
-    )
+    print(f'Seeded {len(df)} segment defaults into gl.segment_default')
 
 
 if __name__ == '__main__':

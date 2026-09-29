@@ -22,23 +22,18 @@ class Store(Protocol):
         self,
         table_name: str,
         schema: StructType | None = None,
-    ) -> DataFrame:
-        ...
-
+    ) -> DataFrame: ...
 
     def write(
         self,
         df: DataFrame,
         table_name: str,
         mode: str = 'append',
-    ) -> None:
-        ...
-
+    ) -> None: ...
 
     def delete(
         self,
         table_name: str,
         filters: dict[str, Any],
         schema: StructType | None = None,
-    ) -> None:
-        ...
+    ) -> None: ...

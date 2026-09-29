@@ -1,11 +1,6 @@
 from pathlib import Path
 
-from pyspark.sql import SparkSession, DataFrame
-
-from core.store import (
-    CsvStore,
-    PostgresStore
-)
+from pyspark.sql import DataFrame, SparkSession
 
 from atlas.manager import MappingManager
 from atlas.models import (
@@ -15,13 +10,13 @@ from atlas.models import (
     MappingResolutionEvidence,
 )
 from atlas.repository import AtlasRepository
+from core.store import CsvStore, PostgresStore
 
 
 class AtlasClient:
     def __init__(self, repository: AtlasRepository):
         self._repository = repository
         self._manager = MappingManager(repository)
-
 
     @classmethod
     def from_csv(
@@ -40,7 +35,6 @@ class AtlasClient:
 
         return cls(AtlasRepository(store))
 
-
     @classmethod
     def from_db(
         cls,
@@ -58,7 +52,6 @@ class AtlasClient:
 
         return cls(AtlasRepository(store))
 
-
     def apply(
         self,
         df: DataFrame,
@@ -69,33 +62,23 @@ class AtlasClient:
             mapping_name=mapping_name,
         )
 
-
     def get_mapping(
         self,
         mapping_name: str,
     ) -> Mapping:
-        return self._repository.get_mapping(
-            mapping_name
-        )
-
+        return self._repository.get_mapping(mapping_name)
 
     def get_definition(
         self,
         mapping_name: str,
     ) -> MappingDefinition:
-        return self._repository.get_definition(
-            mapping_name
-        )
-
+        return self._repository.get_definition(mapping_name)
 
     def get_rule_config(
         self,
         dataclass: str,
     ) -> list[GatewayRule]:
-        return self._manager.get_rule_config(
-            dataclass
-        )
-
+        return self._manager.get_rule_config(dataclass)
 
     def explain_resolution(
         self,

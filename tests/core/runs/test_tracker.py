@@ -4,12 +4,11 @@ from uuid import UUID, uuid4
 
 from core.runs import RunRepository, RunTracker
 from core.runs.models import (
-    RunStatus,
-    WorkflowRun,
     ExecutionRun,
     RunDependency,
+    RunStatus,
+    WorkflowRun,
 )
-
 from tests.support.constants import BUSINESS_DT
 
 

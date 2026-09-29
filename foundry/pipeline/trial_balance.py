@@ -4,30 +4,25 @@ from uuid import UUID
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from foundry.pipeline.base import BasePipeline
+from atlas import AtlasClient
+from core.runs.models import RunIdentity
 from foundry.contracts import (
-    TRIAL_BALANCE_STAGING_SCHEMA,
     TRIAL_BALANCE_ENRICHMENT_SCHEMA,
-    TRIAL_BALANCE_REPORTING_SCHEMA,
-    TRIAL_BALANCE_POSTING_SCHEMA,
     TRIAL_BALANCE_INTERFACE_SCHEMA,
-
+    TRIAL_BALANCE_POSTING_SCHEMA,
+    TRIAL_BALANCE_REPORTING_SCHEMA,
+    TRIAL_BALANCE_STAGING_SCHEMA,
 )
 from foundry.models import PipelineConfig
+from foundry.pipeline.base import BasePipeline
 from foundry.repository import TrialBalanceRepository
-
-from atlas import AtlasClient
-
 from reference import ReferenceClient
 from reference.models import ReferenceData
 from spec import SpecClient
 
-from core.runs.models import RunIdentity
-
 
 class TrialBalancePipeline(BasePipeline):
     DATACLASS = 'TRIAL_BALANCE'
-
 
     def __init__(
         self,
@@ -37,23 +32,17 @@ class TrialBalancePipeline(BasePipeline):
         reference: ReferenceClient,
         spec: SpecClient,
     ):
-        config = PipelineConfig(
-            dataclass=self.DATACLASS,
-            business_dt=business_dt
-        )
+        config = PipelineConfig(dataclass=self.DATACLASS, business_dt=business_dt)
         super().__init__(
-            config = config,
-            atlas = atlas,
-            reference = reference,
-            spec = spec,
+            config=config,
+            atlas=atlas,
+            reference=reference,
+            spec=spec,
         )
         self._repository = repository
 
-
     def pre_staging(self) -> DataFrame:
-        df = self._repository.read_source(
-            business_dt=self._config.business_dt
-        )
+        df = self._repository.read_source(business_dt=self._config.business_dt)
 
         df = self._spec.apply_transformation(
             df,
@@ -70,7 +59,6 @@ class TrialBalancePipeline(BasePipeline):
 
         return df
 
-
     def main_staging(self, df: DataFrame) -> DataFrame:
         df = self._spec.apply_transformation(
             df,
@@ -78,9 +66,8 @@ class TrialBalancePipeline(BasePipeline):
             zone='STG',
             stage='MAIN',
         )
-        
-        return df
 
+        return df
 
     def post_staging(self, df: DataFrame) -> None:
         df = self._add_row_id(df)
@@ -100,7 +87,6 @@ class TrialBalancePipeline(BasePipeline):
 
         self._repository.write_staging(df)
 
-
     def pre_enrichment(self, workflow_run_id: UUID) -> DataFrame:
         df = self._repository.read_staging(workflow_run_id)
 
@@ -108,10 +94,8 @@ class TrialBalancePipeline(BasePipeline):
 
         return self._execute_rules(df, gateway_rules)
 
-
     def main_enrichment(self, df: DataFrame) -> DataFrame:
         return df
-
 
     def post_enrichment(self, df: DataFrame) -> None:
         df = self._add_row_id(df)
@@ -130,7 +114,6 @@ class TrialBalancePipeline(BasePipeline):
 
         self._repository.write_enrichment(df)
 
-
     def pre_reporting(self, workflow_run_id: UUID) -> DataFrame:
         staging_df = self._repository.read_staging(workflow_run_id)
         enrichment_df = self._repository.read_enrichment(workflow_run_id)
@@ -146,7 +129,6 @@ class TrialBalancePipeline(BasePipeline):
 
         return df
 
-
     def main_reporting(self, df: DataFrame) -> DataFrame:
         df = self._spec.apply_transformation(
             df,
@@ -156,7 +138,6 @@ class TrialBalancePipeline(BasePipeline):
         )
 
         return df
-
 
     def post_reporting(self, df: DataFrame) -> None:
         df = self._add_row_id(df)
@@ -176,7 +157,6 @@ class TrialBalancePipeline(BasePipeline):
 
         self._repository.write_reporting(df)
 
-
     def pre_posting(self, workflow_run_id: UUID) -> DataFrame:
         df = self._repository.read_reporting(workflow_run_id)
 
@@ -191,7 +171,6 @@ class TrialBalancePipeline(BasePipeline):
 
         return df
 
-
     def main_posting(self, df: DataFrame) -> DataFrame:
         df = self._spec.apply_transformation(
             df,
@@ -201,7 +180,6 @@ class TrialBalancePipeline(BasePipeline):
         )
 
         return df
-
 
     def post_posting(self, df: DataFrame) -> None:
         df = self._add_row_id(df)
@@ -221,7 +199,6 @@ class TrialBalancePipeline(BasePipeline):
 
         self._repository.write_posting(df)
 
-
     def pre_interface(self, workflow_run_id: UUID) -> DataFrame:
         df = self._repository.read_posting(workflow_run_id)
 
@@ -234,7 +211,6 @@ class TrialBalancePipeline(BasePipeline):
 
         return df
 
-
     def main_interface(self, df: DataFrame) -> DataFrame:
         df = self._spec.apply_transformation(
             df,
@@ -242,14 +218,13 @@ class TrialBalancePipeline(BasePipeline):
             zone='INT',
             stage='MAIN',
         )
-        
+
         df = self._spec.apply_file_layout(
             df,
             dataclass=self.DATACLASS,
         )
 
         return df
-
 
     def post_interface(self, df: DataFrame) -> None:
         df = self._spec.apply_transformation(
@@ -266,7 +241,6 @@ class TrialBalancePipeline(BasePipeline):
         )
 
         self._repository.write_interface(df)
-    
 
     def rollback_execution(self, operation: str, identity: RunIdentity) -> None:
         handlers = {
@@ -280,7 +254,6 @@ class TrialBalancePipeline(BasePipeline):
         handler = handlers.get(operation)
         if handler is not None:
             handler(identity.workflow_run_id)
-
 
     def _combine_staging_and_enrichment(
         self,
@@ -308,7 +281,6 @@ class TrialBalancePipeline(BasePipeline):
 
         return enrichment_df.unionByName(unprocessed_staging_df)
 
-
     def _transpose_measures(self, df: DataFrame) -> DataFrame:
         group_by_columns = ['SRC_RECORD_ID']
 
@@ -326,62 +298,48 @@ class TrialBalancePipeline(BasePipeline):
             'POSTING_MEASURE_TRANS_AMT',
         ]
 
-        postable_df = df.filter(
-            F.col('MEASURE_TYPE') == 'POSTABLE'
-        )
+        postable_df = df.filter(F.col('MEASURE_TYPE') == 'POSTABLE')
 
         pivoted_df = (
-            df
-            .groupBy(*group_by_columns)
+            df.groupBy(*group_by_columns)
             .pivot(
                 'POSTING_MEASURE_NM',
                 posting_measure_names,
             )
-            .agg(
-                *[
-                    F.first(column).alias(column)
-                    for column in value_columns
-                ]
-            )
+            .agg(*[F.first(column).alias(column) for column in value_columns])
         )
 
         output_measure_columns = []
 
-        select_expr = [
-            F.col(column)
-            for column in group_by_columns
-        ]
+        select_expr = [F.col(column) for column in group_by_columns]
 
         for measure_name in posting_measure_names:
             source_output = measure_name
             posting_output = f'POSTING_{measure_name}'
 
-            select_expr.extend([
-                F.col(
-                    f'{measure_name}_SRC_MEASURE_TRANS_AMT'
-                ).alias(source_output),
+            select_expr.extend(
+                [
+                    F.col(f'{measure_name}_SRC_MEASURE_TRANS_AMT').alias(source_output),
+                    F.col(f'{measure_name}_POSTING_MEASURE_TRANS_AMT').alias(
+                        posting_output
+                    ),
+                ]
+            )
 
-                F.col(
-                    f'{measure_name}_POSTING_MEASURE_TRANS_AMT'
-                ).alias(posting_output),
-            ])
-
-            output_measure_columns.extend([
-                source_output,
-                posting_output,
-            ])
+            output_measure_columns.extend(
+                [
+                    source_output,
+                    posting_output,
+                ]
+            )
 
         pivoted_df = pivoted_df.select(*select_expr)
 
-        return (
-            postable_df
-            .join(
-                pivoted_df,
-                on=group_by_columns,
-                how='inner',
-            )
-            .select(
-                *postable_df.columns,
-                *output_measure_columns,
-            )
+        return postable_df.join(
+            pivoted_df,
+            on=group_by_columns,
+            how='inner',
+        ).select(
+            *postable_df.columns,
+            *output_measure_columns,
         )

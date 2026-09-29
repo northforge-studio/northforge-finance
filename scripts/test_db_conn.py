@@ -2,7 +2,6 @@ from pyspark.sql import SparkSession
 
 from core.db import PostgresConfig
 
-
 db_config = PostgresConfig.from_env()
 
 JDBC_URL = db_config.jdbc_url
@@ -39,8 +38,7 @@ def execute_sql(
 
 def main() -> None:
     spark = (
-        SparkSession.builder
-        .master('local[*]')
+        SparkSession.builder.master('local[*]')
         .appName('db-connection-test')
         .config(
             'spark.jars.packages',
@@ -73,8 +71,7 @@ def main() -> None:
         print('Writing test data...')
 
         (
-            df.write
-            .jdbc(
+            df.write.jdbc(
                 url=JDBC_URL,
                 table=TEST_TABLE,
                 mode='overwrite',
@@ -84,28 +81,20 @@ def main() -> None:
 
         print('Reading test data...')
 
-        result_df = (
-            spark.read
-            .jdbc(
-                url=JDBC_URL,
-                table=TEST_TABLE,
-                properties=DB_PROPERTIES,
-            )
+        result_df = spark.read.jdbc(
+            url=JDBC_URL,
+            table=TEST_TABLE,
+            properties=DB_PROPERTIES,
         )
 
         result_df.show(truncate=False)
 
-        result = {
-            (row['id'], row['message'])
-            for row in result_df.collect()
-        }
+        result = {(row['id'], row['message']) for row in result_df.collect()}
 
         expected = set(test_data)
 
         assert result == expected, (
-            'Data verification failed.\n'
-            f'Expected: {expected}\n'
-            f'Actual:   {result}'
+            f'Data verification failed.\nExpected: {expected}\nActual:   {result}'
         )
 
         print('PostgreSQL connection test passed.')

@@ -1,15 +1,13 @@
 from pyspark.sql import functions as F
 
 from core.store import Store
-
+from spec.contracts import FILE_LAYOUT_SCHEMA, TRANSFORMATION_SCHEMA
 from spec.models import SpecType
-from spec.contracts import TRANSFORMATION_SCHEMA, FILE_LAYOUT_SCHEMA
 
 
 class SpecRepository:
     def __init__(self, store: Store):
         self._store = store
-
 
     def get_transformations(
         self,
@@ -24,8 +22,7 @@ class SpecRepository:
         )
 
         rows = (
-            config_df
-            .filter(
+            config_df.filter(
                 (F.col('DATACLASS') == dataclass)
                 & (F.col('ZONE') == zone)
                 & (F.col('STAGE') == stage)
@@ -38,7 +35,6 @@ class SpecRepository:
 
         return [row.asDict() for row in rows]
 
-
     def get_file_layout_expressions(
         self,
         dataclass: str,
@@ -49,19 +45,11 @@ class SpecRepository:
         )
 
         rows = (
-            layout_df
-            .filter(
-                F.col('DATACLASS') == dataclass
-            )
-            .orderBy('SEQ')
-            .collect()
+            layout_df.filter(F.col('DATACLASS') == dataclass).orderBy('SEQ').collect()
         )
 
         if not rows:
-            raise KeyError(
-                f'File layout not found for '
-                f'DATACLASS={dataclass!r}'
-            )
+            raise KeyError(f'File layout not found for DATACLASS={dataclass!r}')
 
         expressions = []
 

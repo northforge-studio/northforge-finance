@@ -2,12 +2,11 @@ from datetime import datetime
 from uuid import UUID
 
 from core.db import PostgresConfig, PostgresExecutor
-
 from core.runs.models import (
-    RunStatus,
-    WorkflowRun,
     ExecutionRun,
     RunDependency,
+    RunStatus,
+    WorkflowRun,
     WorkflowRunSummary,
 )
 
@@ -17,10 +16,9 @@ class RunRepository:
         self._config = PostgresConfig.from_env()
         self._executor = PostgresExecutor(self._config)
 
-
     def create_workflow_run(self, run: WorkflowRun) -> None:
         self._executor.execute(
-            '''
+            """
             INSERT INTO core.workflow_run (
                 workflow_run_id, dataclass, business_dt,
                 status, started_at, completed_at
@@ -28,7 +26,7 @@ class RunRepository:
                 :workflow_run_id, :dataclass, :business_dt,
                 :status, :started_at, :completed_at
             )
-            ''',
+            """,
             {
                 'workflow_run_id': run.workflow_run_id,
                 'dataclass': run.dataclass,
@@ -39,16 +37,15 @@ class RunRepository:
             },
         )
 
-
     def get_workflow_run(self, workflow_run_id: UUID) -> WorkflowRun:
         row = self._executor.fetch_one(
-            '''
+            """
             SELECT
                 workflow_run_id, dataclass, business_dt,
                 status, started_at, completed_at
             FROM core.workflow_run
             WHERE workflow_run_id = :workflow_run_id
-            ''',
+            """,
             {'workflow_run_id': workflow_run_id},
         )
 
@@ -64,10 +61,9 @@ class RunRepository:
             completed_at=row['completed_at'],
         )
 
-
     def create_execution_run(self, run: ExecutionRun) -> None:
         self._executor.execute(
-            '''
+            """
             INSERT INTO core.execution_run (
                 run_id, workflow_run_id, parent_run_id, component,
                 operation, status, started_at, completed_at,
@@ -77,7 +73,7 @@ class RunRepository:
                 :operation, :status, :started_at, :completed_at,
                 :retry_of_run_id
             )
-            ''',
+            """,
             {
                 'run_id': run.run_id,
                 'workflow_run_id': run.workflow_run_id,
@@ -91,17 +87,16 @@ class RunRepository:
             },
         )
 
-
     def get_execution_run(self, run_id: UUID) -> ExecutionRun:
         row = self._executor.fetch_one(
-            '''
+            """
             SELECT
                 run_id, workflow_run_id, parent_run_id, component,
                 operation, status, started_at, completed_at,
                 retry_of_run_id
             FROM core.execution_run
             WHERE run_id = :run_id
-            ''',
+            """,
             {'run_id': run_id},
         )
 
@@ -120,13 +115,12 @@ class RunRepository:
             retry_of_run_id=row['retry_of_run_id'],
         )
 
-
     def get_execution_runs(
         self,
         workflow_run_id: UUID,
     ) -> tuple[ExecutionRun, ...]:
         rows = self._executor.fetch_all(
-            '''
+            """
             SELECT
                 run_id, workflow_run_id, parent_run_id, component,
                 operation, status, started_at, completed_at,
@@ -134,7 +128,7 @@ class RunRepository:
             FROM core.execution_run
             WHERE workflow_run_id = :workflow_run_id
             ORDER BY started_at, run_id
-            ''',
+            """,
             {'workflow_run_id': workflow_run_id},
         )
 
@@ -153,7 +147,6 @@ class RunRepository:
             for row in rows
         )
 
-
     def update_workflow_status(
         self,
         workflow_run_id: UUID,
@@ -161,18 +154,17 @@ class RunRepository:
         completed_at: datetime | None = None,
     ) -> None:
         self._executor.execute(
-            '''
+            """
             UPDATE core.workflow_run
             SET status = :status, completed_at = :completed_at
             WHERE workflow_run_id = :workflow_run_id
-            ''',
+            """,
             {
                 'workflow_run_id': workflow_run_id,
                 'status': status,
                 'completed_at': completed_at,
             },
         )
-
 
     def update_execution_status(
         self,
@@ -181,18 +173,17 @@ class RunRepository:
         completed_at: datetime | None = None,
     ) -> None:
         self._executor.execute(
-            '''
+            """
             UPDATE core.execution_run
             SET status = :status, completed_at = :completed_at
             WHERE run_id = :run_id
-            ''',
+            """,
             {
                 'run_id': run_id,
                 'status': status,
                 'completed_at': completed_at,
             },
         )
-
 
     def get_workflow_summary(
         self,
@@ -208,16 +199,15 @@ class RunRepository:
             dependencies=dependencies,
         )
 
-
     def create_dependency(self, dependency: RunDependency) -> None:
         self._executor.execute(
-            '''
+            """
             INSERT INTO core.run_dependency (
                 consumer_run_id, producer_run_id, input_role
             ) VALUES (
                 :consumer_run_id, :producer_run_id, :input_role
             )
-            ''',
+            """,
             {
                 'consumer_run_id': dependency.consumer_run_id,
                 'producer_run_id': dependency.producer_run_id,
@@ -225,17 +215,16 @@ class RunRepository:
             },
         )
 
-
     def get_dependencies(
         self,
         consumer_run_id: UUID,
     ) -> tuple[RunDependency, ...]:
         rows = self._executor.fetch_all(
-            '''
+            """
             SELECT consumer_run_id, producer_run_id, input_role
             FROM core.run_dependency
             WHERE consumer_run_id = :consumer_run_id
-            ''',
+            """,
             {'consumer_run_id': consumer_run_id},
         )
 
@@ -248,13 +237,12 @@ class RunRepository:
             for row in rows
         )
 
-
     def get_workflow_dependencies(
         self,
         workflow_run_id: UUID,
     ) -> tuple[RunDependency, ...]:
         rows = self._executor.fetch_all(
-            '''
+            """
             SELECT
                 run_dependency.consumer_run_id,
                 run_dependency.producer_run_id,
@@ -266,7 +254,7 @@ class RunRepository:
             ORDER BY
                 run_dependency.consumer_run_id,
                 run_dependency.producer_run_id
-            ''',
+            """,
             {'workflow_run_id': workflow_run_id},
         )
 

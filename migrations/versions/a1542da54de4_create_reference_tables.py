@@ -5,17 +5,17 @@ Revises: 8fc1921e4f48
 Create Date: 2026-08-25 23:11:33.596781
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = 'a1542da54de4'
-down_revision: Union[str, Sequence[str], None] = '8fc1921e4f48'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = '8fc1921e4f48'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -26,7 +26,9 @@ def upgrade() -> None:
         sa.Column('to_currency', sa.String(), nullable=False),
         sa.Column('fx_rate', sa.Numeric(28, 12), nullable=False),
         sa.UniqueConstraint(
-            'conversion_dt', 'from_currency', 'to_currency',
+            'conversion_dt',
+            'from_currency',
+            'to_currency',
             name='uq_fx_rate_conversion_dt_from_to',
         ),
         schema='reference',
@@ -40,7 +42,8 @@ def upgrade() -> None:
         sa.Column('cpty_nm', sa.String(), nullable=False),
         sa.Column('client_id_type', sa.String(), nullable=False),
         sa.UniqueConstraint(
-            'business_dt', 'cpty_ref_id',
+            'business_dt',
+            'cpty_ref_id',
             name='uq_counterparty_business_dt_cpty_ref_id',
         ),
         schema='reference',

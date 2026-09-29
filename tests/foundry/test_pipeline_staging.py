@@ -1,26 +1,22 @@
 from uuid import uuid4
 
 from core.runs.models import RunIdentity, RunStatus, ZoneResult
-
 from tests.support.pipelines import NoOpPipeline, make_pipeline
 
 
 class _StagingPipeline(NoOpPipeline):
-    '''A minimal BasePipeline subclass that only implements staging.'''
+    """A minimal BasePipeline subclass that only implements staging."""
 
     def __init__(self, staging_df, **kwargs):
         super().__init__(**kwargs)
         self._staging_df = staging_df
         self.post_staging_called_with = None
 
-
     def pre_staging(self):
         return self._staging_df
 
-
     def main_staging(self, df):
         return df
-
 
     def post_staging(self, df):
         self.post_staging_called_with = df

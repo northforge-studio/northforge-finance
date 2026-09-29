@@ -1,27 +1,23 @@
 from uuid import uuid4
 
 from core.runs.models import RunIdentity, RunStatus, ZoneResult
-
 from tests.support.pipelines import NoOpPipeline, make_pipeline
 
 
 class _ReportingPipeline(NoOpPipeline):
-    '''A minimal BasePipeline subclass that only implements reporting.'''
+    """A minimal BasePipeline subclass that only implements reporting."""
 
     def __init__(self, reporting_df, **kwargs):
         super().__init__(**kwargs)
         self._reporting_df = reporting_df
         self.post_reporting_called_with = None
 
-
     def pre_reporting(self, workflow_run_id):
         self.pre_reporting_called_with = workflow_run_id
         return self._reporting_df
 
-
     def main_reporting(self, df):
         return df
-
 
     def post_reporting(self, df):
         self.post_reporting_called_with = df

@@ -4,27 +4,25 @@ from uuid import UUID
 
 from pyspark.sql import DataFrame, SparkSession
 
+from core.runs.models import RunIdentity
 from core.store import (
     CsvStore,
     PostgresStore,
 )
-from core.runs.models import RunIdentity
-
-from registry import RegistryClient
-from registry.models import GLSegmentType
-
 from gl.manager import GLManager
 from gl.models import (
-    GLSegments,
+    GLImportResult,
+    GLInstruction,
+    GLInstructionResult,
+    GLInstructionValidation,
     GLSegmentDefaults,
     GLSegmentResolution,
     GLSegmentResolutions,
-    GLInstruction,
-    GLInstructionValidation,
-    GLInstructionResult,
-    GLImportResult,
+    GLSegments,
 )
 from gl.repository import GLRepository
+from registry import RegistryClient
+from registry.models import GLSegmentType
 
 
 class GLClient:
@@ -32,7 +30,6 @@ class GLClient:
         self._repository = repository
         self._registry = registry
         self._manager = GLManager(repository, registry)
-
 
     @classmethod
     def from_csv(
@@ -63,7 +60,6 @@ class GLClient:
 
         return cls(GLRepository(store, spark), registry)
 
-
     @classmethod
     def from_db(
         cls,
@@ -86,7 +82,6 @@ class GLClient:
 
         return cls(GLRepository(store, spark), registry)
 
-
     def get_segment_default(
         self,
         segment_type: GLSegmentType,
@@ -98,10 +93,8 @@ class GLClient:
             entity_cd=entity_cd,
         )
 
-
     def get_segment_defaults(self) -> GLSegmentDefaults:
         return self._manager.get_segment_defaults()
-
 
     def resolve_segment(
         self,
@@ -118,7 +111,6 @@ class GLClient:
             entity_cd=entity_cd,
         )
 
-
     def resolve_segments(
         self,
         segments: GLSegments,
@@ -130,20 +122,17 @@ class GLClient:
             business_dt=business_dt,
         )
 
-
     def validate_instruction(
         self,
         instruction: GLInstruction,
     ) -> GLInstructionValidation:
         return self._manager.validate_instruction(instruction)
 
-
     def process_instruction(
         self,
         instruction: GLInstruction,
     ) -> GLInstructionResult:
         return self._manager.process_instruction(instruction)
-
 
     def import_instructions(
         self,
@@ -152,14 +141,11 @@ class GLClient:
     ) -> GLImportResult:
         return self._manager.import_instructions(identity, source_producer_run_id)
 
-
     def rollback_execution(self, identity: RunIdentity) -> None:
         self._manager.rollback_execution(identity)
 
-
     def get_postings(self, workflow_run_id: UUID) -> DataFrame:
         return self._manager.get_postings(workflow_run_id)
-
 
     def get_rejections(self, workflow_run_id: UUID) -> DataFrame:
         return self._manager.get_rejections(workflow_run_id)

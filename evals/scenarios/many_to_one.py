@@ -1,35 +1,23 @@
-from uuid import UUID
 from datetime import date
 from decimal import Decimal
-
-from gl.models import GLSegments
+from uuid import UUID
 
 from atlas.models import MappingResolutionEvidence
-
-from registry.models import GLSegmentType
-
 from break_analysis.models import (
-    BreakCase,
-    RootCause,
-    BreakRecord,
-    BreakTopology,
-    BreakCaseEvidence,
-    BreakAnalysisStatus,
     AtlasInputResolution,
     AtlasResolutionEvidence,
-    FoundryMappingInputValues
+    BreakAnalysisStatus,
+    BreakCase,
+    BreakCaseEvidence,
+    BreakRecord,
+    BreakTopology,
+    FoundryMappingInputValues,
+    RootCause,
 )
-from break_analysis.tools.registry import (
-    SegmentValidationResult,
-    SegmentDetailsResult
-)
-
-from evals.models import (
-    ToolFixture,
-    EvalScenario,
-    EvalExpectation,
-    ExpectedFinding
-)
+from break_analysis.tools.registry import SegmentDetailsResult, SegmentValidationResult
+from evals.models import EvalExpectation, EvalScenario, ExpectedFinding, ToolFixture
+from gl.models import GLSegments
+from registry.models import GLSegmentType
 
 
 def many_to_one_mixed_findings() -> EvalScenario:

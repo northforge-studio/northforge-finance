@@ -2,24 +2,23 @@ from spec.manager import SpecManager
 
 
 class _FakeRepository:
-    '''Duck-types SpecRepository.get_transformations, and records each call.'''
+    """Duck-types SpecRepository.get_transformations, and records each call."""
 
     def __init__(self, transformations):
         self._transformations = transformations
         self.calls = []
 
-
     def get_transformations(self, dataclass, zone, stage, sub_stage=''):
-        self.calls.append(
-            (dataclass, zone, stage, sub_stage)
-        )
+        self.calls.append((dataclass, zone, stage, sub_stage))
         return self._transformations
 
 
 def test_apply_adds_configured_output_column(spark):
-    repository = _FakeRepository([
-        {'OUTPUT_COL_NAME': 'DATACLASS', 'EXPRESSION': "'TRIAL_BALANCE'"},
-    ])
+    repository = _FakeRepository(
+        [
+            {'OUTPUT_COL_NAME': 'DATACLASS', 'EXPRESSION': "'TRIAL_BALANCE'"},
+        ]
+    )
     manager = SpecManager(repository)
 
     df = spark.createDataFrame([(1,)], schema=['ID'])
@@ -35,10 +34,12 @@ def test_apply_adds_configured_output_column(spark):
 
 
 def test_apply_chains_multiple_transformations_in_order(spark):
-    repository = _FakeRepository([
-        {'OUTPUT_COL_NAME': 'A', 'EXPRESSION': '1'},
-        {'OUTPUT_COL_NAME': 'B', 'EXPRESSION': 'A + 1'},
-    ])
+    repository = _FakeRepository(
+        [
+            {'OUTPUT_COL_NAME': 'A', 'EXPRESSION': '1'},
+            {'OUTPUT_COL_NAME': 'B', 'EXPRESSION': 'A + 1'},
+        ]
+    )
     manager = SpecManager(repository)
 
     df = spark.createDataFrame([(1,)], schema=['ID'])

@@ -5,18 +5,18 @@ Revises: 30795b0189f8
 Create Date: 2026-08-28 09:42:22.232145
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
-
 
 # revision identifiers, used by Alembic.
 revision: str = 'c6d521ab213f'
-down_revision: Union[str, Sequence[str], None] = '30795b0189f8'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = '30795b0189f8'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -27,7 +27,6 @@ def upgrade() -> None:
 
     op.create_table(
         'result',
-
         # recon-owned identity/audit
         sa.Column(
             'recon_result_id',
@@ -39,7 +38,6 @@ def upgrade() -> None:
             sa.TIMESTAMP(timezone=True),
             nullable=False,
         ),
-
         # Run identity: WORKFLOW_RUN_ID is the source (Interface/GL)
         # workflow being reconciled; PRODUCER_RUN_ID is the recon
         # execution that produced this row.
@@ -55,7 +53,6 @@ def upgrade() -> None:
             sa.ForeignKey('core.execution_run.run_id'),
             nullable=False,
         ),
-
         # Recon grain (RECON_KEYS, minus WORKFLOW_RUN_ID which is above)
         sa.Column('as_of_date', sa.Date(), nullable=False),
         sa.Column('entity_cd', sa.String(), nullable=False),
@@ -68,12 +65,10 @@ def upgrade() -> None:
         sa.Column('book_cd', sa.String(), nullable=False),
         sa.Column('source_cd', sa.String(), nullable=False),
         sa.Column('accounted_currency', sa.String(), nullable=False),
-
         # Balances
         sa.Column('interface_balance', sa.Numeric(28, 12), nullable=False),
         sa.Column('gl_balance', sa.Numeric(28, 12), nullable=False),
         sa.Column('difference_amount', sa.Numeric(28, 12), nullable=False),
-
         schema='recon',
     )
 

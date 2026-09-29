@@ -5,17 +5,17 @@ Revises: f7d5990e47bc
 Create Date: 2026-08-26 17:23:11.150612
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '1685d51261ec'
-down_revision: Union[str, Sequence[str], None] = 'f7d5990e47bc'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'f7d5990e47bc'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -31,7 +31,9 @@ def upgrade() -> None:
         sa.Column('context_value', sa.String(), nullable=False),
         sa.Column('default_value', sa.String(), nullable=False),
         sa.UniqueConstraint(
-            'segment_type', 'context_type', 'context_value',
+            'segment_type',
+            'context_type',
+            'context_value',
             name='uq_segment_default_segment_type_context_type_context_value',
         ),
         schema='gl',

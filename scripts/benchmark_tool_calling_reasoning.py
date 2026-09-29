@@ -22,15 +22,15 @@ transitively imports registry/gl, which import pyspark):
 """
 
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from decimal import Decimal
-from typing import Callable
 from uuid import uuid4
 
-from langchain_ollama import ChatOllama
-from langchain_core.tools import StructuredTool
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.tools import StructuredTool
+from langchain_ollama import ChatOllama
 
 from break_analysis.models import (
     BreakCase,
@@ -43,7 +43,6 @@ from break_analysis.tools.registry import RegistryTools, ValidateSegmentInput
 from gl.models import GLSegments
 from registry.models import GLSegmentType
 
-
 MODEL = 'qwen3:8b'
 TEMPERATURE = 0
 REPS = 2
@@ -53,9 +52,15 @@ BUSINESS_DT = AS_OF_DATE.isoformat()
 
 def _segments(**overrides) -> GLSegments:
     defaults = dict(
-        entity_cd=None, branch_cd=None, dept_cd=None, gl_account=None,
-        sub_account=None, affiliate_cd=None, product_cd=None,
-        book_cd=None, source_cd=None,
+        entity_cd=None,
+        branch_cd=None,
+        dept_cd=None,
+        gl_account=None,
+        sub_account=None,
+        affiliate_cd=None,
+        product_cd=None,
+        book_cd=None,
+        source_cd=None,
     )
     defaults.update(overrides)
     return GLSegments(**defaults)
@@ -103,10 +108,12 @@ def is_call(name: str, segment_type: str, segment_value: str):
             and str(args.get('segment_type')) == segment_type
             and args.get('segment_value') == segment_value
         )
+
     return predicate
 
 
 # -- Scenario 1: MANY_TO_ONE, multiple distinct segment values ------------
+
 
 def scenario_many_to_one() -> Scenario:
     case = BreakCase(
@@ -151,6 +158,7 @@ def scenario_many_to_one() -> Scenario:
 
 # -- Scenario 2: relaxed_segments present ---------------------------------
 
+
 def scenario_relaxed_segments() -> Scenario:
     case = BreakCase(
         case_id=uuid4(),
@@ -178,6 +186,7 @@ def scenario_relaxed_segments() -> Scenario:
 
 
 # -- Scenario 3: validate_segment -> get_segment_details follow-up -------
+
 
 def scenario_follow_up_required() -> Scenario:
     case = BreakCase(
@@ -210,7 +219,7 @@ def scenario_follow_up_required() -> Scenario:
             AIMessage(content='', tool_calls=[tool_call_1]),
             ToolMessage(
                 content=(
-                    "SegmentValidationResult(segment_type=GLSegmentType.ACCOUNT, "
+                    'SegmentValidationResult(segment_type=GLSegmentType.ACCOUNT, '
                     "segment_value='210000', is_valid=False)"
                 ),
                 tool_call_id='call_1',
@@ -232,6 +241,7 @@ def scenario_follow_up_required() -> Scenario:
 
 
 # -- Scenario 4: no-further-tools completion round ------------------------
+
 
 def scenario_completion_round() -> Scenario:
     case = BreakCase(
@@ -273,7 +283,7 @@ def scenario_completion_round() -> Scenario:
             AIMessage(content='', tool_calls=[tool_call_1]),
             ToolMessage(
                 content=(
-                    "SegmentValidationResult(segment_type=GLSegmentType.ACCOUNT, "
+                    'SegmentValidationResult(segment_type=GLSegmentType.ACCOUNT, '
                     "segment_value='210000', is_valid=False)"
                 ),
                 tool_call_id='call_1',
@@ -281,7 +291,7 @@ def scenario_completion_round() -> Scenario:
             AIMessage(content='', tool_calls=[tool_call_2]),
             ToolMessage(
                 content=(
-                    "SegmentDetailsResult(segment_type=GLSegmentType.ACCOUNT, "
+                    'SegmentDetailsResult(segment_type=GLSegmentType.ACCOUNT, '
                     "segment_value='210000', exists=False, status=None)"
                 ),
                 tool_call_id='call_2',
@@ -320,8 +330,7 @@ def build_tools() -> list:
             func=registry_tools.validate_segment,
             name='validate_segment',
             description=(
-                'Validate whether a GL segment value is active '
-                'and valid in Registry.'
+                'Validate whether a GL segment value is active and valid in Registry.'
             ),
             args_schema=ValidateSegmentInput,
         ),
@@ -339,11 +348,13 @@ def build_tools() -> list:
 
 def evaluate(scenario: Scenario, tool_calls: list) -> tuple:
     missing_required = [
-        label for predicate, label in zip(scenario.required, scenario.required_labels)
+        label
+        for predicate, label in zip(scenario.required, scenario.required_labels, strict=True)
         if not any(predicate(call) for call in tool_calls)
     ]
     forbidden_hit = [
-        label for predicate, label in zip(scenario.forbidden, scenario.forbidden_labels)
+        label
+        for predicate, label in zip(scenario.forbidden, scenario.forbidden_labels, strict=True)
         if any(predicate(call) for call in tool_calls)
     ]
     matched = set()
@@ -352,8 +363,7 @@ def evaluate(scenario: Scenario, tool_calls: list) -> tuple:
             if predicate(call):
                 matched.add(normalize(call))
     extra_calls = [
-        normalize(call) for call in tool_calls
-        if normalize(call) not in matched
+        normalize(call) for call in tool_calls if normalize(call) not in matched
     ]
     unexpected_when_none_expected = (
         scenario.expect_no_tool_calls and len(tool_calls) > 0
@@ -382,22 +392,24 @@ def run_scenario(llm: ChatOllama, tools: list, scenario: Scenario) -> list[RunRe
                 scenario, response.tool_calls
             )
 
-            results.append(RunResult(
-                scenario=scenario.name,
-                config=config_name,
-                rep=rep,
-                wall_ms=wall_ms,
-                total_ms=ns_to_ms(rm.get('total_duration')),
-                eval_ms=ns_to_ms(rm.get('eval_duration')),
-                input_tokens=usage.get('input_tokens'),
-                output_tokens=usage.get('output_tokens'),
-                tool_calls=[normalize(c) for c in response.tool_calls],
-                content=response.content,
-                missing_required=missing_required,
-                forbidden_hit=forbidden_hit,
-                extra_calls=extra_calls,
-                unexpected_tool_calls_when_none_expected=unexpected,
-            ))
+            results.append(
+                RunResult(
+                    scenario=scenario.name,
+                    config=config_name,
+                    rep=rep,
+                    wall_ms=wall_ms,
+                    total_ms=ns_to_ms(rm.get('total_duration')),
+                    eval_ms=ns_to_ms(rm.get('eval_duration')),
+                    input_tokens=usage.get('input_tokens'),
+                    output_tokens=usage.get('output_tokens'),
+                    tool_calls=[normalize(c) for c in response.tool_calls],
+                    content=response.content,
+                    missing_required=missing_required,
+                    forbidden_hit=forbidden_hit,
+                    extra_calls=extra_calls,
+                    unexpected_tool_calls_when_none_expected=unexpected,
+                )
+            )
 
     return results
 
@@ -405,29 +417,29 @@ def run_scenario(llm: ChatOllama, tools: list, scenario: Scenario) -> list[RunRe
 def print_run(result: RunResult) -> None:
     status_bits = []
     if result.missing_required:
-        status_bits.append(f"MISSING={result.missing_required}")
+        status_bits.append(f'MISSING={result.missing_required}')
     if result.forbidden_hit:
-        status_bits.append(f"FORBIDDEN_HIT={result.forbidden_hit}")
+        status_bits.append(f'FORBIDDEN_HIT={result.forbidden_hit}')
     if result.unexpected_tool_calls_when_none_expected:
-        status_bits.append("UNEXPECTED_TOOL_CALLS")
+        status_bits.append('UNEXPECTED_TOOL_CALLS')
     if result.extra_calls:
-        status_bits.append(f"extra={result.extra_calls}")
+        status_bits.append(f'extra={result.extra_calls}')
     status = ' '.join(status_bits) if status_bits else 'OK'
 
     print(
-        f"  [{result.config:<18} rep={result.rep}] "
-        f"wall_ms={result.wall_ms:>6} eval_ms={str(result.eval_ms):>6} "
-        f"in={str(result.input_tokens):>4} out={str(result.output_tokens):>4} "
-        f"tool_calls={result.tool_calls} content={result.content!r:.60} "
-        f"-> {status}"
+        f'  [{result.config:<18} rep={result.rep}] '
+        f'wall_ms={result.wall_ms:>6} eval_ms={str(result.eval_ms):>6} '
+        f'in={str(result.input_tokens):>4} out={str(result.output_tokens):>4} '
+        f'tool_calls={result.tool_calls} content={result.content!r:.60} '
+        f'-> {status}'
     )
 
 
 def summarize(all_results: list[RunResult]) -> None:
     print('\n=== summary (avg across reps) ===')
     header = (
-        f"{'scenario':<32}{'config':<18}{'avg_out':>8}{'avg_eval_ms':>12}"
-        f"{'avg_wall_ms':>12}{'correctness':>14}"
+        f'{"scenario":<32}{"config":<18}{"avg_out":>8}{"avg_eval_ms":>12}'
+        f'{"avg_wall_ms":>12}{"correctness":>14}'
     )
     print(header)
 
@@ -437,7 +449,8 @@ def summarize(all_results: list[RunResult]) -> None:
     for scenario_name in scenarios:
         for config_name in configs:
             rows = [
-                r for r in all_results
+                r
+                for r in all_results
                 if r.scenario == scenario_name and r.config == config_name
             ]
             avg_out = round(sum(r.output_tokens or 0 for r in rows) / len(rows))
@@ -451,8 +464,8 @@ def summarize(all_results: list[RunResult]) -> None:
             )
             correctness = 'PASS (all reps)' if all_ok else 'FAIL (see detail)'
             print(
-                f"{scenario_name:<32}{config_name:<18}{avg_out:>8}"
-                f"{avg_eval:>12}{avg_wall:>12}{correctness:>14}"
+                f'{scenario_name:<32}{config_name:<18}{avg_out:>8}'
+                f'{avg_eval:>12}{avg_wall:>12}{correctness:>14}'
             )
 
 
@@ -469,8 +482,8 @@ def main() -> None:
 
     all_results = []
     for scenario in scenarios:
-        print(f"\n### scenario: {scenario.name} ###")
-        print(f"    {scenario.description}")
+        print(f'\n### scenario: {scenario.name} ###')
+        print(f'    {scenario.description}')
         results = run_scenario(llm, tools, scenario)
         for result in results:
             print_run(result)

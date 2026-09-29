@@ -1,30 +1,19 @@
-from uuid import UUID
 from datetime import date
 from decimal import Decimal
-
-from gl.models import GLSegments
-
-from registry.models import GLSegmentType
+from uuid import UUID
 
 from break_analysis.models import (
+    BreakAnalysisStatus,
     BreakCase,
-    RootCause,
+    BreakCaseEvidence,
     BreakRecord,
     BreakTopology,
-    BreakCaseEvidence,
-    BreakAnalysisStatus
+    RootCause,
 )
-from break_analysis.tools.registry import (
-    SegmentValidationResult,
-    SegmentDetailsResult
-)
-
-from evals.models import (
-    ToolFixture,
-    EvalScenario,
-    EvalExpectation,
-    ExpectedFinding
-)
+from break_analysis.tools.registry import SegmentDetailsResult, SegmentValidationResult
+from evals.models import EvalExpectation, EvalScenario, ExpectedFinding, ToolFixture
+from gl.models import GLSegments
+from registry.models import GLSegmentType
 
 
 def registry_inactive_account() -> EvalScenario:
@@ -73,9 +62,7 @@ def registry_inactive_account() -> EvalScenario:
     break_case = BreakCase(
         case_id=UUID('11111111-1111-1111-1111-111111111111'),
         topology=BreakTopology.ONE_TO_ONE,
-        investigation_records=(
-            investigation_record,
-        ),
+        investigation_records=(investigation_record,),
         pivot=pivot,
         evidence=BreakCaseEvidence(
             relaxed_segments=(GLSegmentType.ACCOUNT,),
@@ -120,9 +107,7 @@ def registry_inactive_account() -> EvalScenario:
             findings=(
                 ExpectedFinding(
                     root_cause=RootCause.REGISTRY_INVALID_SEGMENT,
-                    recon_result_id=(
-                        investigation_record.recon_result_id
-                    ),
+                    recon_result_id=(investigation_record.recon_result_id),
                     segment_type=GLSegmentType.ACCOUNT,
                     segment_value='210000',
                 ),
@@ -131,9 +116,7 @@ def registry_inactive_account() -> EvalScenario:
                 'validate_segment',
                 'get_segment_details',
             ),
-            forbidden_tools=(
-                'investigate_resolution',
-            ),
+            forbidden_tools=('investigate_resolution',),
         ),
     )
 
@@ -186,9 +169,7 @@ def registry_missing_account() -> EvalScenario:
     break_case = BreakCase(
         case_id=UUID('11111111-1111-1111-1111-111111111111'),
         topology=BreakTopology.ONE_TO_ONE,
-        investigation_records=(
-            investigation_record,
-        ),
+        investigation_records=(investigation_record,),
         pivot=pivot,
         evidence=BreakCaseEvidence(
             relaxed_segments=(GLSegmentType.ACCOUNT,),
@@ -233,9 +214,7 @@ def registry_missing_account() -> EvalScenario:
             findings=(
                 ExpectedFinding(
                     root_cause=RootCause.REGISTRY_INVALID_SEGMENT,
-                    recon_result_id=(
-                        investigation_record.recon_result_id
-                    ),
+                    recon_result_id=(investigation_record.recon_result_id),
                     segment_type=GLSegmentType.ACCOUNT,
                     segment_value='219999',
                 ),
@@ -244,9 +223,7 @@ def registry_missing_account() -> EvalScenario:
                 'validate_segment',
                 'get_segment_details',
             ),
-            forbidden_tools=(
-                'investigate_resolution',
-            ),
+            forbidden_tools=('investigate_resolution',),
         ),
     )
 

@@ -1,24 +1,17 @@
-from uuid import UUID
 from datetime import date
 from decimal import Decimal
-
-from gl.models import GLSegments
-
-from registry.models import GLSegmentType
+from uuid import UUID
 
 from break_analysis.models import (
+    BreakAnalysisStatus,
     BreakCase,
     BreakRecord,
     BreakTopology,
-    BreakAnalysisStatus
 )
 from break_analysis.tools.registry import SegmentValidationResult
-
-from evals.models import (
-    ToolFixture,
-    EvalScenario,
-    EvalExpectation
-)
+from evals.models import EvalExpectation, EvalScenario, ToolFixture
+from gl.models import GLSegments
+from registry.models import GLSegmentType
 
 
 def interface_only_no_supported_cause() -> EvalScenario:
@@ -46,9 +39,7 @@ def interface_only_no_supported_cause() -> EvalScenario:
     break_case = BreakCase(
         case_id=UUID('11111111-1111-1111-1111-111111111111'),
         topology=BreakTopology.INTERFACE_ONLY,
-        investigation_records=(
-            investigation_record,
-        ),
+        investigation_records=(investigation_record,),
         pivot=None,
         evidence=None,
     )
@@ -182,9 +173,7 @@ def interface_only_no_supported_cause() -> EvalScenario:
         expected=EvalExpectation(
             status=BreakAnalysisStatus.UNEXPLAINED,
             findings=(),
-            required_tools=(
-                'validate_segment',
-            ),
+            required_tools=('validate_segment',),
             forbidden_tools=(
                 'get_segment_details',
                 'investigate_resolution',

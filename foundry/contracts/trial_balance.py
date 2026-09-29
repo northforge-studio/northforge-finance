@@ -8,24 +8,18 @@ from pyspark.sql.types import (
 
 from registry.models import GLSegmentType
 
-
 TRIAL_BALANCE_SOURCE_SCHEMA = StructType(
     [
         StructField('AS_OF_DT', DateType(), False),
         StructField('BUSINESS_DT', DateType(), False),
-
         StructField('SRC_APP_CD', StringType(), False),
         StructField('SRC_RECORD_ID', StringType(), False),
-
         StructField('SRC_ENTITY_CD', StringType(), False),
         StructField('SRC_BOOKING_DEPT_CD', StringType(), False),
-
         StructField('SRC_ACCOUNT_ID', StringType(), False),
         StructField('SRC_ACCT_TYPE', StringType(), False),
-
         StructField('SRC_CLIENT_ID', StringType(), False),
         StructField('CPTY_REF_ID', StringType(), False),
-
         StructField('SRC_MEASURE_NM', StringType(), False),
         StructField('SRC_MEASURE_CCY_CD', StringType(), False),
         StructField(
@@ -42,25 +36,19 @@ TRIAL_BALANCE_STAGING_SCHEMA = StructType(
     [
         StructField('AS_OF_DT', DateType(), False),
         StructField('BUSINESS_DT', DateType(), False),
-
         StructField('SRC_APP_CD', StringType(), False),
         StructField('DATACLASS', StringType(), False),
-
         StructField('SRC_RECORD_ID', StringType(), False),
-
         StructField('SRC_ENTITY_CD', StringType(), False),
         StructField('SRC_BOOKING_DEPT_CD', StringType(), False),
-
         StructField('SRC_ACCOUNT_ID', StringType(), False),
         StructField('SRC_ACCT_TYPE', StringType(), False),
         StructField('NORM_ACCT_SIGN', StringType(), False),
-
         StructField('SRC_CLIENT_ID', StringType(), False),
         StructField('CPTY_REF_ID', StringType(), False),
         StructField('ENTITY_SUN_ID', StringType(), False),
         StructField('CLIENT_ID_TYPE', StringType(), False),
         StructField('INTERGROUP_IND', StringType(), False),
-
         StructField('SRC_MEASURE_NM', StringType(), False),
         StructField('SRC_MEASURE_CCY_CD', StringType(), False),
         StructField(
@@ -69,7 +57,6 @@ TRIAL_BALANCE_STAGING_SCHEMA = StructType(
             False,
         ),
         StructField('POSTING_MEASURE_CCY_CD', StringType(), False),
-
         StructField('POSTING_MEASURE_NM', StringType(), False),
         StructField('MEASURE_TYPE', StringType(), False),
         StructField(
@@ -88,9 +75,7 @@ TRIAL_BALANCE_STAGING_SCHEMA = StructType(
             DecimalType(28, 12),
             False,
         ),
-
         StructField('CR_DR_EVALUATOR', StringType(), False),
-
         StructField('WORKFLOW_RUN_ID', StringType(), False),
         StructField('PRODUCER_RUN_ID', StringType(), False),
     ]
@@ -101,25 +86,19 @@ TRIAL_BALANCE_ENRICHMENT_SCHEMA = StructType(
     [
         StructField('AS_OF_DT', DateType(), False),
         StructField('BUSINESS_DT', DateType(), False),
-
         StructField('SRC_APP_CD', StringType(), False),
         StructField('DATACLASS', StringType(), False),
-
         StructField('SRC_RECORD_ID', StringType(), False),
-
         StructField('SRC_ENTITY_CD', StringType(), False),
         StructField('SRC_BOOKING_DEPT_CD', StringType(), False),
-
         StructField('SRC_ACCOUNT_ID', StringType(), False),
         StructField('SRC_ACCT_TYPE', StringType(), False),
         StructField('NORM_ACCT_SIGN', StringType(), False),
-
         StructField('SRC_CLIENT_ID', StringType(), False),
         StructField('CPTY_REF_ID', StringType(), False),
         StructField('ENTITY_SUN_ID', StringType(), False),
         StructField('CLIENT_ID_TYPE', StringType(), False),
         StructField('INTERGROUP_IND', StringType(), False),
-
         StructField('SRC_MEASURE_NM', StringType(), False),
         StructField('SRC_MEASURE_CCY_CD', StringType(), False),
         StructField(
@@ -128,7 +107,6 @@ TRIAL_BALANCE_ENRICHMENT_SCHEMA = StructType(
             False,
         ),
         StructField('POSTING_MEASURE_CCY_CD', StringType(), False),
-
         StructField('POSTING_MEASURE_NM', StringType(), False),
         StructField('MEASURE_TYPE', StringType(), False),
         StructField(
@@ -147,37 +125,29 @@ TRIAL_BALANCE_ENRICHMENT_SCHEMA = StructType(
             DecimalType(28, 12),
             False,
         ),
-
         StructField('CR_DR_EVALUATOR', StringType(), False),
         StructField('CR_DR_IND', StringType(), False),
-
         StructField('POSTING_RULE_ID', StringType(), False),
         StructField('POSTING_STREAM', StringType(), False),
         StructField('POSTING_SWITCH', StringType(), False),
         StructField('MEASURE_PERIOD_TYPE', StringType(), False),
         StructField('POSTING_ELIG_FLG', StringType(), False),
-
         StructField('TRANS_GROUP_PREFIX', StringType(), False),
         StructField('TRANS_DT', StringType(), False),
         StructField('TRANS_NO', StringType(), False),
         StructField('LINE_NO', StringType(), False),
-
         StructField('COA_RULE_ID', StringType(), False),
-
         StructField('GL_ENTITY_CD', StringType(), False),
         StructField('GL_BRANCH_CD', StringType(), False),
         StructField('GL_DEPT_CD', StringType(), False),
-
         StructField('GL_ACCOUNT_DR', StringType(), False),
         StructField('GL_ACCOUNT_CR', StringType(), False),
         StructField('GL_ACCOUNT', StringType(), False),
-
         StructField('GL_SUB_ACCOUNT', StringType(), False),
         StructField('GL_AFFILIATE_CD', StringType(), False),
         StructField('GL_PRODUCT_CD', StringType(), False),
         StructField('GL_BOOK_CD', StringType(), False),
         StructField('GL_COA_SRC_SEGMENT', StringType(), False),
-
         StructField('WORKFLOW_RUN_ID', StringType(), False),
         StructField('PRODUCER_RUN_ID', StringType(), False),
     ]
@@ -194,11 +164,8 @@ TRIAL_BALANCE_REPORTING_SCHEMA = StructType(
 TRIAL_BALANCE_POSTING_SCHEMA = StructType(
     [
         *TRIAL_BALANCE_REPORTING_SCHEMA.fields[:5],
-
         StructField('POSTING_ID', StringType(), False),
-
         *TRIAL_BALANCE_REPORTING_SCHEMA.fields[5:-2],
-
         StructField(
             'PREVIOUS_DAY_BALANCE',
             DecimalType(28, 12),
@@ -229,7 +196,6 @@ TRIAL_BALANCE_POSTING_SCHEMA = StructType(
             DecimalType(28, 12),
             False,
         ),
-
         StructField(
             'POSTING_PREVIOUS_DAY_BALANCE',
             DecimalType(28, 12),
@@ -260,7 +226,6 @@ TRIAL_BALANCE_POSTING_SCHEMA = StructType(
             DecimalType(28, 12),
             False,
         ),
-
         StructField('WORKFLOW_RUN_ID', StringType(), False),
         StructField('PRODUCER_RUN_ID', StringType(), False),
     ]
@@ -291,12 +256,9 @@ TRIAL_BALANCE_INTERFACE_SCHEMA = StructType(
     [
         StructField('WORKFLOW_RUN_ID', StringType(), False),
         StructField('PRODUCER_RUN_ID', StringType(), False),
-
         StructField('DATACLASS', StringType(), False),
-
         StructField('TRANSACTION_NUMBER', StringType(), False),
         StructField('LINE_NUMBER', StringType(), False),
-
         StructField('ENTITY_CD', StringType(), False),
         StructField('BRANCH_CD', StringType(), False),
         StructField('DEPT_CD', StringType(), False),
@@ -306,32 +268,25 @@ TRIAL_BALANCE_INTERFACE_SCHEMA = StructType(
         StructField('PRODUCT_CD', StringType(), False),
         StructField('BOOK_CD', StringType(), False),
         StructField('SOURCE_CD', StringType(), False),
-
         StructField('CR_DR_IND', StringType(), False),
-
         StructField('FOUNDRY_RULE_ID', StringType(), False),
         StructField('POSTING_ID', StringType(), False),
         StructField('POSTING_STREAM', StringType(), False),
-
         StructField('SRC_RECORD_ID', StringType(), False),
         StructField('SRC_APP_CD', StringType(), False),
-
         StructField('TRANSACTION_CURRENCY', StringType(), False),
         StructField(
             'TRANSACTION_AMOUNT',
             DecimalType(28, 12),
             False,
         ),
-
         StructField('ACCOUNTED_CURRENCY', StringType(), False),
         StructField(
             'ACCOUNTED_AMOUNT',
             DecimalType(28, 12),
             False,
         ),
-
         StructField('FX_RATE', DecimalType(28, 12), False),
-
         StructField('AS_OF_DATE', DateType(), False),
         StructField('BUSINESS_DATE', DateType(), False),
     ]

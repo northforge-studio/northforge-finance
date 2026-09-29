@@ -6,12 +6,7 @@ from tests.support.fakes import make_run_tracker
 
 @pytest.fixture(scope='session')
 def spark():
-    spark = (
-        SparkSession.builder
-        .master('local[2]')
-        .appName('atlas-tests')
-        .getOrCreate()
-    )
+    spark = SparkSession.builder.master('local[2]').appName('atlas-tests').getOrCreate()
 
     yield spark
 

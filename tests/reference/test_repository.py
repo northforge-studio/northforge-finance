@@ -3,9 +3,8 @@ import pytest
 from core.store import CsvStore
 from reference.models import ReferenceData
 from reference.repository import ReferenceRepository
-
 from tests.support.fakes import FakeStore
-from tests.support.paths import REFERENCE_FX_RATE_PATH, REFERENCE_COUNTERPARTY_PATH
+from tests.support.paths import REFERENCE_COUNTERPARTY_PATH, REFERENCE_FX_RATE_PATH
 
 
 @pytest.fixture(scope='module')

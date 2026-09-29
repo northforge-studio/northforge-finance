@@ -1,16 +1,13 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from pyspark.sql import DataFrame, Row
 
 from core.runs import RunTracker
-
 from gl import GLClient
-
 from recon.calculation import calculate_recon
 from recon.models import ReconResult, ReconRunResult
 from recon.repository import ReconRepository
-
 
 # v1 supports only TRIAL_BALANCE. Recon may need to consume multiple
 # dataclasses/workflow_run_ids once more dataclasses exist; that is
@@ -29,14 +26,11 @@ class ReconManager:
         self._run_tracker = run_tracker
         self._gl = gl
 
-
     def reconcile(self, workflow_run_id: UUID) -> ReconRunResult:
         workflow = self._run_tracker.get_workflow_run(workflow_run_id)
 
         if workflow.dataclass not in _SUPPORTED_DATACLASSES:
-            raise ValueError(
-                f'Unsupported dataclass for recon: {workflow.dataclass!r}'
-            )
+            raise ValueError(f'Unsupported dataclass for recon: {workflow.dataclass!r}')
 
         execution = self._run_tracker.start_execution(
             workflow_run_id=workflow_run_id,
@@ -62,9 +56,7 @@ class ReconManager:
 
         self._run_tracker.complete_execution(execution.run_id)
 
-        break_count = sum(
-            1 for result in results if result.difference_amount != 0
-        )
+        break_count = sum(1 for result in results if result.difference_amount != 0)
 
         return ReconRunResult(
             workflow_run_id=workflow_run_id,
@@ -74,10 +66,8 @@ class ReconManager:
             results=results,
         )
 
-
     def get_results(self, workflow_run_id: UUID) -> DataFrame:
         return self._repository.get_results(workflow_run_id)
-
 
     def _to_result(
         self,
@@ -87,7 +77,7 @@ class ReconManager:
     ) -> ReconResult:
         return ReconResult(
             recon_result_id=uuid4(),
-            reconciled_at=datetime.now(timezone.utc),
+            reconciled_at=datetime.now(UTC),
             workflow_run_id=workflow_run_id,
             producer_run_id=producer_run_id,
             as_of_date=row['AS_OF_DATE'],

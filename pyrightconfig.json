@@ -1,0 +1,10 @@
+{
+    "pythonVersion": "3.11",
+    "typeCheckingMode": "standard",
+    "exclude": [
+        ".venv",
+        "**/__pycache__",
+        ".pytest_cache",
+        ".ruff_cache"
+    ]
+}

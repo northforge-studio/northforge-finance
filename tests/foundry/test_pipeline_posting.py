@@ -1,27 +1,23 @@
 from uuid import uuid4
 
 from core.runs.models import RunIdentity, RunStatus, ZoneResult
-
 from tests.support.pipelines import NoOpPipeline, make_pipeline
 
 
 class _PostingPipeline(NoOpPipeline):
-    '''A minimal BasePipeline subclass that only implements posting.'''
+    """A minimal BasePipeline subclass that only implements posting."""
 
     def __init__(self, posting_df, **kwargs):
         super().__init__(**kwargs)
         self._posting_df = posting_df
         self.post_posting_called_with = None
 
-
     def pre_posting(self, workflow_run_id):
         self.pre_posting_called_with = workflow_run_id
         return self._posting_df
 
-
     def main_posting(self, df):
         return df
-
 
     def post_posting(self, df):
         self.post_posting_called_with = df

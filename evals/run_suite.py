@@ -94,10 +94,7 @@ def main():
 
     print()
     print('-' * 75)
-    print(
-        f'{"Scenario":<38}{"Pass Rate":>9}{"Avg Time":>12}'
-        f'{"Avg Tool Calls":>16}'
-    )
+    print(f'{"Scenario":<38}{"Pass Rate":>9}{"Avg Time":>12}{"Avg Tool Calls":>16}')
 
     for summary in summaries:
         pass_rate = f'{summary.passed_runs}/{summary.total_runs}'

@@ -6,7 +6,6 @@ from sqlalchemy import create_engine, text
 
 from core.db import PostgresConfig
 
-
 REGISTRY_DIR = Path('data/registry')
 
 TABLES = [
@@ -36,19 +35,12 @@ def load_csv(table_name: str) -> pd.DataFrame:
         dtype=str,
     )
 
-    df.columns = [
-        column.lower()
-        for column in df.columns
-    ]
+    df.columns = [column.lower() for column in df.columns]
 
     for column in DATE_COLUMNS:
         if column in df.columns:
             df[column] = df[column].map(
-                lambda value: (
-                    date.fromisoformat(value)
-                    if pd.notna(value)
-                    else None
-                )
+                lambda value: date.fromisoformat(value) if pd.notna(value) else None
             )
 
     # Convert pandas NaN/NA values to Python None so they become
@@ -68,11 +60,7 @@ def seed_table(
 ) -> None:
     physical_table = f'registry.{table_name}'
 
-    connection.execute(
-        text(
-            f'TRUNCATE TABLE {physical_table}'
-        )
-    )
+    connection.execute(text(f'TRUNCATE TABLE {physical_table}'))
 
     df.to_sql(
         name=table_name,
@@ -82,10 +70,7 @@ def seed_table(
         index=False,
     )
 
-    print(
-        f'Seeded {len(df)} rows into '
-        f'{physical_table}.'
-    )
+    print(f'Seeded {len(df)} rows into {physical_table}.')
 
 
 def main() -> None:

@@ -31,7 +31,6 @@ class GLSegmentDefault:
 class GLSegmentDefaults:
     values: tuple[GLSegmentDefault, ...]
 
-
     def resolve(
         self,
         segment_type: GLSegmentType,
@@ -56,8 +55,7 @@ class GLSegmentDefaults:
             (
                 item.default_value
                 for item in self.values
-                if item.segment_type == segment_type
-                and item.context_type == '*'
+                if item.segment_type == segment_type and item.context_type == '*'
             ),
             None,
         )
@@ -109,7 +107,6 @@ class GLInstruction:
     fx_rate: Decimal
     as_of_date: date
     business_date: date
-
 
     def to_segments(self) -> GLSegments:
         return GLSegments(
@@ -168,7 +165,6 @@ class GLPosting:
     fx_rate: Decimal
     as_of_date: date
     business_date: date
-
 
     @classmethod
     def from_resolution(
@@ -237,7 +233,6 @@ class GLRejection:
     # diagnostics
     rejection_type: str
     rejection_detail: str
-
 
     @classmethod
     def from_instruction(

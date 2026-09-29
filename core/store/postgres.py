@@ -1,8 +1,8 @@
 from typing import Any
 
+from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructType
-from pyspark.sql import DataFrame, SparkSession
 
 from core.db import PostgresConfig, PostgresExecutor
 from core.store.base import fill_null_strings
@@ -19,13 +19,11 @@ class PostgresStore:
         self._table_names = table_names
         self._executor = PostgresExecutor(self._config)
 
-
     def _resolve(self, table_name: str) -> str:
         try:
             return self._table_names[table_name]
         except KeyError:
             raise KeyError(f'Unknown table: {table_name!r}') from None
-
 
     def read(
         self,
@@ -34,20 +32,16 @@ class PostgresStore:
     ) -> DataFrame:
         physical_table = self._resolve(table_name)
 
-        df = (
-            self._spark.read
-            .jdbc(
-                url=self._config.jdbc_url,
-                table=physical_table,
-                properties=self._config.jdbc_properties,
-            )
+        df = self._spark.read.jdbc(
+            url=self._config.jdbc_url,
+            table=physical_table,
+            properties=self._config.jdbc_properties,
         )
 
         if schema is not None:
             df = self._normalize_columns(df, schema)
 
         return df
-
 
     def write(
         self,
@@ -61,15 +55,13 @@ class PostgresStore:
         df = fill_null_strings(df)
 
         (
-            df.write
-            .jdbc(
+            df.write.jdbc(
                 url=self._config.jdbc_url,
                 table=physical_table,
                 mode=mode,
                 properties=self._config.jdbc_properties,
             )
         )
-
 
     def delete(
         self,
@@ -89,34 +81,25 @@ class PostgresStore:
         for index, (column, value) in enumerate(filters.items()):
             parameter_name = f'value_{index}'
 
-            conditions.append(
-                f'"{column.lower()}" = :{parameter_name}'
-            )
+            conditions.append(f'"{column.lower()}" = :{parameter_name}')
 
             parameters[parameter_name] = value
 
         where_clause = ' AND '.join(conditions)
 
-        sql = (
-            f'DELETE FROM {physical_table} '
-            f'WHERE {where_clause}'
-        )
+        sql = f'DELETE FROM {physical_table} WHERE {where_clause}'
 
         self._executor.execute(
             sql,
             parameters,
         )
 
-
     def _normalize_columns(
         self,
         df: DataFrame,
         schema: StructType,
     ) -> DataFrame:
-        actual_columns = {
-            column.lower(): column
-            for column in df.columns
-        }
+        actual_columns = {column.lower(): column for column in df.columns}
 
         expressions = []
 
@@ -130,15 +113,9 @@ class PostgresStore:
                     f'Available columns: {df.columns}'
                 )
 
-            expressions.append(
-                F.col(actual_name).alias(field.name)
-            )
+            expressions.append(F.col(actual_name).alias(field.name))
 
         return df.select(*expressions)
 
-
     def _to_physical_columns(self, df: DataFrame) -> DataFrame:
-        return df.toDF(*[
-            column.lower()
-            for column in df.columns
-        ])
+        return df.toDF(*[column.lower() for column in df.columns])

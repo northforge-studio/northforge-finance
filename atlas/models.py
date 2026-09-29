@@ -1,5 +1,5 @@
-from enum import StrEnum
 from dataclasses import dataclass
+from enum import StrEnum
 
 from pyspark.sql import DataFrame
 
@@ -26,12 +26,10 @@ class MappingField:
     datatype: str
     order: int
 
-
     @property
     def is_lookup_field(self) -> bool:
         return (
-            self.field_type == FieldType.INPUT
-            and self.lookup_type == LookupType.VALUE
+            self.field_type == FieldType.INPUT and self.lookup_type == LookupType.VALUE
         )
 
 
@@ -41,24 +39,15 @@ class MappingDefinition:
     mapping_data_name: str
     fields: tuple[MappingField, ...]
 
-
     @property
     def input_fields(self) -> tuple[MappingField, ...]:
         return tuple(
-            field
-            for field in self.fields
-            if field.field_type == FieldType.INPUT
+            field for field in self.fields if field.field_type == FieldType.INPUT
         )
-
 
     @property
     def lookup_fields(self) -> tuple[MappingField, ...]:
-        return tuple(
-            field
-            for field in self.fields
-            if field.is_lookup_field
-        )
-
+        return tuple(field for field in self.fields if field.is_lookup_field)
 
     @property
     def informational_fields(self) -> tuple[MappingField, ...]:
@@ -71,22 +60,16 @@ class MappingDefinition:
             )
         )
 
-
     @property
     def output_fields(self) -> tuple[MappingField, ...]:
         return tuple(
-            field
-            for field in self.fields
-            if field.field_type == FieldType.OUTPUT
+            field for field in self.fields if field.field_type == FieldType.OUTPUT
         )
-
 
     @property
     def logical_fields(self) -> tuple[MappingField, ...]:
         return tuple(
-            field
-            for field in self.fields
-            if field.field_type == FieldType.LOGICAL
+            field for field in self.fields if field.field_type == FieldType.LOGICAL
         )
 
     @property

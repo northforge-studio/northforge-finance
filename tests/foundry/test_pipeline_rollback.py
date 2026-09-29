@@ -4,7 +4,6 @@ from uuid import uuid4
 from core.runs.models import RunIdentity
 from foundry.pipeline.trial_balance import TrialBalancePipeline
 from foundry.repository import TrialBalanceRepository
-
 from tests.support.constants import BUSINESS_DT
 
 
@@ -51,7 +50,9 @@ def test_rollback_execution_dispatches_each_operation_to_its_own_delete():
 
     for operation, handler in operations_and_handlers.items():
         identity = RunIdentity(
-            workflow_run_id=uuid4(), run_id=uuid4(), parent_run_id=None,
+            workflow_run_id=uuid4(),
+            run_id=uuid4(),
+            parent_run_id=None,
         )
         pipeline.rollback_execution(operation, identity)
         handler.assert_called_once_with(identity.workflow_run_id)

@@ -4,9 +4,6 @@ from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
 from core.store import Store
-
-from registry.models import GLSegmentType
-
 from gl.contracts import (
     INTERFACE_TRIAL_BALANCE_SCHEMA,
     POSTING_SCHEMA,
@@ -14,13 +11,13 @@ from gl.contracts import (
     SEGMENT_DEFAULT_SCHEMA,
 )
 from gl.models import GLInstruction, GLPosting, GLRejection, GLSegmentDefault
+from registry.models import GLSegmentType
 
 
 class GLRepository:
     def __init__(self, store: Store, spark: SparkSession):
         self._store = store
         self._spark = spark
-
 
     def get_segment_default(
         self,
@@ -33,15 +30,11 @@ class GLRepository:
             schema=SEGMENT_DEFAULT_SCHEMA,
         )
 
-        rows = (
-            df
-            .filter(
-                (F.col('SEGMENT_TYPE') == segment_type.field_name.upper())
-                & (F.col('CONTEXT_TYPE') == context_type)
-                & (F.col('CONTEXT_VALUE') == context_value)
-            )
-            .collect()
-        )
+        rows = df.filter(
+            (F.col('SEGMENT_TYPE') == segment_type.field_name.upper())
+            & (F.col('CONTEXT_TYPE') == context_type)
+            & (F.col('CONTEXT_VALUE') == context_value)
+        ).collect()
 
         if not rows:
             return None
@@ -54,7 +47,6 @@ class GLRepository:
             context_value=row['CONTEXT_VALUE'],
             default_value=row['DEFAULT_VALUE'],
         )
-
 
     def get_segment_defaults(self) -> tuple[GLSegmentDefault, ...]:
         df = self._store.read(
@@ -79,7 +71,6 @@ class GLRepository:
             for row in rows
         )
 
-
     def write_posting(self, posting: GLPosting) -> None:
         df = self._spark.createDataFrame(
             [self._to_row(posting)],
@@ -87,7 +78,6 @@ class GLRepository:
         )
 
         self._store.write(df, table_name='POSTING')
-
 
     def get_postings(
         self,
@@ -100,7 +90,6 @@ class GLRepository:
 
         return df.filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
 
-
     def write_rejection(self, rejection: GLRejection) -> None:
         df = self._spark.createDataFrame(
             [self._to_rejection_row(rejection)],
@@ -108,7 +97,6 @@ class GLRepository:
         )
 
         self._store.write(df, table_name='REJECTION')
-
 
     def get_rejections(
         self,
@@ -121,7 +109,6 @@ class GLRepository:
 
         return df.filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
 
-
     def get_instructions(
         self,
         workflow_run_id: UUID,
@@ -132,14 +119,12 @@ class GLRepository:
         )
 
         rows = (
-            df
-            .filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
+            df.filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
             .orderBy('TRANSACTION_NUMBER', 'LINE_NUMBER', 'POSTING_ID')
             .collect()
         )
 
         return tuple(self._from_instruction_row(row) for row in rows)
-
 
     def delete_postings(self, workflow_run_id: UUID) -> None:
         self._store.delete(
@@ -148,14 +133,12 @@ class GLRepository:
             schema=POSTING_SCHEMA,
         )
 
-
     def delete_rejections(self, workflow_run_id: UUID) -> None:
         self._store.delete(
             table_name='REJECTION',
             filters={'WORKFLOW_RUN_ID': str(workflow_run_id)},
             schema=REJECTION_SCHEMA,
         )
-
 
     def _to_row(self, posting: GLPosting) -> tuple:
         return (
@@ -190,7 +173,6 @@ class GLRepository:
             posting.business_date,
         )
 
-
     def _to_rejection_row(self, rejection: GLRejection) -> tuple:
         return (
             str(rejection.gl_rejection_id),
@@ -210,7 +192,6 @@ class GLRepository:
             rejection.rejection_type,
             rejection.rejection_detail,
         )
-
 
     def _from_instruction_row(self, row) -> GLInstruction:
         return GLInstruction(

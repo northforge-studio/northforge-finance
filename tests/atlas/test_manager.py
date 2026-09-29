@@ -1,7 +1,7 @@
 import pytest
 
 from atlas.manager import MappingManager
-from atlas.models import PostingRule, GatewayRule
+from atlas.models import GatewayRule, PostingRule
 from atlas.repository import AtlasRepository
 from core.store import CsvStore
 

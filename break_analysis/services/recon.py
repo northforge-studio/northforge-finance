@@ -3,14 +3,10 @@ from uuid import UUID
 from pyspark.sql import Row
 from pyspark.sql import functions as F
 
-from core.logging import get_logger, short_id
-
-from gl.models import GLSegments
-
-from recon.client import ReconClient
-
 from break_analysis.models import BreakRecord
-
+from core.logging import get_logger, short_id
+from gl.models import GLSegments
+from recon.client import ReconClient
 
 logger = get_logger(__name__)
 
@@ -19,7 +15,6 @@ class ReconBreakRecordResolver:
     def __init__(self, recon_client: ReconClient):
         self._recon = recon_client
 
-
     def get_break_record(
         self,
         workflow_run_id: UUID,
@@ -27,11 +22,9 @@ class ReconBreakRecordResolver:
     ) -> BreakRecord:
         results_df = self._recon.get_results(workflow_run_id)
 
-        rows = (
-            results_df
-            .filter(F.col('RECON_RESULT_ID') == str(recon_result_id))
-            .collect()
-        )
+        rows = results_df.filter(
+            F.col('RECON_RESULT_ID') == str(recon_result_id)
+        ).collect()
 
         if not rows:
             raise ValueError(
@@ -49,11 +42,11 @@ class ReconBreakRecordResolver:
         logger.info(
             'Break record resolved from recon.result | recon_result_id=%s | '
             'workflow_run_id=%s',
-            short_id(recon_result_id), short_id(workflow_run_id),
+            short_id(recon_result_id),
+            short_id(workflow_run_id),
         )
 
         return self._to_break_record(rows[0])
-
 
     def _to_break_record(self, row: Row) -> BreakRecord:
         return BreakRecord(

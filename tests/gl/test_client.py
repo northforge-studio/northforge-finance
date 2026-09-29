@@ -10,29 +10,30 @@ from core.runs.models import RunIdentity
 from core.store import CsvStore
 from gl import GLClient
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
-from gl.models import GLInstruction, GLSegments, GLSegmentResolution
+from gl.models import GLInstruction, GLSegmentResolution, GLSegments
 from registry.models import GLSegmentType
-
 from tests.support.constants import BUSINESS_DT
 from tests.support.fakes import FakeRegistryClient
 from tests.support.paths import GL_SEGMENT_DEFAULT_PATH
 
-
 # -- fixtures --------------------------------------------------------------
+
 
 @pytest.fixture(scope='module')
 def registry():
-    return FakeRegistryClient({
-        (GLSegmentType.DEPARTMENT, BUSINESS_DT, 'USGL99'),
-        (GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED'),
-        (GLSegmentType.ENTITY, BUSINESS_DT, 'USMKTS'),
-        (GLSegmentType.BRANCH, BUSINESS_DT, '100'),
-        (GLSegmentType.ACCOUNT, BUSINESS_DT, '123456'),
-        (GLSegmentType.AFFILIATE, BUSINESS_DT, '999999'),
-        (GLSegmentType.PRODUCT, BUSINESS_DT, 'PRD1'),
-        (GLSegmentType.BOOK, BUSINESS_DT, 'BK1'),
-        (GLSegmentType.SOURCE, BUSINESS_DT, 'SRC1'),
-    })
+    return FakeRegistryClient(
+        {
+            (GLSegmentType.DEPARTMENT, BUSINESS_DT, 'USGL99'),
+            (GLSegmentType.SUB_ACCOUNT, BUSINESS_DT, 'UNASSIGNED'),
+            (GLSegmentType.ENTITY, BUSINESS_DT, 'USMKTS'),
+            (GLSegmentType.BRANCH, BUSINESS_DT, '100'),
+            (GLSegmentType.ACCOUNT, BUSINESS_DT, '123456'),
+            (GLSegmentType.AFFILIATE, BUSINESS_DT, '999999'),
+            (GLSegmentType.PRODUCT, BUSINESS_DT, 'PRD1'),
+            (GLSegmentType.BOOK, BUSINESS_DT, 'BK1'),
+            (GLSegmentType.SOURCE, BUSINESS_DT, 'SRC1'),
+        }
+    )
 
 
 @pytest.fixture(scope='module')
@@ -57,6 +58,7 @@ def gl_with_posting_support(spark, registry, tmp_path):
 
 
 # -- helpers ---------------------------------------------------------------
+
 
 def _make_valid_segments() -> GLSegments:
     return GLSegments(
@@ -106,12 +108,18 @@ def _make_valid_instruction() -> GLInstruction:
 
 # -- get_segment_default ---------------------------------------------------
 
+
 def test_get_segment_default_returns_contextual_default(gl):
-    assert gl.get_segment_default(GLSegmentType.DEPARTMENT, entity_cd='USMKTS') == 'USGL99'
+    assert (
+        gl.get_segment_default(GLSegmentType.DEPARTMENT, entity_cd='USMKTS') == 'USGL99'
+    )
 
 
 def test_get_segment_default_falls_back_to_global(gl):
-    assert gl.get_segment_default(GLSegmentType.SUB_ACCOUNT, entity_cd='USMKTS') == '990001'
+    assert (
+        gl.get_segment_default(GLSegmentType.SUB_ACCOUNT, entity_cd='USMKTS')
+        == '990001'
+    )
 
 
 def test_get_segment_default_without_entity_cd_uses_global_only(gl):
@@ -125,9 +133,11 @@ def test_get_segment_default_returns_none_for_non_defaultable_segments(gl):
 
 # -- resolve_segment -------------------------------------------------------
 
+
 def test_resolve_segment_delegates_to_manager_for_invalid_supplied_value(gl):
     result = gl.resolve_segment(
-        GLSegmentType.DEPARTMENT, 'BOGUS',
+        GLSegmentType.DEPARTMENT,
+        'BOGUS',
         business_dt=BUSINESS_DT,
         entity_cd='USMKTS',
     )
@@ -142,7 +152,8 @@ def test_resolve_segment_delegates_to_manager_for_invalid_supplied_value(gl):
 
 def test_resolve_segment_delegates_to_manager_for_valid_supplied_value(gl):
     result = gl.resolve_segment(
-        GLSegmentType.DEPARTMENT, 'USGL99',
+        GLSegmentType.DEPARTMENT,
+        'USGL99',
         business_dt=BUSINESS_DT,
         entity_cd='USMKTS',
     )
@@ -156,6 +167,7 @@ def test_resolve_segment_delegates_to_manager_for_valid_supplied_value(gl):
 
 
 # -- resolve_segments ------------------------------------------------------
+
 
 def test_resolve_segments_delegates_to_manager_when_all_supplied_valid(gl):
     result = gl.resolve_segments(_make_valid_segments(), business_dt=BUSINESS_DT)
@@ -183,6 +195,7 @@ def test_resolve_segments_delegates_to_manager_for_invalid_defaultable_segment(g
 
 # -- validate_instruction --------------------------------------------------
 
+
 def test_validate_instruction_delegates_to_manager_for_valid_instruction(gl):
     result = gl.validate_instruction(_make_valid_instruction())
 
@@ -200,6 +213,7 @@ def test_validate_instruction_delegates_to_manager_for_invalid_instruction(gl):
 
 
 # -- process_instruction ---------------------------------------------------
+
 
 def test_process_instruction_delegates_to_manager_for_valid_instruction(
     gl_with_posting_support,
@@ -225,6 +239,7 @@ def test_process_instruction_delegates_to_manager_for_invalid_instruction(
 
 # -- rollback_execution ----------------------------------------------------
 
+
 def test_rollback_execution_delegates_to_manager(gl_with_posting_support):
     identity = RunIdentity(workflow_run_id=uuid4(), run_id=uuid4(), parent_run_id=None)
 
@@ -234,7 +249,10 @@ def test_rollback_execution_delegates_to_manager(gl_with_posting_support):
 
 # -- import_instructions ---------------------------------------------------
 
-def test_import_instructions_delegates_to_manager(spark, tmp_path, gl_with_posting_support):
+
+def test_import_instructions_delegates_to_manager(
+    spark, tmp_path, gl_with_posting_support
+):
     instruction = _make_valid_instruction()
     row = (
         str(instruction.workflow_run_id),
@@ -292,6 +310,7 @@ def test_import_instructions_delegates_to_manager(spark, tmp_path, gl_with_posti
 
 
 # -- get_postings / get_rejections -----------------------------------------
+
 
 def test_get_postings_returns_a_dataframe_of_only_the_named_workflows_rows(
     gl_with_posting_support,

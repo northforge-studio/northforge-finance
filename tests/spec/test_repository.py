@@ -4,7 +4,6 @@ from core.db import PostgresConfig
 from core.store import CsvStore, PostgresStore
 from spec.repository import SpecRepository
 
-
 CONFIG = PostgresConfig(
     host='localhost',
     port=5432,

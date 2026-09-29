@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class GLSegmentType(str, Enum):
+class GLSegmentType(StrEnum):
     ENTITY = ('GL_ENTITY', 'entity_cd')
     BRANCH = ('GL_BRANCH', 'branch_cd')
     DEPARTMENT = ('GL_DEPT', 'dept_cd')

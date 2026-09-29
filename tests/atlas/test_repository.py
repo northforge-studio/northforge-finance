@@ -2,7 +2,6 @@ import pytest
 
 from atlas.repository import AtlasRepository
 from core.store import CsvStore
-
 from tests.support.fakes import FakeStore
 
 
@@ -24,24 +23,15 @@ def test_get_definition_reconstructs_entity_mapping_definition(repository):
     assert definition.mapping_name == 'ENTITY_MAPPING'
     assert definition.mapping_data_name == 'NORTHFORGE_MAPPING_DATA'
 
-    assert [
-        field.logical_name
-        for field in definition.lookup_fields
-    ] == [
+    assert [field.logical_name for field in definition.lookup_fields] == [
         'SRC_APP_CD',
         'SRC_ENTITY_CD',
         'DATACLASS',
     ]
 
-    assert [
-        field.logical_name
-        for field in definition.informational_fields
-    ] == []
+    assert [field.logical_name for field in definition.informational_fields] == []
 
-    assert [
-        field.logical_name
-        for field in definition.output_fields
-    ] == [
+    assert [field.logical_name for field in definition.output_fields] == [
         'GL_ENTITY_CD',
         'GL_BRANCH_CD',
         'ENTITY_SUN_ID',
@@ -69,7 +59,17 @@ def test_get_mapping_reconstructs_entity_mapping_data(repository):
 def test_get_definition_works_against_a_fake_store(spark):
     meta_df = spark.createDataFrame(
         [
-            ('ENTITY_MAPPING', 'ENTITY_MAPPING_DATASET', 'SRC_APP_CD', 'SRC_APP_CD', 'INPUT', 'VALUE', 'SRC_APP_CD', 'STRING', 1),
+            (
+                'ENTITY_MAPPING',
+                'ENTITY_MAPPING_DATASET',
+                'SRC_APP_CD',
+                'SRC_APP_CD',
+                'INPUT',
+                'VALUE',
+                'SRC_APP_CD',
+                'STRING',
+                1,
+            ),
         ],
         schema=[
             'MAPPING_NAME',

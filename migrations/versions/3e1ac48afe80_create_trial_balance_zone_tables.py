@@ -5,18 +5,18 @@ Revises: 2e93dbffb6d4
 Create Date: 2026-08-25 23:13:31.998240
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
-
 
 # revision identifiers, used by Alembic.
 revision: str = '3e1ac48afe80'
-down_revision: Union[str, Sequence[str], None] = '2e93dbffb6d4'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = '2e93dbffb6d4'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 # Column definitions as (name, type_factory, nullable) tuples, mirroring

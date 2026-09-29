@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from uuid import uuid4
 
 import pytest
@@ -6,17 +6,16 @@ import pytest
 from core.db import PostgresConfig, PostgresExecutor
 from core.runs import RunRepository
 from core.runs.models import (
-    RunStatus,
-    WorkflowRun,
     ExecutionRun,
     RunDependency,
+    RunStatus,
+    WorkflowRun,
     WorkflowRunSummary,
 )
-
 from tests.support.constants import TIMESTAMP
 
-
 # -- fixtures --------------------------------------------------------------
+
 
 @pytest.fixture(scope='module')
 def executor():
@@ -51,18 +50,17 @@ def workflow_run(repository, executor):
         {'workflow_run_id': run.workflow_run_id},
     )
     executor.execute(
-        'DELETE FROM core.execution_run '
-        'WHERE workflow_run_id = :workflow_run_id',
+        'DELETE FROM core.execution_run WHERE workflow_run_id = :workflow_run_id',
         {'workflow_run_id': run.workflow_run_id},
     )
     executor.execute(
-        'DELETE FROM core.workflow_run '
-        'WHERE workflow_run_id = :workflow_run_id',
+        'DELETE FROM core.workflow_run WHERE workflow_run_id = :workflow_run_id',
         {'workflow_run_id': run.workflow_run_id},
     )
 
 
 # -- helpers ---------------------------------------------------------------
+
 
 def _make_execution_run(workflow_run_id, **overrides) -> ExecutionRun:
     defaults = dict(
@@ -81,6 +79,7 @@ def _make_execution_run(workflow_run_id, **overrides) -> ExecutionRun:
 
 
 # -- workflow runs ---------------------------------------------------------
+
 
 def test_create_and_get_workflow_run(repository, workflow_run):
     fetched = repository.get_workflow_run(workflow_run.workflow_run_id)
@@ -110,6 +109,7 @@ def test_update_workflow_status(repository, workflow_run):
 
 # -- execution runs --------------------------------------------------------
 
+
 def test_create_and_get_execution_run(repository, workflow_run):
     run = ExecutionRun(
         run_id=uuid4(),
@@ -129,7 +129,9 @@ def test_create_and_get_execution_run(repository, workflow_run):
     assert fetched == run
 
 
-def test_create_and_get_execution_run_links_to_parent_and_retry(repository, workflow_run):
+def test_create_and_get_execution_run_links_to_parent_and_retry(
+    repository, workflow_run
+):
     parent = ExecutionRun(
         run_id=uuid4(),
         workflow_run_id=workflow_run.workflow_run_id,
@@ -180,14 +182,16 @@ def test_get_execution_run_unknown_id_raises(repository):
         repository.get_execution_run(uuid4())
 
 
-def test_get_execution_runs_returns_all_executions_for_workflow(repository, workflow_run):
+def test_get_execution_runs_returns_all_executions_for_workflow(
+    repository, workflow_run
+):
     first = _make_execution_run(
         workflow_run.workflow_run_id,
-        started_at=datetime(2026, 8, 24, 10, 0, tzinfo=timezone.utc),
+        started_at=datetime(2026, 8, 24, 10, 0, tzinfo=UTC),
     )
     second = _make_execution_run(
         workflow_run.workflow_run_id,
-        started_at=datetime(2026, 8, 24, 10, 1, tzinfo=timezone.utc),
+        started_at=datetime(2026, 8, 24, 10, 1, tzinfo=UTC),
     )
     repository.create_execution_run(first)
     repository.create_execution_run(second)
@@ -197,7 +201,9 @@ def test_get_execution_runs_returns_all_executions_for_workflow(repository, work
     assert fetched == (first, second)
 
 
-def test_get_execution_runs_excludes_other_workflows(repository, workflow_run, executor):
+def test_get_execution_runs_excludes_other_workflows(
+    repository, workflow_run, executor
+):
     other_workflow = WorkflowRun(
         workflow_run_id=uuid4(),
         dataclass='TRIAL_BALANCE',
@@ -228,7 +234,9 @@ def test_get_execution_runs_excludes_other_workflows(repository, workflow_run, e
         )
 
 
-def test_get_execution_runs_returns_empty_tuple_when_none_exist(repository, workflow_run):
+def test_get_execution_runs_returns_empty_tuple_when_none_exist(
+    repository, workflow_run
+):
     assert repository.get_execution_runs(workflow_run.workflow_run_id) == ()
 
 
@@ -261,6 +269,7 @@ def test_update_execution_status(repository, workflow_run):
 
 
 # -- dependencies ----------------------------------------------------------
+
 
 def test_create_and_get_dependency(repository, workflow_run):
     consumer = _make_execution_run(workflow_run.workflow_run_id)
@@ -344,7 +353,8 @@ def test_get_dependencies_returns_empty_tuple_when_none_exist(repository, workfl
 
 
 def test_get_workflow_dependencies_returns_dependencies_for_workflow(
-    repository, workflow_run,
+    repository,
+    workflow_run,
 ):
     producer = _make_execution_run(workflow_run.workflow_run_id)
     consumer = _make_execution_run(workflow_run.workflow_run_id)
@@ -364,7 +374,9 @@ def test_get_workflow_dependencies_returns_dependencies_for_workflow(
 
 
 def test_get_workflow_dependencies_excludes_other_workflows(
-    repository, workflow_run, executor,
+    repository,
+    workflow_run,
+    executor,
 ):
     other_workflow = WorkflowRun(
         workflow_run_id=uuid4(),
@@ -421,7 +433,8 @@ def test_get_workflow_dependencies_excludes_other_workflows(
 
 
 def test_get_workflow_dependencies_returns_empty_tuple_when_none_exist(
-    repository, workflow_run,
+    repository,
+    workflow_run,
 ):
     run = _make_execution_run(workflow_run.workflow_run_id)
     repository.create_execution_run(run)
@@ -431,8 +444,10 @@ def test_get_workflow_dependencies_returns_empty_tuple_when_none_exist(
 
 # -- get_workflow_summary --------------------------------------------------
 
+
 def test_get_workflow_summary_returns_workflow_executions_and_dependencies(
-    repository, workflow_run,
+    repository,
+    workflow_run,
 ):
     producer = _make_execution_run(workflow_run.workflow_run_id)
     consumer = _make_execution_run(workflow_run.workflow_run_id)

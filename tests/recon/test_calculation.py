@@ -13,7 +13,6 @@ from pyspark.sql.types import (
 from recon.calculation import calculate_recon
 from recon.contracts import RECON_KEYS
 
-
 _KEY_FIELDS = [
     StructField('WORKFLOW_RUN_ID', StringType(), False),
     StructField('AS_OF_DATE', DateType(), False),
@@ -32,16 +31,22 @@ _KEY_FIELDS = [
 # Schema deliberately mirrors only what calculate_recon needs (RECON_KEYS
 # + ACCOUNTED_AMOUNT), to prove the function does not depend on the full
 # Interface/GL physical schemas.
-_SIDE_SCHEMA = StructType(_KEY_FIELDS + [
-    StructField('ACCOUNTED_AMOUNT', DecimalType(28, 12), False),
-])
+_SIDE_SCHEMA = StructType(
+    _KEY_FIELDS
+    + [
+        StructField('ACCOUNTED_AMOUNT', DecimalType(28, 12), False),
+    ]
+)
 
 # A variant that also carries CR_DR_IND, to prove it plays no part in
 # grouping or the balance calculation.
-_SIDE_SCHEMA_WITH_CR_DR_IND = StructType(_KEY_FIELDS + [
-    StructField('ACCOUNTED_AMOUNT', DecimalType(28, 12), False),
-    StructField('CR_DR_IND', StringType(), False),
-])
+_SIDE_SCHEMA_WITH_CR_DR_IND = StructType(
+    _KEY_FIELDS
+    + [
+        StructField('ACCOUNTED_AMOUNT', DecimalType(28, 12), False),
+        StructField('CR_DR_IND', StringType(), False),
+    ]
+)
 
 _DEFAULT_KEY = dict(
     WORKFLOW_RUN_ID='11111111-1111-1111-1111-111111111111',
@@ -75,7 +80,9 @@ def _make_df(spark, rows, with_cr_dr_ind=False) -> DataFrame:
     return spark.createDataFrame(list(rows), schema=schema)
 
 
-def _calculate_result_rows(spark, interface_rows, gl_rows, with_cr_dr_ind=False) -> list[Row]:
+def _calculate_result_rows(
+    spark, interface_rows, gl_rows, with_cr_dr_ind=False
+) -> list[Row]:
     interface_df = _make_df(spark, interface_rows, with_cr_dr_ind)
     gl_df = _make_df(spark, gl_rows, with_cr_dr_ind)
 
@@ -89,7 +96,9 @@ def test_calculate_recon_output_has_recon_keys_plus_balance_columns(spark):
     )
 
     assert rows.columns == list(RECON_KEYS) + [
-        'INTERFACE_BALANCE', 'GL_BALANCE', 'DIFFERENCE_AMOUNT',
+        'INTERFACE_BALANCE',
+        'GL_BALANCE',
+        'DIFFERENCE_AMOUNT',
     ]
 
 

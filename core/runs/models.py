@@ -1,6 +1,6 @@
-from enum import StrEnum
 from dataclasses import dataclass
 from datetime import date, datetime
+from enum import StrEnum
 from uuid import UUID
 
 

@@ -2,13 +2,12 @@ from unittest.mock import MagicMock
 
 from foundry.models import PipelineConfig
 from foundry.pipeline.base import BasePipeline
-
 from tests.support.constants import BUSINESS_DT
 
 
 class NoOpPipeline(BasePipeline):
-    '''A BasePipeline whose every hook is a no-op. Zone tests subclass it
-    and override only the hooks of the zone under test.'''
+    """A BasePipeline whose every hook is a no-op. Zone tests subclass it
+    and override only the hooks of the zone under test."""
 
     def pre_staging(self): ...
     def main_staging(self, df): ...
@@ -25,6 +24,7 @@ class NoOpPipeline(BasePipeline):
     def pre_interface(self, workflow_run_id): ...
     def main_interface(self, df): ...
     def post_interface(self, df): ...
+    def rollback_execution(self, operation, identity): ...
 
 
 def make_pipeline(pipeline_cls=NoOpPipeline, **kwargs) -> NoOpPipeline:

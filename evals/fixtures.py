@@ -1,6 +1,6 @@
 from typing import Any
 
-from evals.models import ToolFixture, ToolCallRecord
+from evals.models import ToolCallRecord, ToolFixture
 
 
 class ToolFixtureStore:
@@ -11,11 +11,9 @@ class ToolFixtureStore:
         self._fixtures = fixtures
         self._calls: list[ToolCallRecord] = []
 
-
     @property
     def calls(self) -> tuple[ToolCallRecord, ...]:
         return tuple(self._calls)
-
 
     def get_result(
         self,
@@ -32,16 +30,11 @@ class ToolFixtureStore:
         matches = [
             fixture
             for fixture in self._fixtures
-            if (
-                fixture.tool_name == tool_name
-                and fixture.args == args
-            )
+            if (fixture.tool_name == tool_name and fixture.args == args)
         ]
 
         if not matches:
-            raise AssertionError(
-                f'Unexpected tool call: {tool_name} {args}'
-            )
+            raise AssertionError(f'Unexpected tool call: {tool_name} {args}')
 
         if len(matches) > 1:
             raise AssertionError(

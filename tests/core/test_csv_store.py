@@ -1,14 +1,15 @@
 import pytest
-from pyspark.sql.types import StructType, StructField, StringType
+from pyspark.sql.types import StringType, StructField, StructType
 
 from core.store import CsvStore
 
-
-SCHEMA = StructType([
-    StructField('BUSINESS_DT', StringType(), True),
-    StructField('BATCH_ID', StringType(), True),
-    StructField('NAME', StringType(), True),
-])
+SCHEMA = StructType(
+    [
+        StructField('BUSINESS_DT', StringType(), True),
+        StructField('BATCH_ID', StringType(), True),
+        StructField('NAME', StringType(), True),
+    ]
+)
 
 
 def _write_csv(path, rows) -> None:

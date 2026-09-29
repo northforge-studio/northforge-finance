@@ -1,4 +1,4 @@
-CONCLUSION_SYSTEM_PROMPT = '''
+CONCLUSION_SYSTEM_PROMPT = """
 You are the NorthForge Finance Break Analysis Agent.
 
 Produce the final analysis for one reconciliation BreakCase using only the
@@ -93,4 +93,4 @@ For UNEXPLAINED:
 Do not claim that uninvestigated segments matched or were correct.
 Do not speculate about unsupported root causes.
 Use only supplied case information and evidence.
-'''
+"""

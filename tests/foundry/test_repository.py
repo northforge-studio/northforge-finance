@@ -7,11 +7,10 @@ from pyspark.sql.types import DateType, DecimalType
 
 from core.store import CsvStore
 from foundry.contracts import (
-    TRIAL_BALANCE_STAGING_SCHEMA,
     TRIAL_BALANCE_ENRICHMENT_SCHEMA,
+    TRIAL_BALANCE_STAGING_SCHEMA,
 )
 from foundry.repository import TrialBalanceRepository
-
 from tests.support.constants import BUSINESS_DT
 
 
@@ -48,7 +47,9 @@ def _write_staging_row(repository, spark, **overrides) -> None:
 
 
 def _write_enrichment_row(repository, spark, **overrides) -> None:
-    row = _build_row(TRIAL_BALANCE_ENRICHMENT_SCHEMA, BUSINESS_DT=BUSINESS_DT, **overrides)
+    row = _build_row(
+        TRIAL_BALANCE_ENRICHMENT_SCHEMA, BUSINESS_DT=BUSINESS_DT, **overrides
+    )
     df = spark.createDataFrame([row], schema=TRIAL_BALANCE_ENRICHMENT_SCHEMA)
     repository.write_enrichment(df)
 
@@ -75,7 +76,8 @@ def test_read_staging_preserves_producer_run_id_on_returned_rows(repository, spa
     producer_run_id = str(uuid4())
 
     _write_staging_row(
-        repository, spark,
+        repository,
+        spark,
         WORKFLOW_RUN_ID=workflow_run_id,
         PRODUCER_RUN_ID=producer_run_id,
         SRC_RECORD_ID='rec-1',
@@ -95,8 +97,12 @@ def test_read_enrichment_returns_only_the_named_workflows_rows(repository, spark
     kept = str(uuid4())
     other = str(uuid4())
 
-    _write_enrichment_row(repository, spark, WORKFLOW_RUN_ID=kept, SRC_RECORD_ID='rec-1')
-    _write_enrichment_row(repository, spark, WORKFLOW_RUN_ID=other, SRC_RECORD_ID='rec-2')
+    _write_enrichment_row(
+        repository, spark, WORKFLOW_RUN_ID=kept, SRC_RECORD_ID='rec-1'
+    )
+    _write_enrichment_row(
+        repository, spark, WORKFLOW_RUN_ID=other, SRC_RECORD_ID='rec-2'
+    )
 
     df = repository.read_enrichment(kept)
 

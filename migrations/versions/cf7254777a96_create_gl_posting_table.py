@@ -5,24 +5,23 @@ Revises: 1685d51261ec
 Create Date: 2026-08-26 20:25:21.103243
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
+from alembic import op
 from sqlalchemy.dialects import postgresql
-
 
 # revision identifiers, used by Alembic.
 revision: str = 'cf7254777a96'
-down_revision: Union[str, Sequence[str], None] = '1685d51261ec'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = '1685d51261ec'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
     op.create_table(
         'posting',
-
         # GL-owned identity/audit
         sa.Column(
             'gl_posting_id',
@@ -34,7 +33,6 @@ def upgrade() -> None:
             sa.TIMESTAMP(timezone=True),
             nullable=False,
         ),
-
         # Foundry / business lineage
         sa.Column(
             'workflow_run_id',
@@ -48,19 +46,14 @@ def upgrade() -> None:
             sa.ForeignKey('core.execution_run.run_id'),
             nullable=False,
         ),
-
         sa.Column('dataclass', sa.String(), nullable=False),
-
         sa.Column('transaction_number', sa.String(), nullable=False),
         sa.Column('line_number', sa.String(), nullable=False),
-
         sa.Column('foundry_rule_id', sa.String(), nullable=False),
         sa.Column('posting_id', sa.String(), nullable=False),
         sa.Column('posting_stream', sa.String(), nullable=False),
-
         sa.Column('src_record_id', sa.String(), nullable=False),
         sa.Column('src_app_cd', sa.String(), nullable=False),
-
         # Final GL segments (resolved/defaulted values GL actually posted)
         sa.Column('entity_cd', sa.String(), nullable=False),
         sa.Column('branch_cd', sa.String(), nullable=False),
@@ -71,21 +64,15 @@ def upgrade() -> None:
         sa.Column('product_cd', sa.String(), nullable=False),
         sa.Column('book_cd', sa.String(), nullable=False),
         sa.Column('source_cd', sa.String(), nullable=False),
-
         # Accounting
         sa.Column('cr_dr_ind', sa.String(), nullable=False),
-
         sa.Column('transaction_currency', sa.String(), nullable=False),
         sa.Column('transaction_amount', sa.Numeric(28, 12), nullable=False),
-
         sa.Column('accounted_currency', sa.String(), nullable=False),
         sa.Column('accounted_amount', sa.Numeric(28, 12), nullable=False),
-
         sa.Column('fx_rate', sa.Numeric(28, 12), nullable=False),
-
         sa.Column('as_of_date', sa.Date(), nullable=False),
         sa.Column('business_date', sa.Date(), nullable=False),
-
         schema='gl',
     )
 

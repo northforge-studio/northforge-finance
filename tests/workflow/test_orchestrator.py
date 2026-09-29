@@ -3,36 +3,34 @@ from uuid import UUID, uuid4
 import pytest
 
 from core.runs.models import (
+    ExecutionRun,
     RunIdentity,
     RunStatus,
     ZoneResult,
-    ExecutionRun,
 )
 from foundry.models import PipelineConfig
 from gl.models import GLImportResult
-from workflow import WorkflowOrchestrator
-from workflow.models import WorkflowResult
-
 from tests.support.constants import BUSINESS_DT
 from tests.support.fakes import FakeRunRepository, make_run_tracker
-
+from workflow import WorkflowOrchestrator
+from workflow.models import WorkflowResult
 
 ZONES = ('staging', 'enrichment', 'reporting', 'posting', 'interface')
 
 
 # -- fakes -----------------------------------------------------------------
 
+
 class _FakePipeline:
-    '''A stand-in for BasePipeline: implements the zone(identity) API and
+    """A stand-in for BasePipeline: implements the zone(identity) API and
     rollback_execution(operation, identity), with no Spark/DataFrame
-    involvement at all.'''
+    involvement at all."""
 
     def __init__(self, business_dt=BUSINESS_DT, raise_in=None):
         self.config = PipelineConfig(dataclass='TRIAL_BALANCE', business_dt=business_dt)
         self._raise_in = raise_in
         self.rollback_calls: list[tuple[str, RunIdentity]] = []
         self.zone_calls: dict[str, RunIdentity] = {}
-
 
     def _zone(self, name, identity):
         self.zone_calls[name] = identity
@@ -45,40 +43,33 @@ class _FakePipeline:
             record_count=1,
         )
 
-
     def staging(self, identity):
         return self._zone('staging', identity)
-
 
     def enrichment(self, identity):
         return self._zone('enrichment', identity)
 
-
     def reporting(self, identity):
         return self._zone('reporting', identity)
-
 
     def posting(self, identity):
         return self._zone('posting', identity)
 
-
     def interface(self, identity):
         return self._zone('interface', identity)
-
 
     def rollback_execution(self, operation, identity):
         self.rollback_calls.append((operation, identity))
 
 
 class _FakeGL:
-    '''A GLClient stand-in that records imports and rollbacks, optionally failing.'''
+    """A GLClient stand-in that records imports and rollbacks, optionally failing."""
 
     def __init__(self, raise_error=False, rejected_count=0):
         self._raise_error = raise_error
         self._rejected_count = rejected_count
         self.import_calls: list[tuple[RunIdentity, UUID]] = []
         self.rollback_calls: list[RunIdentity] = []
-
 
     def import_instructions(self, identity, source_producer_run_id):
         self.import_calls.append((identity, source_producer_run_id))
@@ -97,15 +88,16 @@ class _FakeGL:
             results=(),
         )
 
-
     def rollback_execution(self, identity):
         self.rollback_calls.append(identity)
 
 
 # -- helpers ---------------------------------------------------------------
 
+
 def _executions_by_operation(
-    repository: FakeRunRepository, workflow_run_id: UUID,
+    repository: FakeRunRepository,
+    workflow_run_id: UUID,
 ) -> dict[str, ExecutionRun]:
     return {
         execution.operation: execution
@@ -114,6 +106,7 @@ def _executions_by_operation(
 
 
 # -- run_foundry: topology -------------------------------------------------
+
 
 def test_run_foundry_creates_five_zone_executions_under_one_workflow():
     run_tracker = make_run_tracker()
@@ -125,7 +118,14 @@ def test_run_foundry_creates_five_zone_executions_under_one_workflow():
     repository = run_tracker._repository
     executions = _executions_by_operation(repository, result.identity.workflow_run_id)
 
-    assert set(executions) == {'PIPELINE', 'STAGING', 'ENRICHMENT', 'REPORTING', 'POSTING', 'INTERFACE'}
+    assert set(executions) == {
+        'PIPELINE',
+        'STAGING',
+        'ENRICHMENT',
+        'REPORTING',
+        'POSTING',
+        'INTERFACE',
+    }
     assert all(e.component == 'FOUNDRY' for e in executions.values())
 
     pipeline_execution = executions['PIPELINE']
@@ -169,12 +169,17 @@ def test_run_foundry_returns_pipeline_result_with_zones_in_order():
     result = orchestrator.run_foundry()
 
     assert [z.zone for z in result.zones] == [
-        'STAGING', 'ENRICHMENT', 'REPORTING', 'POSTING', 'INTERFACE',
+        'STAGING',
+        'ENRICHMENT',
+        'REPORTING',
+        'POSTING',
+        'INTERFACE',
     ]
     assert result.status == RunStatus.SUCCEEDED
 
 
 # -- run_foundry: lifecycle ------------------------------------------------
+
 
 def test_run_foundry_completes_workflow_and_pipeline_execution_on_success():
     run_tracker = make_run_tracker()
@@ -215,7 +220,7 @@ def test_run_foundry_rolls_back_and_fails_execution_chain_on_zone_failure(failin
     assert identity.run_id == executions[failing_zone.upper()].run_id
 
     # Zones preceding the failure succeeded and were not rolled back.
-    preceding = ZONES[:ZONES.index(failing_zone)]
+    preceding = ZONES[: ZONES.index(failing_zone)]
     for zone in preceding:
         assert executions[zone.upper()].status == RunStatus.SUCCEEDED
 
@@ -240,6 +245,7 @@ def test_run_foundry_passes_the_zones_own_identity_into_each_zone_call():
 
 # -- run_gl ----------------------------------------------------------------
 
+
 def test_run_gl_requires_an_existing_workflow():
     run_tracker = make_run_tracker()
     orchestrator = WorkflowOrchestrator(run_tracker, _FakePipeline(), gl=_FakeGL())
@@ -258,7 +264,9 @@ def test_run_gl_resolves_the_workflows_foundry_interface_execution():
     workflow_run_id = foundry_result.identity.workflow_run_id
 
     repository = run_tracker._repository
-    interface_execution = _executions_by_operation(repository, workflow_run_id)['INTERFACE']
+    interface_execution = _executions_by_operation(repository, workflow_run_id)[
+        'INTERFACE'
+    ]
 
     orchestrator.run_gl(workflow_run_id)
 
@@ -370,6 +378,7 @@ def test_run_gl_continuing_an_already_succeeded_workflow_keeps_it_succeeded():
 
 # -- logging ---------------------------------------------------------------
 
+
 def test_run_foundry_zone_success_logs_operation_run_id_and_record_count(caplog):
     run_tracker = make_run_tracker()
     pipeline = _FakePipeline()
@@ -383,7 +392,8 @@ def test_run_foundry_zone_success_logs_operation_run_id_and_record_count(caplog)
     staging_run_id = executions['STAGING'].run_id
 
     zone_success_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'INFO' and 'Foundry zone succeeded' in r.message
     ]
     assert any(
@@ -407,7 +417,8 @@ def test_run_gl_success_logs_received_posted_and_rejected_counts(caplog):
         result = orchestrator.run_gl(workflow_run_id)
 
     success_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'INFO' and 'GL import succeeded' in r.message
     ]
     assert len(success_records) == 1
@@ -418,7 +429,9 @@ def test_run_gl_success_logs_received_posted_and_rejected_counts(caplog):
 
 
 @pytest.mark.parametrize('failing_zone', ZONES)
-def test_run_foundry_failure_logs_rollback_warning_and_one_exception(caplog, failing_zone):
+def test_run_foundry_failure_logs_rollback_warning_and_one_exception(
+    caplog, failing_zone
+):
     run_tracker = make_run_tracker()
     pipeline = _FakePipeline(raise_in=failing_zone)
     orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
@@ -428,14 +441,16 @@ def test_run_foundry_failure_logs_rollback_warning_and_one_exception(caplog, fai
             orchestrator.run_foundry()
 
     warning_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'WARNING' and 'Foundry zone rollback initiated' in r.message
     ]
     assert len(warning_records) == 1
     assert failing_zone.upper() in warning_records[0].message
 
     exception_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'ERROR' and 'Foundry zone failed' in r.message and r.exc_info
     ]
     assert len(exception_records) == 1
@@ -456,19 +471,22 @@ def test_run_gl_failure_logs_rollback_warning_and_one_exception(caplog):
             orchestrator.run_gl(workflow_run_id)
 
     warning_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'WARNING' and 'GL rollback initiated' in r.message
     ]
     assert len(warning_records) == 1
 
     exception_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'ERROR' and 'GL import failed' in r.message and r.exc_info
     ]
     assert len(exception_records) == 1
 
 
 # -- run_workflow ----------------------------------------------------------
+
 
 def test_run_workflow_creates_exactly_one_workflow_with_foundry_and_gl():
     run_tracker = make_run_tracker()
@@ -488,7 +506,13 @@ def test_run_workflow_creates_exactly_one_workflow_with_foundry_and_gl():
 
     executions = _executions_by_operation(repository, workflow_run_id)
     assert set(executions) == {
-        'PIPELINE', 'STAGING', 'ENRICHMENT', 'REPORTING', 'POSTING', 'INTERFACE', 'IMPORT',
+        'PIPELINE',
+        'STAGING',
+        'ENRICHMENT',
+        'REPORTING',
+        'POSTING',
+        'INTERFACE',
+        'IMPORT',
     }
 
     workflow = repository.get_workflow_run(workflow_run_id)

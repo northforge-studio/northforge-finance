@@ -5,15 +5,14 @@ from uuid import uuid4
 import pytest
 
 from core.runs.models import (
-    RunStatus,
-    WorkflowRun,
     ExecutionRun,
+    PipelineResult,
     RunDependency,
     RunIdentity,
+    RunStatus,
+    WorkflowRun,
     ZoneResult,
-    PipelineResult,
 )
-
 from tests.support.constants import TIMESTAMP
 
 
@@ -175,10 +174,7 @@ def test_pipeline_result_aggregates_zone_results():
         'STAGING',
         'ENRICHMENT',
     ]
-    assert all(
-        zone.identity == identity
-        for zone in pipeline_result.zones
-    )
+    assert all(zone.identity == identity for zone in pipeline_result.zones)
 
 
 def test_pipeline_result_accepts_no_zones():

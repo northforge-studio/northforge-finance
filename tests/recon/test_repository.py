@@ -8,7 +8,6 @@ from pyspark.sql import DataFrame
 from core.store import CsvStore
 from recon.models import ReconResult
 from recon.repository import ReconRepository
-
 from tests.support.constants import TIMESTAMP
 from tests.support.fakes import FakeStore
 
@@ -107,10 +106,12 @@ def test_get_results_excludes_rows_from_other_workflows(repository):
     kept_workflow_run_id = uuid4()
     other_workflow_run_id = uuid4()
 
-    repository.write_results([
-        _make_result(workflow_run_id=kept_workflow_run_id),
-        _make_result(workflow_run_id=other_workflow_run_id),
-    ])
+    repository.write_results(
+        [
+            _make_result(workflow_run_id=kept_workflow_run_id),
+            _make_result(workflow_run_id=other_workflow_run_id),
+        ]
+    )
 
     rows = repository.get_results(kept_workflow_run_id).collect()
 

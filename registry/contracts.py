@@ -7,7 +7,6 @@ from pyspark.sql.types import (
 
 from registry.models import GLSegmentType
 
-
 ENTITY_SCHEMA = StructType(
     [
         StructField('BUSINESS_DT', DateType(), False),

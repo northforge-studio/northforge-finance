@@ -1,31 +1,22 @@
-from uuid import UUID
 from datetime import date
 from decimal import Decimal
-
-from gl.models import GLSegments
+from uuid import UUID
 
 from atlas.models import MappingResolutionEvidence
-
-from registry.models import GLSegmentType
-
 from break_analysis.models import (
-    BreakCase,
-    RootCause,
-    BreakRecord,
-    BreakTopology,
-    BreakCaseEvidence,
-    BreakAnalysisStatus,
     AtlasInputResolution,
     AtlasResolutionEvidence,
-    FoundryMappingInputValues
+    BreakAnalysisStatus,
+    BreakCase,
+    BreakCaseEvidence,
+    BreakRecord,
+    BreakTopology,
+    FoundryMappingInputValues,
+    RootCause,
 )
-
-from evals.models import (
-    ToolFixture,
-    EvalScenario,
-    EvalExpectation,
-    ExpectedFinding
-)
+from evals.models import EvalExpectation, EvalScenario, ExpectedFinding, ToolFixture
+from gl.models import GLSegments
+from registry.models import GLSegmentType
 
 
 def atlas_unresolved_account() -> EvalScenario:
@@ -74,9 +65,7 @@ def atlas_unresolved_account() -> EvalScenario:
     break_case = BreakCase(
         case_id=UUID('11111111-1111-1111-1111-111111111111'),
         topology=BreakTopology.ONE_TO_ONE,
-        investigation_records=(
-            investigation_record,
-        ),
+        investigation_records=(investigation_record,),
         pivot=pivot,
         evidence=BreakCaseEvidence(
             relaxed_segments=(GLSegmentType.ACCOUNT,),
@@ -134,16 +123,12 @@ def atlas_unresolved_account() -> EvalScenario:
             findings=(
                 ExpectedFinding(
                     root_cause=RootCause.ATLAS_UNRESOLVED_SEGMENT,
-                    recon_result_id=(
-                        investigation_record.recon_result_id
-                    ),
+                    recon_result_id=(investigation_record.recon_result_id),
                     segment_type=GLSegmentType.ACCOUNT,
                     segment_value='',
                 ),
             ),
-            required_tools=(
-                'investigate_resolution',
-            ),
+            required_tools=('investigate_resolution',),
             forbidden_tools=(
                 'validate_segment',
                 'get_segment_details',

@@ -3,22 +3,18 @@ from functools import reduce
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from core.logging import get_logger, short_id
-
 from atlas import AtlasClient
 from atlas.models import MappingDefinition
-
-from registry.models import GLSegmentType
-
-from foundry.contracts import TRIAL_BALANCE_POSTING_SEGMENT_COLUMNS
-from foundry.repository import TrialBalanceRepository
-
 from break_analysis.models import (
-    BreakRecord,
     AtlasInputResolution,
     AtlasResolutionEvidence,
-    FoundryMappingInputValues 
+    BreakRecord,
+    FoundryMappingInputValues,
 )
+from core.logging import get_logger, short_id
+from foundry.contracts import TRIAL_BALANCE_POSTING_SEGMENT_COLUMNS
+from foundry.repository import TrialBalanceRepository
+from registry.models import GLSegmentType
 
 logger = get_logger(__name__)
 
@@ -48,19 +44,14 @@ class AtlasEvidenceService:
         self._atlas = atlas_client
         self._foundry = foundry_repository
 
-
     def investigate_resolution(
-        self,
-        break_record: BreakRecord,
-        segment_type: GLSegmentType
+        self, break_record: BreakRecord, segment_type: GLSegmentType
     ) -> AtlasResolutionEvidence:
         mapping_name = SEGMENT_MAPPING_NAMES.get(segment_type)
 
         if mapping_name is None:
-            raise ValueError(
-                f'No Atlas mapping configured for segment {segment_type}.'
-            )
-        
+            raise ValueError(f'No Atlas mapping configured for segment {segment_type}.')
+
         foundry_inputs = self.get_foundry_mapping_input_values(
             break_record=break_record,
             mapping_name=mapping_name,
@@ -83,7 +74,6 @@ class AtlasEvidenceService:
             mapping_name=mapping_name,
             input_resolutions=input_resolutions,
         )
-
 
     def get_foundry_mapping_input_values(
         self,
@@ -115,17 +105,16 @@ class AtlasEvidenceService:
             )
 
         grouped_rows = (
-            matched_df
-            .select(*input_columns)
-            .groupBy(*input_columns)
-            .count()
-            .collect()
+            matched_df.select(*input_columns).groupBy(*input_columns).count().collect()
         )
 
         logger.info(
             'Atlas mapping input values retrieved | recon_result_id=%s | '
             'mapping_name=%s | input_columns=%s | distinct_combinations=%s',
-            case_id, mapping_name, input_columns, len(grouped_rows),
+            case_id,
+            mapping_name,
+            input_columns,
+            len(grouped_rows),
         )
 
         return tuple(
@@ -135,7 +124,6 @@ class AtlasEvidenceService:
             )
             for row in grouped_rows
         )
-
 
     def _input_columns(
         self,
@@ -158,11 +146,7 @@ class AtlasEvidenceService:
                 f'without a src_field_name: {sorted(missing_src_field_names)}.'
             )
 
-        return tuple(
-            field.src_field_name
-            for field in definition.input_fields
-        )
-
+        return tuple(field.src_field_name for field in definition.input_fields)
 
     def _match_break_record(
         self,
@@ -181,8 +165,6 @@ class AtlasEvidenceService:
             )
 
             # Foundry stores an unresolved/blank segment as '', not NULL.
-            conditions.append(
-                F.col(column) == (segment_value or '')
-            )
+            conditions.append(F.col(column) == (segment_value or ''))
 
         return postings_df.filter(reduce(lambda a, b: a & b, conditions))

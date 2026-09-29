@@ -2,7 +2,6 @@ from decimal import Decimal
 from uuid import uuid4
 
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA, POSTING_SCHEMA
-
 from tests.support.constants import BUSINESS_DT, TIMESTAMP
 
 

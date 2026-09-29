@@ -3,14 +3,12 @@ from uuid import UUID
 
 from pyspark.sql import DataFrame, SparkSession
 
+from core.runs import RunTracker
 from core.store import (
     CsvStore,
     PostgresStore,
 )
-from core.runs import RunTracker
-
 from gl import GLClient
-
 from recon.manager import ReconManager
 from recon.models import ReconRunResult
 from recon.repository import ReconRepository
@@ -27,7 +25,6 @@ class ReconClient:
         self._run_tracker = run_tracker
         self._gl = gl
         self._manager = ReconManager(repository, run_tracker, gl)
-
 
     @classmethod
     def from_csv(
@@ -53,7 +50,6 @@ class ReconClient:
 
         return cls(ReconRepository(store, spark), run_tracker, gl)
 
-
     @classmethod
     def from_db(
         cls,
@@ -73,10 +69,8 @@ class ReconClient:
 
         return cls(ReconRepository(store, spark), run_tracker, gl)
 
-
     def reconcile(self, workflow_run_id: UUID) -> ReconRunResult:
         return self._manager.reconcile(workflow_run_id)
-
 
     def get_results(self, workflow_run_id: UUID) -> DataFrame:
         return self._manager.get_results(workflow_run_id)

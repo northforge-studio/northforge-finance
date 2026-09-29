@@ -1,27 +1,24 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 
 from pyspark.sql import DataFrame
 
-from registry import RegistryClient
-from registry.models import GLSegmentType
-
 from core.runs.models import RunIdentity
-
 from gl.models import (
-    GLSegments,
-    GLSegmentDefaults,
-    GLSegmentResolution,
-    GLSegmentResolutions,
+    GLImportResult,
     GLInstruction,
+    GLInstructionResult,
     GLInstructionValidation,
     GLPosting,
     GLRejection,
-    GLInstructionResult,
-    GLImportResult,
+    GLSegmentDefaults,
+    GLSegmentResolution,
+    GLSegmentResolutions,
+    GLSegments,
 )
 from gl.repository import GLRepository
-
+from registry import RegistryClient
+from registry.models import GLSegmentType
 
 # Maps each GLSegments field to its segment_type. ENTITY is listed
 # first: it is resolved before the rest so its resolved value can be
@@ -72,7 +69,6 @@ class GLManager:
         self._repository = repository
         self._registry = registry
 
-
     def get_segment_default(
         self,
         segment_type: GLSegmentType,
@@ -81,25 +77,27 @@ class GLManager:
     ) -> str | None:
         if entity_cd is not None:
             contextual = self._repository.get_segment_default(
-                segment_type, 'ENTITY_CD', entity_cd,
+                segment_type,
+                'ENTITY_CD',
+                entity_cd,
             )
             if contextual is not None:
                 return contextual.default_value
 
         global_default = self._repository.get_segment_default(
-            segment_type, '*', '*',
+            segment_type,
+            '*',
+            '*',
         )
         if global_default is not None:
             return global_default.default_value
 
         return None
 
-
     def get_segment_defaults(self) -> GLSegmentDefaults:
         return GLSegmentDefaults(
             values=self._repository.get_segment_defaults(),
         )
-
 
     def resolve_segment(
         self,
@@ -110,7 +108,9 @@ class GLManager:
         entity_cd: str | None = None,
     ) -> GLSegmentResolution:
         if segment_value and self._is_registry_valid(
-            segment_type, business_dt, segment_value,
+            segment_type,
+            business_dt,
+            segment_value,
         ):
             return GLSegmentResolution(
                 segment_type=segment_type,
@@ -122,7 +122,9 @@ class GLManager:
         default_value = self.get_segment_default(segment_type, entity_cd=entity_cd)
 
         if default_value is not None and self._is_registry_valid(
-            segment_type, business_dt, default_value,
+            segment_type,
+            business_dt,
+            default_value,
         ):
             return GLSegmentResolution(
                 segment_type=segment_type,
@@ -138,7 +140,6 @@ class GLManager:
             defaulted=False,
         )
 
-
     def resolve_segments(
         self,
         segments: GLSegments,
@@ -146,7 +147,9 @@ class GLManager:
         business_dt: date,
     ) -> GLSegmentResolutions:
         entity_resolution = self.resolve_segment(
-            GLSegmentType.ENTITY, segments.entity_cd, business_dt=business_dt,
+            GLSegmentType.ENTITY,
+            segments.entity_cd,
+            business_dt=business_dt,
         )
 
         if entity_resolution.resolved_value is None:
@@ -176,17 +179,18 @@ class GLManager:
                 resolved=False,
             )
 
-        final_segments = GLSegments(**{
-            field: resolution.resolved_value
-            for (field, _), resolution in zip(_SEGMENT_FIELD_TYPES, resolutions)
-        })
+        final_segments = GLSegments(
+            **{
+                field: resolution.resolved_value
+                for (field, _), resolution in zip(_SEGMENT_FIELD_TYPES, resolutions, strict=True)
+            }
+        )
 
         return GLSegmentResolutions(
             segments=final_segments,
             resolutions=tuple(resolutions),
             resolved=True,
         )
-
 
     def validate_instruction(
         self,
@@ -205,7 +209,6 @@ class GLManager:
 
         return GLInstructionValidation(valid=not errors, errors=tuple(errors))
 
-
     def process_instruction(
         self,
         instruction: GLInstruction,
@@ -220,12 +223,12 @@ class GLManager:
         # output rows. Absent an orchestrated identity (e.g. ad hoc/direct
         # calls), fall back to the instruction's own lineage.
         workflow_run_id = (
-            identity.workflow_run_id if identity is not None
+            identity.workflow_run_id
+            if identity is not None
             else instruction.workflow_run_id
         )
         producer_run_id = (
-            identity.run_id if identity is not None
-            else instruction.producer_run_id
+            identity.run_id if identity is not None else instruction.producer_run_id
         )
 
         validation = self.validate_instruction(instruction)
@@ -280,7 +283,7 @@ class GLManager:
             instruction,
             segment_resolution.segments,
             gl_posting_id=gl_posting_id or uuid4(),
-            posted_at=posted_at or datetime.now(timezone.utc),
+            posted_at=posted_at or datetime.now(UTC),
             workflow_run_id=workflow_run_id,
             producer_run_id=producer_run_id,
         )
@@ -293,7 +296,6 @@ class GLManager:
             validation=validation,
             segment_resolution=segment_resolution,
         )
-
 
     def import_instructions(
         self,
@@ -325,19 +327,15 @@ class GLManager:
             results=results,
         )
 
-
     def rollback_execution(self, identity: RunIdentity) -> None:
         self._repository.delete_postings(identity.workflow_run_id)
         self._repository.delete_rejections(identity.workflow_run_id)
 
-
     def get_postings(self, workflow_run_id: UUID) -> DataFrame:
         return self._repository.get_postings(workflow_run_id)
 
-
     def get_rejections(self, workflow_run_id: UUID) -> DataFrame:
         return self._repository.get_rejections(workflow_run_id)
-
 
     def _reject(
         self,
@@ -353,7 +351,7 @@ class GLManager:
         rejection = GLRejection.from_instruction(
             instruction,
             gl_rejection_id=gl_rejection_id or uuid4(),
-            rejected_at=rejected_at or datetime.now(timezone.utc),
+            rejected_at=rejected_at or datetime.now(UTC),
             rejection_type=rejection_type,
             rejection_detail=rejection_detail,
             workflow_run_id=workflow_run_id,
@@ -363,7 +361,6 @@ class GLManager:
 
         return rejection
 
-
     def _is_registry_valid(
         self,
         segment_type: GLSegmentType,
@@ -371,5 +368,7 @@ class GLManager:
         segment_value: str,
     ) -> bool:
         return self._registry.validate_segment(
-            segment_type, business_dt, segment_value,
+            segment_type,
+            business_dt,
+            segment_value,
         )

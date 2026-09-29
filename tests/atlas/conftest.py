@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.support.paths import ATLAS_META_PATH, ATLAS_DATA_PATH
+from tests.support.paths import ATLAS_DATA_PATH, ATLAS_META_PATH
 
 
 def _strip_id_column(source: Path, dest: Path) -> None:

@@ -11,3 +11,5 @@ psycopg[binary]
 langchain-ollama
 pydantic
 langgraph
+ruff
+pyright

@@ -5,17 +5,17 @@ Revises: a1542da54de4
 Create Date: 2026-08-25 23:11:44.959186
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
-
+from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = '07d8310823a5'
-down_revision: Union[str, Sequence[str], None] = 'a1542da54de4'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = 'a1542da54de4'
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -43,21 +43,15 @@ def upgrade() -> None:
     ]
 
     columns.extend(
-        sa.Column(f'input_col{i}', sa.String(), nullable=True)
-        for i in range(1, 11)
+        sa.Column(f'input_col{i}', sa.String(), nullable=True) for i in range(1, 11)
     )
 
     columns.extend(
-        sa.Column(f'output_col{i}', sa.String(), nullable=True)
-        for i in range(1, 11)
+        sa.Column(f'output_col{i}', sa.String(), nullable=True) for i in range(1, 11)
     )
 
-    columns.append(
-        sa.Column('weightage', sa.String(), nullable=True)
-    )
-    columns.append(
-        sa.Column('status', sa.String(), nullable=False)
-    )
+    columns.append(sa.Column('weightage', sa.String(), nullable=True))
+    columns.append(sa.Column('status', sa.String(), nullable=False))
 
     op.create_table(
         'data',

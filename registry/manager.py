@@ -10,7 +10,6 @@ class RegistryManager:
     def __init__(self, repository: RegistryRepository):
         self._repository = repository
 
-
     def validate_segment(
         self,
         segment: GLSegmentType,
@@ -20,7 +19,6 @@ class RegistryManager:
         records = self._repository.get_active_segment(segment, business_dt, segment_cd)
 
         return records.count() > 0
-
 
     def get_segment_details(
         self,

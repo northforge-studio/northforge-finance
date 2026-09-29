@@ -2,25 +2,22 @@ from decimal import Decimal
 from uuid import uuid4
 
 import pytest
-from pyspark.sql import functions as F, DataFrame
+from pyspark.sql import DataFrame
+from pyspark.sql import functions as F
 
 from break_analysis.services.recon import ReconBreakRecordResolver
 from recon.contracts import RESULT_SCHEMA
-
 from tests.support.constants import AS_OF_DATE, TIMESTAMP
 
 
 class _FakeReconClient:
-    '''Mirrors ReconClient.get_results(): scoped to the given workflow_run_id.'''
+    """Mirrors ReconClient.get_results(): scoped to the given workflow_run_id."""
 
     def __init__(self, df):
         self._df = df
 
-
     def get_results(self, workflow_run_id):
-        return self._df.filter(
-            F.col('WORKFLOW_RUN_ID') == str(workflow_run_id)
-        )
+        return self._df.filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
 
 
 def _make_result_row(**overrides) -> dict:
@@ -94,8 +91,12 @@ def test_get_break_record_duplicate_recon_result_id_raises(spark):
     workflow_run_id = uuid4()
     recon_result_id = str(uuid4())
     rows = [
-        _make_result_row(WORKFLOW_RUN_ID=str(workflow_run_id), RECON_RESULT_ID=recon_result_id),
-        _make_result_row(WORKFLOW_RUN_ID=str(workflow_run_id), RECON_RESULT_ID=recon_result_id),
+        _make_result_row(
+            WORKFLOW_RUN_ID=str(workflow_run_id), RECON_RESULT_ID=recon_result_id
+        ),
+        _make_result_row(
+            WORKFLOW_RUN_ID=str(workflow_run_id), RECON_RESULT_ID=recon_result_id
+        ),
     ]
     df = _make_results_df(spark, rows)
     resolver = ReconBreakRecordResolver(_FakeReconClient(df))

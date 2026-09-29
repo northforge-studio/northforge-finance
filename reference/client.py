@@ -1,14 +1,10 @@
 from pathlib import Path
 
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import DataFrame, SparkSession
 
-from core.store import (
-    CsvStore,
-    PostgresStore
-)
-
-from reference.models import ReferenceData
+from core.store import CsvStore, PostgresStore
 from reference.manager import ReferenceManager
+from reference.models import ReferenceData
 from reference.repository import ReferenceRepository
 
 
@@ -16,7 +12,6 @@ class ReferenceClient:
     def __init__(self, repository: ReferenceRepository):
         self._repository = repository
         self._manager = ReferenceManager(repository)
-
 
     @classmethod
     def from_csv(
@@ -35,7 +30,6 @@ class ReferenceClient:
 
         return cls(ReferenceRepository(store))
 
-
     @classmethod
     def from_db(
         cls,
@@ -53,6 +47,7 @@ class ReferenceClient:
 
         return cls(ReferenceRepository(store))
 
-
-    def enrich_reference_data(self, df: DataFrame, reference_data: ReferenceData) -> DataFrame:
+    def enrich_reference_data(
+        self, df: DataFrame, reference_data: ReferenceData
+    ) -> DataFrame:
         return self._manager.enrich_reference_data(df, reference_data)

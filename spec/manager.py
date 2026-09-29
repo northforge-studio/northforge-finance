@@ -8,7 +8,6 @@ class SpecManager:
     def __init__(self, repository: SpecRepository):
         self._repository = repository
 
-
     def apply_transformation(
         self,
         df: DataFrame,
@@ -32,12 +31,7 @@ class SpecManager:
 
         return df
 
-
-    def apply_file_layout(
-        self,
-        df: DataFrame,
-        dataclass: str
-    ) -> DataFrame:
+    def apply_file_layout(self, df: DataFrame, dataclass: str) -> DataFrame:
         expressions = self._repository.get_file_layout_expressions(dataclass=dataclass)
 
         return df.selectExpr(*expressions)

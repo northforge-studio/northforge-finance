@@ -1,15 +1,11 @@
 from datetime import date
 from pathlib import Path
 
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import DataFrame, SparkSession
 
-from core.store import (
-    CsvStore,
-    PostgresStore
-)
-
-from registry.models import GLSegmentType
+from core.store import CsvStore, PostgresStore
 from registry.manager import RegistryManager
+from registry.models import GLSegmentType
 from registry.repository import RegistryRepository
 
 
@@ -17,7 +13,6 @@ class RegistryClient:
     def __init__(self, repository: RegistryRepository):
         self._repository = repository
         self._manager = RegistryManager(repository)
-
 
     @classmethod
     def from_csv(
@@ -50,7 +45,6 @@ class RegistryClient:
 
         return cls(RegistryRepository(store))
 
-
     @classmethod
     def from_db(
         cls,
@@ -82,7 +76,6 @@ class RegistryClient:
 
         return cls(RegistryRepository(store))
 
-
     def validate_segment(
         self,
         segment: GLSegmentType,
@@ -90,7 +83,6 @@ class RegistryClient:
         segment_cd: str,
     ) -> bool:
         return self._manager.validate_segment(segment, business_dt, segment_cd)
-
 
     def get_segment_details(
         self,

@@ -1,14 +1,13 @@
-from uuid import UUID
-from typing import Any
 from dataclasses import dataclass
+from typing import Any
+from uuid import UUID
 
 from break_analysis.models import (
+    BreakAnalysisResult,
+    BreakAnalysisStatus,
     BreakCase,
     RootCause,
-    BreakAnalysisResult,
-    BreakAnalysisStatus
 )
-
 from gl.models import GLSegmentType
 
 
@@ -28,7 +27,7 @@ class ToolCallRecord:
 @dataclass(frozen=True)
 class ExpectedFinding:
     root_cause: RootCause
-    
+
     recon_result_id: UUID
     segment_type: GLSegmentType
     segment_value: str

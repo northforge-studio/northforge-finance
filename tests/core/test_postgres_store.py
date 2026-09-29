@@ -12,7 +12,6 @@ from core.db import PostgresConfig
 from core.store import PostgresStore
 from core.store.base import fill_null_strings
 
-
 CONFIG = PostgresConfig(
     host='localhost',
     port=5432,
@@ -67,11 +66,13 @@ def test_write_resolves_logical_table_to_physical_table(mock_executor):
 
 
 def test_write_fills_null_string_columns_with_empty_string(spark):
-    schema = StructType([
-        StructField('SRC_ACCOUNT_ID', StringType(), nullable=True),
-        StructField('OUTPUT_COL6', StringType(), nullable=True),
-        StructField('AMOUNT', IntegerType(), nullable=True),
-    ])
+    schema = StructType(
+        [
+            StructField('SRC_ACCOUNT_ID', StringType(), nullable=True),
+            StructField('OUTPUT_COL6', StringType(), nullable=True),
+            StructField('AMOUNT', IntegerType(), nullable=True),
+        ]
+    )
 
     df = spark.createDataFrame(
         [('11392', None, None)],

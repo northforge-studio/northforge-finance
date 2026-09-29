@@ -1,17 +1,13 @@
+from langchain_core.messages import HumanMessage
+from langchain_ollama import ChatOllama
 from pyspark.sql import SparkSession
 
-from langchain_ollama import ChatOllama
-from langchain_core.messages import HumanMessage
-
+from break_analysis import BreakAnalysisAgent
+from break_analysis.tools.registry import RegistryTools
 from registry import RegistryClient
 
-from break_analysis.tools.registry import RegistryTools
-from break_analysis import BreakAnalysisAgent
-
-
 spark = (
-    SparkSession.builder
-    .master('local[*]')
+    SparkSession.builder.master('local[*]')
     .appName('break-agent-dev')
     .config(
         'spark.jars.packages',
@@ -21,10 +17,7 @@ spark = (
 )
 
 
-llm = ChatOllama(
-    model='qwen3:8b',
-    temperature=0
-)
+llm = ChatOllama(model='qwen3:8b', temperature=0)
 
 registry_client = RegistryClient.from_db(
     spark=spark,
@@ -41,23 +34,16 @@ registry_client = RegistryClient.from_db(
 
 registry_tools = RegistryTools(registry_client=registry_client)
 
-agent = BreakAnalysisAgent(
-    llm=llm,
-    registry_tools=registry_tools
-)
+agent = BreakAnalysisAgent(llm=llm, registry_tools=registry_tools)
 
 message = HumanMessage(
-    content=(
-        'Validate GL account 210000 in Registry. '
-        'Use the validate_segment tool.'
-    )
+    content=('Validate GL account 210000 in Registry. Use the validate_segment tool.')
 )
 try:
     response = agent._llm_with_tools.invoke([message])
     print(response)
     print(response.tool_calls)
 except Exception as e:
-    print(f"Error occurred: {e}")
+    print(f'Error occurred: {e}')
 finally:
     spark.stop()
-

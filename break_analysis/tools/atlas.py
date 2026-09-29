@@ -1,10 +1,10 @@
 from uuid import UUID
+
 from pydantic import BaseModel
 
-from registry.models import GLSegmentType
-
-from break_analysis.services.atlas import AtlasResolutionEvidence, AtlasEvidenceService
+from break_analysis.services.atlas import AtlasEvidenceService, AtlasResolutionEvidence
 from break_analysis.services.recon import ReconBreakRecordResolver
+from registry.models import GLSegmentType
 
 
 class InvestigateAtlasResolutionInput(BaseModel):
@@ -21,7 +21,6 @@ class AtlasTools:
     ):
         self._recon = recon_resolver
         self._atlas = atlas_evidence_service
-
 
     def investigate_resolution(
         self,

@@ -3,7 +3,6 @@ from uuid import uuid4
 
 from break_analysis.models import BreakRecord
 from gl.models import GLSegments
-
 from tests.support.constants import AS_OF_DATE
 
 

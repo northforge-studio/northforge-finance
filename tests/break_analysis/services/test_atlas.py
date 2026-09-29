@@ -11,10 +11,8 @@ from atlas.models import (
 )
 from break_analysis.services.atlas import AtlasEvidenceService
 from registry.models import GLSegmentType
-
 from tests.break_analysis.factories import make_break_record, make_segments
 from tests.support.constants import AS_OF_DATE
-
 
 _POSTING_SEGMENT_COLUMNS = dict(
     GL_ENTITY_CD='USM',
@@ -29,27 +27,30 @@ _POSTING_SEGMENT_COLUMNS = dict(
 )
 
 
-_POSTING_SCHEMA = StructType([
-    StructField('AS_OF_DT', DateType(), False),
-    StructField('POSTING_MEASURE_FUNC_CCY_CD', StringType(), False),
-    StructField('GL_ENTITY_CD', StringType(), False),
-    StructField('GL_BRANCH_CD', StringType(), False),
-    StructField('GL_DEPT_CD', StringType(), False),
-    StructField('GL_ACCOUNT', StringType(), False),
-    StructField('GL_SUB_ACCOUNT', StringType(), False),
-    StructField('GL_AFFILIATE_CD', StringType(), False),
-    StructField('GL_PRODUCT_CD', StringType(), False),
-    StructField('GL_BOOK_CD', StringType(), False),
-    StructField('GL_COA_SRC_SEGMENT', StringType(), False),
-    StructField('COUNTRY_CD', StringType(), False),
-    StructField('COUNTERPARTY_CD', StringType(), False),
-])
+_POSTING_SCHEMA = StructType(
+    [
+        StructField('AS_OF_DT', DateType(), False),
+        StructField('POSTING_MEASURE_FUNC_CCY_CD', StringType(), False),
+        StructField('GL_ENTITY_CD', StringType(), False),
+        StructField('GL_BRANCH_CD', StringType(), False),
+        StructField('GL_DEPT_CD', StringType(), False),
+        StructField('GL_ACCOUNT', StringType(), False),
+        StructField('GL_SUB_ACCOUNT', StringType(), False),
+        StructField('GL_AFFILIATE_CD', StringType(), False),
+        StructField('GL_PRODUCT_CD', StringType(), False),
+        StructField('GL_BOOK_CD', StringType(), False),
+        StructField('GL_COA_SRC_SEGMENT', StringType(), False),
+        StructField('COUNTRY_CD', StringType(), False),
+        StructField('COUNTERPARTY_CD', StringType(), False),
+    ]
+)
 
 
 # -- fakes -----------------------------------------------------------------
 
+
 class _FakeAtlasClient:
-    '''Duck-types AtlasClient, serving a canned definition and resolutions.'''
+    """Duck-types AtlasClient, serving a canned definition and resolutions."""
 
     def __init__(
         self,
@@ -60,10 +61,8 @@ class _FakeAtlasClient:
         self._resolutions = resolutions or {}
         self.explain_resolution_calls: list[dict] = []
 
-
     def get_definition(self, mapping_name: str) -> MappingDefinition:
         return self._definition
-
 
     def explain_resolution(
         self,
@@ -77,17 +76,17 @@ class _FakeAtlasClient:
 
 
 class _FakeFoundryRepository:
-    '''Duck-types the Foundry repository read of the posting zone.'''
+    """Duck-types the Foundry repository read of the posting zone."""
 
     def __init__(self, df):
         self._df = df
-
 
     def read_posting(self, workflow_run_id):
         return self._df
 
 
 # -- helpers ---------------------------------------------------------------
+
 
 def _make_mapping_definition(
     mapping_name: str = 'TEST_MAPPING',
@@ -154,7 +153,9 @@ def _make_service(
 
 
 def _make_resolution(
-    mapping_name: str, values: dict[str, str], output: str,
+    mapping_name: str,
+    values: dict[str, str],
+    output: str,
 ) -> MappingResolutionEvidence:
     return MappingResolutionEvidence(
         mapping_name=mapping_name,
@@ -168,6 +169,7 @@ def _make_resolution(
 
 # -- get_foundry_mapping_input_values --------------------------------------
 
+
 def test_get_foundry_mapping_input_values_uses_exact_canonical_input_names(spark):
     definition = _make_mapping_definition(
         input_field_names=('COUNTRY_CD', 'COUNTERPARTY_CD'),
@@ -176,7 +178,8 @@ def test_get_foundry_mapping_input_values_uses_exact_canonical_input_names(spark
     service = _make_service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
-        make_break_record(), mapping_name='TEST_MAPPING',
+        make_break_record(),
+        mapping_name='TEST_MAPPING',
     )
 
     assert len(result) == 1
@@ -189,7 +192,8 @@ def test_get_foundry_mapping_input_values_single_match_returns_one_result(spark)
     service = _make_service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
-        make_break_record(), mapping_name='TEST_MAPPING',
+        make_break_record(),
+        mapping_name='TEST_MAPPING',
     )
 
     assert len(result) == 1
@@ -211,7 +215,8 @@ def test_get_foundry_mapping_input_values_collapses_duplicates_with_count(spark)
     service = _make_service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
-        make_break_record(), mapping_name='TEST_MAPPING',
+        make_break_record(),
+        mapping_name='TEST_MAPPING',
     )
 
     assert len(result) == 1
@@ -232,7 +237,8 @@ def test_get_foundry_mapping_input_values_returns_one_result_per_combination(spa
     service = _make_service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
-        make_break_record(), mapping_name='TEST_MAPPING',
+        make_break_record(),
+        mapping_name='TEST_MAPPING',
     )
 
     by_counterparty = {r.values['COUNTERPARTY_CD']: r for r in result}
@@ -251,7 +257,8 @@ def test_get_foundry_mapping_input_values_blank_segment_matches_empty_string(spa
     service = _make_service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
-        break_record, mapping_name='TEST_MAPPING',
+        break_record,
+        mapping_name='TEST_MAPPING',
     )
 
     assert len(result) == 1
@@ -271,7 +278,8 @@ def test_get_foundry_mapping_input_values_excludes_nonmatching_segments(spark):
     service = _make_service(definition, df)
 
     result = service.get_foundry_mapping_input_values(
-        make_break_record(), mapping_name='TEST_MAPPING',
+        make_break_record(),
+        mapping_name='TEST_MAPPING',
     )
 
     assert len(result) == 1
@@ -288,7 +296,8 @@ def test_get_foundry_mapping_input_values_no_matching_rows_raises(spark):
 
     with pytest.raises(ValueError, match='No foundry_posting rows found'):
         service.get_foundry_mapping_input_values(
-            make_break_record(), mapping_name='TEST_MAPPING',
+            make_break_record(),
+            mapping_name='TEST_MAPPING',
         )
 
 
@@ -301,7 +310,8 @@ def test_get_foundry_mapping_input_values_missing_input_column_raises(spark):
 
     with pytest.raises(ValueError, match='requires foundry_posting columns'):
         service.get_foundry_mapping_input_values(
-            make_break_record(), mapping_name='TEST_MAPPING',
+            make_break_record(),
+            mapping_name='TEST_MAPPING',
         )
 
 
@@ -312,11 +322,13 @@ def test_get_foundry_mapping_input_values_mapping_without_input_fields_raises(sp
 
     with pytest.raises(ValueError, match='has no input fields'):
         service.get_foundry_mapping_input_values(
-            make_break_record(), mapping_name='TEST_MAPPING',
+            make_break_record(),
+            mapping_name='TEST_MAPPING',
         )
 
 
 # -- investigate_resolution ------------------------------------------------
+
 
 def test_investigate_resolution_wraps_single_foundry_input_with_its_resolution(spark):
     # investigate_resolution() derives the mapping name from segment_type
@@ -326,7 +338,8 @@ def test_investigate_resolution_wraps_single_foundry_input_with_its_resolution(s
     values = {'COUNTRY_CD': 'US', 'COUNTERPARTY_CD': '1000'}
     resolution = _make_resolution('ENTITY_MAPPING', values, output='RESOLVED_A')
     service = _make_service(
-        definition, df,
+        definition,
+        df,
         resolutions={tuple(sorted(values.items())): resolution},
     )
     break_record = make_break_record()
@@ -358,7 +371,8 @@ def test_investigate_resolution_pairs_each_foundry_input_with_its_own_resolution
     resolution_a = _make_resolution('ENTITY_MAPPING', values_a, output='RESOLVED_A')
     resolution_b = _make_resolution('ENTITY_MAPPING', values_b, output='RESOLVED_B')
     service = _make_service(
-        definition, df,
+        definition,
+        df,
         resolutions={
             tuple(sorted(values_a.items())): resolution_a,
             tuple(sorted(values_b.items())): resolution_b,

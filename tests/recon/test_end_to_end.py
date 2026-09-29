@@ -21,11 +21,9 @@ from recon import ReconClient
 from recon.models import ReconRunResult
 from recon.repository import ReconRepository
 from registry.models import GLSegmentType
-
 from tests.support.constants import BUSINESS_DT
 from tests.support.fakes import FakeRegistryClient
 from tests.support.paths import GL_SEGMENT_DEFAULT_PATH
-
 
 VALID_SEGMENTS = {
     (GLSegmentType.ENTITY, BUSINESS_DT, 'USM'),
@@ -42,6 +40,7 @@ VALID_SEGMENTS = {
 
 
 # -- fixtures --------------------------------------------------------------
+
 
 @pytest.fixture
 def registry():
@@ -70,6 +69,7 @@ def recon(spark, tmp_path, run_tracker, gl):
 
 
 # -- helpers ---------------------------------------------------------------
+
 
 def _make_instruction(workflow_run_id: UUID, **overrides) -> GLInstruction:
     fields = dict(
@@ -154,20 +154,30 @@ def _write_interface(spark, tmp_path, instructions) -> None:
 
 # -- balanced flow: Foundry(seeded) -> Interface -> GL -> Recon ------------
 
+
 def test_reconcile_balanced_interface_and_gl_yields_zero_differences(
-    spark, tmp_path, run_tracker, gl, recon,
+    spark,
+    tmp_path,
+    run_tracker,
+    gl,
+    recon,
 ):
     workflow_run_id = run_tracker.start_workflow(
-        dataclass='TRIAL_BALANCE', business_dt=BUSINESS_DT,
+        dataclass='TRIAL_BALANCE',
+        business_dt=BUSINESS_DT,
     ).workflow_run_id
 
     cash = _make_instruction(
         workflow_run_id,
-        posting_id='POST-1', gl_account='123456', accounted_amount=Decimal('90000.00'),
+        posting_id='POST-1',
+        gl_account='123456',
+        accounted_amount=Decimal('90000.00'),
     )
     payable = _make_instruction(
         workflow_run_id,
-        posting_id='POST-2', gl_account='223456', accounted_amount=Decimal('-65000.00'),
+        posting_id='POST-2',
+        gl_account='223456',
+        accounted_amount=Decimal('-65000.00'),
         cr_dr_ind='CR',
     )
 
@@ -187,13 +197,18 @@ def test_reconcile_balanced_interface_and_gl_yields_zero_differences(
 
     # Recon rows are retrievable by workflow_run_id through a fresh
     # repository instance against the same physical store.
-    verify_store = CsvStore(spark=spark, table_locations={'RESULT': tmp_path / 'RESULT'})
-    persisted = ReconRepository(verify_store, spark).get_results(workflow_run_id).collect()
+    verify_store = CsvStore(
+        spark=spark, table_locations={'RESULT': tmp_path / 'RESULT'}
+    )
+    persisted = (
+        ReconRepository(verify_store, spark).get_results(workflow_run_id).collect()
+    )
 
     assert len(persisted) == 2
 
     recon_executions = [
-        e for e in run_tracker.get_execution_runs(workflow_run_id)
+        e
+        for e in run_tracker.get_execution_runs(workflow_run_id)
         if e.component == 'recon'
     ]
     assert len(recon_executions) == 1
@@ -216,16 +231,24 @@ def test_reconcile_balanced_interface_and_gl_yields_zero_differences(
 
 # -- controlled break: a duplicated GL posting produces a real break -------
 
+
 def test_reconcile_duplicated_gl_posting_yields_non_zero_difference(
-    spark, tmp_path, run_tracker, gl, recon,
+    spark,
+    tmp_path,
+    run_tracker,
+    gl,
+    recon,
 ):
     workflow_run_id = run_tracker.start_workflow(
-        dataclass='TRIAL_BALANCE', business_dt=BUSINESS_DT,
+        dataclass='TRIAL_BALANCE',
+        business_dt=BUSINESS_DT,
     ).workflow_run_id
 
     instruction = _make_instruction(
         workflow_run_id,
-        posting_id='POST-3', gl_account='123456', accounted_amount=Decimal('500.00'),
+        posting_id='POST-3',
+        gl_account='123456',
+        accounted_amount=Decimal('500.00'),
     )
 
     _write_interface(spark, tmp_path, [instruction])
@@ -247,28 +270,41 @@ def test_reconcile_duplicated_gl_posting_yields_non_zero_difference(
     assert balance.gl_balance == Decimal('1000.00')
     assert balance.difference_amount == Decimal('-500.00')
 
-    verify_store = CsvStore(spark=spark, table_locations={'RESULT': tmp_path / 'RESULT'})
+    verify_store = CsvStore(
+        spark=spark, table_locations={'RESULT': tmp_path / 'RESULT'}
+    )
     [row] = ReconRepository(verify_store, spark).get_results(workflow_run_id).collect()
     assert row['DIFFERENCE_AMOUNT'] == Decimal('-500.00')
 
 
 # -- workflow scoping across multiple recon executions in one store --------
 
+
 def test_reconcile_isolates_results_across_workflows_in_a_shared_store(
-    spark, tmp_path, run_tracker, gl, recon,
+    spark,
+    tmp_path,
+    run_tracker,
+    gl,
+    recon,
 ):
     balanced_workflow_run_id = run_tracker.start_workflow(
-        dataclass='TRIAL_BALANCE', business_dt=BUSINESS_DT,
+        dataclass='TRIAL_BALANCE',
+        business_dt=BUSINESS_DT,
     ).workflow_run_id
     broken_workflow_run_id = run_tracker.start_workflow(
-        dataclass='TRIAL_BALANCE', business_dt=BUSINESS_DT,
+        dataclass='TRIAL_BALANCE',
+        business_dt=BUSINESS_DT,
     ).workflow_run_id
 
     balanced_instruction = _make_instruction(
-        balanced_workflow_run_id, posting_id='POST-4', accounted_amount=Decimal('42.00'),
+        balanced_workflow_run_id,
+        posting_id='POST-4',
+        accounted_amount=Decimal('42.00'),
     )
     broken_instruction = _make_instruction(
-        broken_workflow_run_id, posting_id='POST-5', accounted_amount=Decimal('10.00'),
+        broken_workflow_run_id,
+        posting_id='POST-5',
+        accounted_amount=Decimal('10.00'),
     )
 
     _write_interface(spark, tmp_path, [balanced_instruction, broken_instruction])
@@ -283,11 +319,17 @@ def test_reconcile_isolates_results_across_workflows_in_a_shared_store(
     assert balanced_result.break_count == 0
     assert broken_result.break_count == 1
 
-    verify_store = CsvStore(spark=spark, table_locations={'RESULT': tmp_path / 'RESULT'})
+    verify_store = CsvStore(
+        spark=spark, table_locations={'RESULT': tmp_path / 'RESULT'}
+    )
     repository = ReconRepository(verify_store, spark)
 
     balanced_rows = repository.get_results(balanced_workflow_run_id).collect()
     broken_rows = repository.get_results(broken_workflow_run_id).collect()
 
-    assert {row['WORKFLOW_RUN_ID'] for row in balanced_rows} == {str(balanced_workflow_run_id)}
-    assert {row['WORKFLOW_RUN_ID'] for row in broken_rows} == {str(broken_workflow_run_id)}
+    assert {row['WORKFLOW_RUN_ID'] for row in balanced_rows} == {
+        str(balanced_workflow_run_id)
+    }
+    assert {row['WORKFLOW_RUN_ID'] for row in broken_rows} == {
+        str(broken_workflow_run_id)
+    }

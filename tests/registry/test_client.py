@@ -4,17 +4,16 @@ import pytest
 
 from registry import RegistryClient
 from registry.models import GLSegmentType
-
 from tests.support.paths import (
-    REGISTRY_ENTITY_PATH,
-    REGISTRY_DEPARTMENT_PATH,
-    REGISTRY_BRANCH_PATH,
     REGISTRY_ACCOUNT_PATH,
-    REGISTRY_SUB_ACCOUNT_PATH,
     REGISTRY_AFFILIATE_PATH,
-    REGISTRY_PRODUCT_PATH,
     REGISTRY_BOOK_PATH,
+    REGISTRY_BRANCH_PATH,
+    REGISTRY_DEPARTMENT_PATH,
+    REGISTRY_ENTITY_PATH,
+    REGISTRY_PRODUCT_PATH,
     REGISTRY_SOURCE_PATH,
+    REGISTRY_SUB_ACCOUNT_PATH,
 )
 
 
@@ -35,27 +34,36 @@ def registry(spark):
 
 
 def test_validate_segment_is_true_for_active_record(registry):
-    assert registry.validate_segment(
-        GLSegmentType.ENTITY,
-        date(2026, 3, 31),
-        'USMKTS',
-    ) is True
+    assert (
+        registry.validate_segment(
+            GLSegmentType.ENTITY,
+            date(2026, 3, 31),
+            'USMKTS',
+        )
+        is True
+    )
 
 
 def test_validate_segment_is_false_for_unknown_segment_cd(registry):
-    assert registry.validate_segment(
-        GLSegmentType.ENTITY,
-        date(2026, 3, 31),
-        'UNKNOWN',
-    ) is False
+    assert (
+        registry.validate_segment(
+            GLSegmentType.ENTITY,
+            date(2026, 3, 31),
+            'UNKNOWN',
+        )
+        is False
+    )
 
 
 def test_validate_segment_is_false_for_unmatched_business_dt(registry):
-    assert registry.validate_segment(
-        GLSegmentType.ENTITY,
-        date(2099, 1, 1),
-        'USMKTS',
-    ) is False
+    assert (
+        registry.validate_segment(
+            GLSegmentType.ENTITY,
+            date(2099, 1, 1),
+            'USMKTS',
+        )
+        is False
+    )
 
 
 def test_get_segment_details_returns_active_record(registry):
@@ -84,11 +92,14 @@ def test_get_segment_details_returns_inactive_record(registry):
 
 
 def test_validate_segment_is_false_for_inactive_record(registry):
-    assert registry.validate_segment(
-        GLSegmentType.BRANCH,
-        date(2026, 3, 31),
-        'USCH01',
-    ) is False
+    assert (
+        registry.validate_segment(
+            GLSegmentType.BRANCH,
+            date(2026, 3, 31),
+            'USCH01',
+        )
+        is False
+    )
 
 
 def test_get_segment_details_returns_empty_when_not_found(registry):

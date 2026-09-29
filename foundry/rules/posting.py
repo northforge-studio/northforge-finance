@@ -17,7 +17,6 @@ class PostingRuleProcessor:
         self._spec = spec
         self._atlas = atlas
 
-
     def apply(
         self,
         df: DataFrame,
@@ -41,39 +40,28 @@ class PostingRuleProcessor:
                     f'for posting rule {rule.id!r}'
                 )
 
-
     def _apply_gross_up(
         self,
         df: DataFrame,
     ) -> DataFrame:
 
         df = self._spec.apply_transformation(
-            df,
-            dataclass=self._dataclass,
-            zone='ENR',
-            stage='PRE',
-            sub_stage='PRE_COA'
+            df, dataclass=self._dataclass, zone='ENR', stage='PRE', sub_stage='PRE_COA'
         )
 
         df = self._apply_coa_enrichments(df)
 
         df = self._spec.apply_transformation(
-            df,
-            dataclass=self._dataclass,
-            zone='ENR',
-            stage='PRE',
-            sub_stage='POST_COA'
+            df, dataclass=self._dataclass, zone='ENR', stage='PRE', sub_stage='POST_COA'
         )
 
         return df
-
 
     def _apply_tb_offset(
         self,
         df: DataFrame,
     ) -> DataFrame:
         return df
-
 
     def _apply_coa_enrichments(self, df: DataFrame) -> DataFrame:
         df = self._atlas.apply(df, mapping_name='ENTITY_MAPPING')

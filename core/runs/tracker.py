@@ -1,7 +1,7 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 
-from core.runs.models import RunStatus, WorkflowRun, ExecutionRun, RunDependency
+from core.runs.models import ExecutionRun, RunDependency, RunStatus, WorkflowRun
 from core.runs.repository import RunRepository
 
 
@@ -9,17 +9,14 @@ class RunTracker:
     def __init__(self, repository: RunRepository):
         self._repository = repository
 
-
     def get_workflow_run(self, workflow_run_id: UUID) -> WorkflowRun:
         return self._repository.get_workflow_run(workflow_run_id)
-
 
     def get_execution_runs(
         self,
         workflow_run_id: UUID,
     ) -> tuple[ExecutionRun, ...]:
         return self._repository.get_execution_runs(workflow_run_id)
-
 
     def start_workflow(
         self,
@@ -32,13 +29,12 @@ class RunTracker:
             dataclass=dataclass,
             business_dt=business_dt,
             status=RunStatus.RUNNING,
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
             completed_at=None,
         )
         self._repository.create_workflow_run(run)
 
         return run
-
 
     def start_execution(
         self,
@@ -56,7 +52,7 @@ class RunTracker:
             component=component,
             operation=operation,
             status=RunStatus.RUNNING,
-            started_at=datetime.now(timezone.utc),
+            started_at=datetime.now(UTC),
             completed_at=None,
             retry_of_run_id=retry_of_run_id,
         )
@@ -64,38 +60,33 @@ class RunTracker:
 
         return run
 
-
     def complete_workflow(self, workflow_run_id: UUID) -> None:
         self._repository.update_workflow_status(
             workflow_run_id,
             RunStatus.SUCCEEDED,
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
         )
-
 
     def fail_workflow(self, workflow_run_id: UUID) -> None:
         self._repository.update_workflow_status(
             workflow_run_id,
             RunStatus.FAILED,
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
         )
-
 
     def complete_execution(self, run_id: UUID) -> None:
         self._repository.update_execution_status(
             run_id,
             RunStatus.SUCCEEDED,
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
         )
-
 
     def fail_execution(self, run_id: UUID) -> None:
         self._repository.update_execution_status(
             run_id,
             RunStatus.FAILED,
-            completed_at=datetime.now(timezone.utc),
+            completed_at=datetime.now(UTC),
         )
-
 
     def add_dependency(
         self,

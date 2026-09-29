@@ -7,14 +7,16 @@ from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA, POSTING_SCHEMA
 from recon import ReconClient
 from recon.models import ReconRunResult
 from recon.repository import ReconRepository
-
 from tests.recon.factories import make_interface_values, make_posting_values
 from tests.recon.fakes import FakeGL
 from tests.support.constants import BUSINESS_DT
 
 
 def test_from_csv_reconciles_and_persists_through_a_real_repository(
-    spark, tmp_path, run_tracker, workflow,
+    spark,
+    tmp_path,
+    run_tracker,
+    workflow,
 ):
     interface_store = CsvStore(
         spark=spark,
@@ -54,9 +56,11 @@ def test_from_csv_reconciles_and_persists_through_a_real_repository(
         spark=spark,
         table_locations={'RESULT': tmp_path / 'RESULT'},
     )
-    persisted = ReconRepository(verify_store, spark).get_results(
-        workflow.workflow_run_id
-    ).collect()
+    persisted = (
+        ReconRepository(verify_store, spark)
+        .get_results(workflow.workflow_run_id)
+        .collect()
+    )
 
     assert len(persisted) == 1
     assert persisted[0]['WORKFLOW_RUN_ID'] == str(workflow.workflow_run_id)

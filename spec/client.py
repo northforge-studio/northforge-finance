@@ -1,14 +1,10 @@
 from pathlib import Path
 
-from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql import DataFrame, SparkSession
 
-from core.store import (
-    CsvStore,
-    PostgresStore
-)
-
-from spec.models import SpecType
+from core.store import CsvStore, PostgresStore
 from spec.manager import SpecManager
+from spec.models import SpecType
 from spec.repository import SpecRepository
 
 
@@ -16,7 +12,6 @@ class SpecClient:
     def __init__(self, repository: SpecRepository):
         self._repository = repository
         self._manager = SpecManager(repository)
-
 
     @classmethod
     def from_csv(
@@ -35,7 +30,6 @@ class SpecClient:
 
         return cls(SpecRepository(store))
 
-
     @classmethod
     def from_db(
         cls,
@@ -53,7 +47,6 @@ class SpecClient:
 
         return cls(SpecRepository(store))
 
-
     def apply_transformation(
         self,
         df: DataFrame,
@@ -69,7 +62,6 @@ class SpecClient:
             stage=stage,
             sub_stage=sub_stage,
         )
-
 
     def apply_file_layout(
         self,

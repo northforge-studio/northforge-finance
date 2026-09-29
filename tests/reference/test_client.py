@@ -2,8 +2,7 @@ import pytest
 
 from reference import ReferenceClient
 from reference.models import ReferenceData
-
-from tests.support.paths import REFERENCE_FX_RATE_PATH, REFERENCE_COUNTERPARTY_PATH
+from tests.support.paths import REFERENCE_COUNTERPARTY_PATH, REFERENCE_FX_RATE_PATH
 
 
 @pytest.fixture(scope='module')

@@ -3,7 +3,6 @@ from dataclasses import dataclass
 
 from dotenv import load_dotenv
 
-
 load_dotenv()
 
 
@@ -15,7 +14,6 @@ class PostgresConfig:
     user: str
     password: str
 
-
     @classmethod
     def from_env(cls) -> 'PostgresConfig':
         return cls(
@@ -26,7 +24,6 @@ class PostgresConfig:
             password=os.environ['POSTGRES_PASSWORD'],
         )
 
-
     @property
     def sqlalchemy_url(self) -> str:
         return (
@@ -36,15 +33,9 @@ class PostgresConfig:
             f'{self.database}'
         )
 
-
     @property
     def jdbc_url(self) -> str:
-        return (
-            f'jdbc:postgresql://'
-            f'{self.host}:{self.port}/'
-            f'{self.database}'
-        )
-
+        return f'jdbc:postgresql://{self.host}:{self.port}/{self.database}'
 
     @property
     def jdbc_properties(self) -> dict[str, str]:

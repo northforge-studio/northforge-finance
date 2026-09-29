@@ -6,7 +6,6 @@ from pyspark.sql.types import (
     StructType,
 )
 
-
 FX_RATE_SCHEMA = StructType(
     [
         StructField('CONVERSION_DT', DateType(), False),

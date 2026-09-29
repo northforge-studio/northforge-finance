@@ -11,10 +11,8 @@ from break_analysis.models import (
 from break_analysis.tools.registry import RegistryTools
 from core.logging import short_id
 from registry.models import GLSegmentType
-
 from tests.break_analysis.factories import make_break_record
 from tests.support.constants import AS_OF_DATE
-
 
 _CONCLUSION = BreakAnalysisConclusion(
     status='EXPLAINED',
@@ -25,8 +23,9 @@ _CONCLUSION = BreakAnalysisConclusion(
 
 # -- fakes -----------------------------------------------------------------
 
+
 class _FakeMessage:
-    '''A minimal LLM response message carrying tool calls and usage metadata.'''
+    """A minimal LLM response message carrying tool calls and usage metadata."""
 
     def __init__(self, tool_calls=(), usage_metadata=None):
         self.tool_calls = list(tool_calls)
@@ -34,24 +33,22 @@ class _FakeMessage:
 
 
 class _FakeBoundLLM:
-    '''The tool-bound LLM, replaying the scripted responses in order.'''
+    """The tool-bound LLM, replaying the scripted responses in order."""
 
     def __init__(self, responses):
         self._responses = list(responses)
-
 
     def invoke(self, messages):
         return self._responses.pop(0)
 
 
 class _FakeStructuredLLM:
-    '''The structured-output LLM, returning a fixed parsed conclusion.'''
+    """The structured-output LLM, returning a fixed parsed conclusion."""
 
     def __init__(self, parsed=None, parsing_error=None, usage_metadata=None):
         self._parsed = parsed
         self._parsing_error = parsing_error
         self._usage_metadata = usage_metadata
-
 
     def invoke(self, messages):
         return {
@@ -62,9 +59,11 @@ class _FakeStructuredLLM:
 
 
 class _FakeLLM:
-    '''A chat model stub exposing bind_tools and with_structured_output.'''
+    """A chat model stub exposing bind_tools and with_structured_output."""
 
-    def __init__(self, responses, parsed=None, parsing_error=None, conclusion_usage_metadata=None):
+    def __init__(
+        self, responses, parsed=None, parsing_error=None, conclusion_usage_metadata=None
+    ):
         self._bound = _FakeBoundLLM(responses)
         self._structured = _FakeStructuredLLM(
             parsed=parsed,
@@ -72,23 +71,20 @@ class _FakeLLM:
             usage_metadata=conclusion_usage_metadata,
         )
 
-
     def bind_tools(self, tools, reasoning=None):
         return self._bound
-
 
     def with_structured_output(self, schema, method=None, include_raw=False):
         return self._structured
 
 
 class _FakeRegistryClient:
-    '''Duck-types RegistryClient.validate_segment, optionally raising.'''
+    """Duck-types RegistryClient.validate_segment, optionally raising."""
 
     def __init__(self, is_valid=True, raise_error=False):
         self._is_valid = is_valid
         self._raise_error = raise_error
         self.calls = []
-
 
     def validate_segment(self, segment_type, business_dt, segment_value):
         if self._raise_error:
@@ -99,12 +95,11 @@ class _FakeRegistryClient:
 
 
 class _FakeAtlasTools:
-    '''Duck-types AtlasTools.investigate_resolution, and records each call.'''
+    """Duck-types AtlasTools.investigate_resolution, and records each call."""
 
     def __init__(self, evidence=None):
         self._evidence = evidence
         self.calls = []
-
 
     def investigate_resolution(self, workflow_run_id, recon_result_id, segment_type):
         self.calls.append((workflow_run_id, recon_result_id, segment_type))
@@ -112,6 +107,7 @@ class _FakeAtlasTools:
 
 
 # -- helpers ---------------------------------------------------------------
+
 
 def _make_break_case(**overrides) -> BreakCase:
     defaults = dict(
@@ -142,11 +138,14 @@ def _make_agent(
     conclusion=None,
     parsing_error=None,
     conclusion_usage_metadata=None,
-    **kwargs
+    **kwargs,
 ) -> BreakAnalysisAgent:
-    registry_tools = RegistryTools(registry_client=registry_client or _FakeRegistryClient())
+    registry_tools = RegistryTools(
+        registry_client=registry_client or _FakeRegistryClient()
+    )
     parsed = (
-        None if parsing_error is not None
+        None
+        if parsing_error is not None
         else (conclusion if conclusion is not None else _CONCLUSION)
     )
     llm = _FakeLLM(
@@ -159,11 +158,12 @@ def _make_agent(
         llm=llm,
         atlas_tools=atlas_tools or _FakeAtlasTools(),
         registry_tools=registry_tools,
-        **kwargs
+        **kwargs,
     )
 
 
 # -- analyze: logging ------------------------------------------------------
+
 
 def test_analyze_logs_start_line_with_case_context(caplog):
     break_case = _make_break_case()
@@ -173,7 +173,8 @@ def test_analyze_logs_start_line_with_case_context(caplog):
         agent.analyze(break_case)
 
     start_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'INFO' and 'Analyzing break case' in r.message
     ]
     assert len(start_records) == 1
@@ -190,20 +191,33 @@ def test_analyze_logs_end_summary_with_status_and_counts(caplog):
         responses=[
             _FakeMessage(
                 tool_calls=[_make_tool_call()],
-                usage_metadata={'input_tokens': 100, 'output_tokens': 20, 'total_tokens': 120},
+                usage_metadata={
+                    'input_tokens': 100,
+                    'output_tokens': 20,
+                    'total_tokens': 120,
+                },
             ),
             _FakeMessage(
-                usage_metadata={'input_tokens': 150, 'output_tokens': 10, 'total_tokens': 160},
+                usage_metadata={
+                    'input_tokens': 150,
+                    'output_tokens': 10,
+                    'total_tokens': 160,
+                },
             ),
         ],
-        conclusion_usage_metadata={'input_tokens': 50, 'output_tokens': 5, 'total_tokens': 55},
+        conclusion_usage_metadata={
+            'input_tokens': 50,
+            'output_tokens': 5,
+            'total_tokens': 55,
+        },
     )
 
     with caplog.at_level('INFO', logger='break_analysis.agent'):
         result = agent.analyze(break_case)
 
     summary_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'INFO' and 'Break case analyzed' in r.message
     ]
     assert len(summary_records) == 1
@@ -225,20 +239,33 @@ def test_analyze_logs_each_llm_invocation_with_usage_and_duration(caplog):
         responses=[
             _FakeMessage(
                 tool_calls=[_make_tool_call()],
-                usage_metadata={'input_tokens': 100, 'output_tokens': 20, 'total_tokens': 120},
+                usage_metadata={
+                    'input_tokens': 100,
+                    'output_tokens': 20,
+                    'total_tokens': 120,
+                },
             ),
             _FakeMessage(
-                usage_metadata={'input_tokens': 150, 'output_tokens': 10, 'total_tokens': 160},
+                usage_metadata={
+                    'input_tokens': 150,
+                    'output_tokens': 10,
+                    'total_tokens': 160,
+                },
             ),
         ],
-        conclusion_usage_metadata={'input_tokens': 50, 'output_tokens': 5, 'total_tokens': 55},
+        conclusion_usage_metadata={
+            'input_tokens': 50,
+            'output_tokens': 5,
+            'total_tokens': 55,
+        },
     )
 
     with caplog.at_level('INFO', logger='break_analysis.agent'):
         agent.analyze(break_case)
 
     llm_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'INFO' and 'LLM invoked' in r.message
     ]
     # Fires once per LLM turn: the initial decision, the final
@@ -274,25 +301,32 @@ def test_analyze_logs_each_llm_invocation_with_usage_and_duration(caplog):
 
 def test_analyze_logs_invoking_llm_before_each_invocation_with_matching_round(caplog):
     break_case = _make_break_case()
-    agent = _make_agent(responses=[
-        _FakeMessage(tool_calls=[_make_tool_call()]),
-        _FakeMessage(),
-    ])
+    agent = _make_agent(
+        responses=[
+            _FakeMessage(tool_calls=[_make_tool_call()]),
+            _FakeMessage(),
+        ]
+    )
 
     with caplog.at_level('INFO', logger='break_analysis.agent'):
         agent.analyze(break_case)
 
     relevant_records = [
-        r for r in caplog.records
-        if r.levelname == 'INFO' and r.message.startswith(('Invoking LLM', 'LLM invoked'))
+        r
+        for r in caplog.records
+        if r.levelname == 'INFO'
+        and r.message.startswith(('Invoking LLM', 'LLM invoked'))
     ]
 
     # 3 LLM turns total: two tool-bound turns plus the structured-output
     # conclusion turn, each as an Invoking/invoked pair.
     assert [r.message.split(' | ')[0] for r in relevant_records] == [
-        'Invoking LLM', 'LLM invoked',
-        'Invoking LLM', 'LLM invoked',
-        'Invoking LLM', 'LLM invoked',
+        'Invoking LLM',
+        'LLM invoked',
+        'Invoking LLM',
+        'LLM invoked',
+        'Invoking LLM',
+        'LLM invoked',
     ]
     assert 'round=1' in relevant_records[0].message
     assert 'round=1' in relevant_records[1].message
@@ -310,7 +344,8 @@ def test_analyze_logs_llm_invocation_with_none_when_usage_metadata_unavailable(c
         agent.analyze(break_case)
 
     llm_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'INFO' and 'LLM invoked' in r.message
     ]
     # The tool-bound turn and the structured-output conclusion turn both
@@ -324,16 +359,19 @@ def test_analyze_logs_llm_invocation_with_none_when_usage_metadata_unavailable(c
 
 def test_analyze_logs_each_tool_invocation_with_duration(caplog):
     break_case = _make_break_case()
-    agent = _make_agent(responses=[
-        _FakeMessage(tool_calls=[_make_tool_call()]),
-        _FakeMessage(),
-    ])
+    agent = _make_agent(
+        responses=[
+            _FakeMessage(tool_calls=[_make_tool_call()]),
+            _FakeMessage(),
+        ]
+    )
 
     with caplog.at_level('INFO', logger='break_analysis.agent'):
         agent.analyze(break_case)
 
     tool_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'INFO' and 'Tool invoked' in r.message
     ]
     assert len(tool_records) == 1
@@ -348,21 +386,28 @@ def test_analyze_logs_each_tool_invocation_with_duration(caplog):
 
 def test_analyze_logs_cache_hit_at_debug_level_for_repeated_tool_call(caplog):
     break_case = _make_break_case()
-    repeated_call = [_make_tool_call(call_id='call_1'), _make_tool_call(call_id='call_2')]
-    agent = _make_agent(responses=[
-        _FakeMessage(tool_calls=repeated_call),
-        _FakeMessage(),
-    ])
+    repeated_call = [
+        _make_tool_call(call_id='call_1'),
+        _make_tool_call(call_id='call_2'),
+    ]
+    agent = _make_agent(
+        responses=[
+            _FakeMessage(tool_calls=repeated_call),
+            _FakeMessage(),
+        ]
+    )
 
     with caplog.at_level('DEBUG', logger='break_analysis.agent'):
         agent.analyze(break_case)
 
     invoked_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'INFO' and 'Tool invoked' in r.message
     ]
     cache_hit_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'DEBUG' and 'Tool cache hit' in r.message
     ]
     assert len(invoked_records) == 1
@@ -371,16 +416,19 @@ def test_analyze_logs_cache_hit_at_debug_level_for_repeated_tool_call(caplog):
 
 def test_analyze_logs_and_raises_on_unknown_tool(caplog):
     break_case = _make_break_case()
-    agent = _make_agent(responses=[
-        _FakeMessage(tool_calls=[_make_tool_call(name='not_a_real_tool')]),
-    ])
+    agent = _make_agent(
+        responses=[
+            _FakeMessage(tool_calls=[_make_tool_call(name='not_a_real_tool')]),
+        ]
+    )
 
     with caplog.at_level('INFO', logger='break_analysis.agent'):
         with pytest.raises(RuntimeError, match='Unknown tool requested by agent'):
             agent.analyze(break_case)
 
     error_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'ERROR' and 'Unknown tool requested' in r.message
     ]
     assert len(error_records) == 1
@@ -399,7 +447,8 @@ def test_analyze_logs_exception_and_raises_on_tool_failure(caplog):
             agent.analyze(break_case)
 
     exception_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'ERROR' and 'Tool failed' in r.message and r.exc_info
     ]
     assert len(exception_records) == 1
@@ -421,7 +470,8 @@ def test_analyze_logs_and_raises_on_max_tool_rounds_exceeded(caplog):
             agent.analyze(break_case)
 
     error_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'ERROR' and 'Max tool rounds exceeded' in r.message
     ]
     assert len(error_records) == 1
@@ -437,13 +487,16 @@ def test_analyze_logs_and_raises_on_structured_output_parsing_error(caplog):
     )
 
     with caplog.at_level('INFO', logger='break_analysis.agent'):
-        with pytest.raises(RuntimeError, match='Failed to parse structured output') as exc_info:
+        with pytest.raises(
+            RuntimeError, match='Failed to parse structured output'
+        ) as exc_info:
             agent.analyze(break_case)
 
     assert exc_info.value.__cause__ is original_error
 
     error_records = [
-        r for r in caplog.records
+        r
+        for r in caplog.records
         if r.levelname == 'ERROR' and 'Structured output parsing failed' in r.message
     ]
     assert len(error_records) == 1

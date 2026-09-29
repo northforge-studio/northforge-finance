@@ -5,7 +5,6 @@ from sqlalchemy import create_engine, text
 
 from core.db import PostgresConfig
 
-
 TRANSFORMATIONS_PATH = Path('data/spec/transformation.csv')
 
 
@@ -21,16 +20,10 @@ def main() -> None:
 
     db_config = PostgresConfig.from_env()
 
-    engine = create_engine(
-        db_config.sqlalchemy_url
-    )
+    engine = create_engine(db_config.sqlalchemy_url)
 
     with engine.begin() as connection:
-        connection.execute(
-            text(
-                'TRUNCATE TABLE spec.transformation'
-            )
-        )
+        connection.execute(text('TRUNCATE TABLE spec.transformation'))
 
         df.to_sql(
             name='transformation',
@@ -40,10 +33,7 @@ def main() -> None:
             index=False,
         )
 
-    print(
-        f'Seeded {len(df)} transformations into '
-        'spec.transformation'
-    )
+    print(f'Seeded {len(df)} transformations into spec.transformation')
 
 
 if __name__ == '__main__':

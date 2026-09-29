@@ -16,13 +16,12 @@ from gl.models import (
 )
 from gl.repository import GLRepository
 from registry.models import GLSegmentType
-
 from tests.support.constants import PRODUCER_RUN_ID, TIMESTAMP, WORKFLOW_RUN_ID
 from tests.support.fakes import FakeStore
 from tests.support.paths import GL_SEGMENT_DEFAULT_PATH
 
-
 # -- fixtures --------------------------------------------------------------
+
 
 @pytest.fixture(scope='module')
 def repository(spark):
@@ -81,6 +80,7 @@ def posting_and_rejection_repository(spark, tmp_path):
 
 
 # -- helpers ---------------------------------------------------------------
+
 
 def _make_posting(**overrides) -> GLPosting:
     fields = dict(
@@ -212,8 +212,11 @@ def _write_instruction_row(repository, instruction: GLInstruction) -> None:
 
 # -- get_segment_default ---------------------------------------------------
 
+
 def test_get_segment_default_returns_contextual_default(repository):
-    result = repository.get_segment_default(GLSegmentType.DEPARTMENT, 'ENTITY_CD', 'USMKTS')
+    result = repository.get_segment_default(
+        GLSegmentType.DEPARTMENT, 'ENTITY_CD', 'USMKTS'
+    )
 
     assert result == GLSegmentDefault(
         segment_type=GLSegmentType.DEPARTMENT,
@@ -235,7 +238,9 @@ def test_get_segment_default_returns_global_default(repository):
 
 
 def test_get_segment_default_returns_none_for_unknown_combination(repository):
-    result = repository.get_segment_default(GLSegmentType.DEPARTMENT, 'ENTITY_CD', 'UNKNOWN')
+    result = repository.get_segment_default(
+        GLSegmentType.DEPARTMENT, 'ENTITY_CD', 'UNKNOWN'
+    )
 
     assert result is None
 
@@ -244,7 +249,9 @@ def test_get_segment_default_does_not_fall_back_from_contextual_to_global(
     repository,
 ):
     # AFFILIATE_CD only has a global (*, *) row configured.
-    result = repository.get_segment_default(GLSegmentType.AFFILIATE, 'ENTITY_CD', 'USMKTS')
+    result = repository.get_segment_default(
+        GLSegmentType.AFFILIATE, 'ENTITY_CD', 'USMKTS'
+    )
 
     assert result is None
 
@@ -259,7 +266,9 @@ def test_get_segment_default_does_not_fall_back_from_global_to_contextual(
 
 
 def test_get_segment_default_preserves_numeric_looking_values_as_strings(repository):
-    result = repository.get_segment_default(GLSegmentType.ACCOUNT, 'ENTITY_CD', 'USMKTS')
+    result = repository.get_segment_default(
+        GLSegmentType.ACCOUNT, 'ENTITY_CD', 'USMKTS'
+    )
 
     assert result.default_value == '990101'
     assert isinstance(result.default_value, str)
@@ -276,13 +285,16 @@ def test_get_segment_default_works_against_a_fake_store(spark):
     store = FakeStore({'SEGMENT_DEFAULT': df})
     repository = GLRepository(store, spark)
 
-    result = repository.get_segment_default(GLSegmentType.DEPARTMENT, 'ENTITY_CD', 'ZZZ')
+    result = repository.get_segment_default(
+        GLSegmentType.DEPARTMENT, 'ENTITY_CD', 'ZZZ'
+    )
 
     assert result.default_value == '0099'
     assert isinstance(result.default_value, str)
 
 
 # -- GLSegmentDefaults.resolve ---------------------------------------------
+
 
 def test_segment_defaults_resolve_prefers_entity_default():
     defaults = GLSegmentDefaults(
@@ -302,10 +314,13 @@ def test_segment_defaults_resolve_prefers_entity_default():
         )
     )
 
-    assert defaults.resolve(
-        GLSegmentType.ACCOUNT,
-        entity_cd='USMKTS',
-    ) == '990101'
+    assert (
+        defaults.resolve(
+            GLSegmentType.ACCOUNT,
+            entity_cd='USMKTS',
+        )
+        == '990101'
+    )
 
 
 def test_segment_defaults_resolve_falls_back_to_global():
@@ -320,22 +335,29 @@ def test_segment_defaults_resolve_falls_back_to_global():
         )
     )
 
-    assert defaults.resolve(
-        GLSegmentType.ACCOUNT,
-        entity_cd='CAMKTS',
-    ) == '999999'
+    assert (
+        defaults.resolve(
+            GLSegmentType.ACCOUNT,
+            entity_cd='CAMKTS',
+        )
+        == '999999'
+    )
 
 
 def test_segment_defaults_resolve_returns_none_when_no_default():
     defaults = GLSegmentDefaults(values=())
 
-    assert defaults.resolve(
-        GLSegmentType.ACCOUNT,
-        entity_cd='USMKTS',
-    ) is None
+    assert (
+        defaults.resolve(
+            GLSegmentType.ACCOUNT,
+            entity_cd='USMKTS',
+        )
+        is None
+    )
 
 
 # -- write_posting / get_postings ------------------------------------------
+
 
 def test_get_postings_returns_a_spark_dataframe(posting_repository):
     posting_repository.write_posting(_make_posting())
@@ -437,16 +459,24 @@ def test_get_postings_returns_rows_from_multiple_producer_runs(
 
     rows = posting_repository.get_postings(shared_workflow_run_id).collect()
 
-    assert {UUID(r['GL_POSTING_ID']) for r in rows} == {g1.gl_posting_id, g2.gl_posting_id}
+    assert {UUID(r['GL_POSTING_ID']) for r in rows} == {
+        g1.gl_posting_id,
+        g2.gl_posting_id,
+    }
     assert {UUID(r['PRODUCER_RUN_ID']) for r in rows} == {
-        g1.producer_run_id, g2.producer_run_id,
+        g1.producer_run_id,
+        g2.producer_run_id,
     }
 
 
 def test_get_postings_allows_more_than_one_row_for_same_posting_id(posting_repository):
     workflow_run_id = uuid4()
-    first = _make_posting(gl_posting_id=uuid4(), posting_id='DUP', workflow_run_id=workflow_run_id)
-    second = _make_posting(gl_posting_id=uuid4(), posting_id='DUP', workflow_run_id=workflow_run_id)
+    first = _make_posting(
+        gl_posting_id=uuid4(), posting_id='DUP', workflow_run_id=workflow_run_id
+    )
+    second = _make_posting(
+        gl_posting_id=uuid4(), posting_id='DUP', workflow_run_id=workflow_run_id
+    )
 
     posting_repository.write_posting(first)
     posting_repository.write_posting(second)
@@ -477,6 +507,7 @@ def test_write_posting_preserves_decimal_precision(posting_repository):
 
 
 # -- write_rejection / get_rejections --------------------------------------
+
 
 def test_get_rejections_returns_a_spark_dataframe(rejection_repository):
     rejection_repository.write_rejection(_make_rejection())
@@ -544,13 +575,18 @@ def test_get_rejections_returns_rows_from_multiple_producer_runs(
 
     rows = rejection_repository.get_rejections(shared_workflow_run_id).collect()
 
-    assert {UUID(r['GL_REJECTION_ID']) for r in rows} == {g1.gl_rejection_id, g2.gl_rejection_id}
+    assert {UUID(r['GL_REJECTION_ID']) for r in rows} == {
+        g1.gl_rejection_id,
+        g2.gl_rejection_id,
+    }
     assert {UUID(r['PRODUCER_RUN_ID']) for r in rows} == {
-        g1.producer_run_id, g2.producer_run_id,
+        g1.producer_run_id,
+        g2.producer_run_id,
     }
 
 
 # -- get_instructions ------------------------------------------------------
+
 
 def test_get_instructions_returns_correct_partition(interface_repository):
     _write_instruction_row(interface_repository, _make_instruction())
@@ -593,7 +629,10 @@ def test_get_instructions_returns_rows_from_multiple_producer_runs(
     results = interface_repository.get_instructions(WORKFLOW_RUN_ID)
 
     assert len(results) == 2
-    assert {r.producer_run_id for r in results} == {PRODUCER_RUN_ID, other_producer_run_id}
+    assert {r.producer_run_id for r in results} == {
+        PRODUCER_RUN_ID,
+        other_producer_run_id,
+    }
 
 
 def test_get_instructions_maps_all_fields(interface_repository):
@@ -636,15 +675,21 @@ def test_get_instructions_maps_all_fields(interface_repository):
 def test_get_instructions_orders_deterministically(interface_repository):
     _write_instruction_row(
         interface_repository,
-        _make_instruction(transaction_number='TXN-2', line_number='1', posting_id='POST-A'),
+        _make_instruction(
+            transaction_number='TXN-2', line_number='1', posting_id='POST-A'
+        ),
     )
     _write_instruction_row(
         interface_repository,
-        _make_instruction(transaction_number='TXN-1', line_number='2', posting_id='POST-B'),
+        _make_instruction(
+            transaction_number='TXN-1', line_number='2', posting_id='POST-B'
+        ),
     )
     _write_instruction_row(
         interface_repository,
-        _make_instruction(transaction_number='TXN-1', line_number='1', posting_id='POST-C'),
+        _make_instruction(
+            transaction_number='TXN-1', line_number='1', posting_id='POST-C'
+        ),
     )
 
     results = interface_repository.get_instructions(WORKFLOW_RUN_ID)
@@ -657,6 +702,7 @@ def test_get_instructions_orders_deterministically(interface_repository):
 
 
 # -- delete_postings / delete_rejections -----------------------------------
+
 
 def test_delete_postings_removes_only_rows_for_the_named_workflow_run(
     posting_and_rejection_repository,
@@ -674,10 +720,15 @@ def test_delete_postings_removes_only_rows_for_the_named_workflow_run(
     posting_and_rejection_repository.delete_postings(deleted_workflow_run_id)
 
     # The targeted workflow's rows are actually gone...
-    assert posting_and_rejection_repository.get_postings(deleted_workflow_run_id).collect() == []
+    assert (
+        posting_and_rejection_repository.get_postings(deleted_workflow_run_id).collect()
+        == []
+    )
 
     # ...and the other workflow's rows are untouched.
-    remaining = posting_and_rejection_repository.get_postings(kept_workflow_run_id).collect()
+    remaining = posting_and_rejection_repository.get_postings(
+        kept_workflow_run_id
+    ).collect()
     assert {UUID(row['WORKFLOW_RUN_ID']) for row in remaining} == {kept_workflow_run_id}
 
 
@@ -696,7 +747,14 @@ def test_delete_rejections_removes_only_rows_for_the_named_workflow_run(
 
     posting_and_rejection_repository.delete_rejections(deleted_workflow_run_id)
 
-    assert posting_and_rejection_repository.get_rejections(deleted_workflow_run_id).collect() == []
+    assert (
+        posting_and_rejection_repository.get_rejections(
+            deleted_workflow_run_id
+        ).collect()
+        == []
+    )
 
-    remaining = posting_and_rejection_repository.get_rejections(kept_workflow_run_id).collect()
+    remaining = posting_and_rejection_repository.get_rejections(
+        kept_workflow_run_id
+    ).collect()
     assert {UUID(row['WORKFLOW_RUN_ID']) for row in remaining} == {kept_workflow_run_id}

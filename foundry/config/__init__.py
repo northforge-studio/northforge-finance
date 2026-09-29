@@ -1,14 +1,13 @@
 from .settings import (
-    SOURCE_DIR,
-    STAGING_DIR,
-    ENRICHMENT_DIR,
-    REPORTING_DIR,
-    POSTING_DIR,
-    SPEC_DIR,
     CSV_TABLE_LOCATIONS,
+    ENRICHMENT_DIR,
     POSTGRES_TABLE_LOCATIONS,
+    POSTING_DIR,
+    REPORTING_DIR,
+    SOURCE_DIR,
+    SPEC_DIR,
+    STAGING_DIR,
 )
-
 
 __all__ = [
     'SOURCE_DIR',

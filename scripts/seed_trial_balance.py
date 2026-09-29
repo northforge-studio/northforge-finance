@@ -3,10 +3,9 @@ from decimal import Decimal
 from pathlib import Path
 
 import pandas as pd
-from sqlalchemy import create_engine, text, Numeric
+from sqlalchemy import Numeric, create_engine, text
 
 from core.db import PostgresConfig
-
 
 SOURCE_PATH = Path('data/source/trial_balance.csv')
 
@@ -42,22 +41,12 @@ def main() -> None:
     for column in DATE_COLUMNS:
         df[column] = df[column].map(date.fromisoformat)
 
-    df['src_measure_trans_amt'] = (
-        df['src_measure_trans_amt']
-        .map(Decimal)
-    )
+    df['src_measure_trans_amt'] = df['src_measure_trans_amt'].map(Decimal)
 
-    df.columns = [
-        column.lower()
-        for column in df.columns
-    ]
+    df.columns = [column.lower() for column in df.columns]
 
     with engine.begin() as connection:
-        connection.execute(
-            text(
-                'TRUNCATE TABLE foundry_source.trial_balance'
-            )
-        )
+        connection.execute(text('TRUNCATE TABLE foundry_source.trial_balance'))
 
         df.to_sql(
             name='trial_balance',

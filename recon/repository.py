@@ -1,4 +1,4 @@
-from typing import Sequence
+from collections.abc import Sequence
 from uuid import UUID
 
 from pyspark.sql import DataFrame, SparkSession
@@ -11,7 +11,6 @@ from core.store import Store
 # Reusing gl.contracts' schema keeps that physical contract defined in
 # exactly one place.
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
-
 from recon.contracts import RESULT_SCHEMA
 from recon.models import ReconResult
 
@@ -20,7 +19,6 @@ class ReconRepository:
     def __init__(self, store: Store, spark: SparkSession):
         self._store = store
         self._spark = spark
-
 
     def get_interface_trial_balance(
         self,
@@ -33,7 +31,6 @@ class ReconRepository:
 
         return df.filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
 
-
     def write_results(self, results: Sequence[ReconResult]) -> None:
         if not results:
             return
@@ -45,7 +42,6 @@ class ReconRepository:
 
         self._store.write(df, table_name='RESULT')
 
-
     def get_results(
         self,
         workflow_run_id: UUID,
@@ -56,7 +52,6 @@ class ReconRepository:
         )
 
         return df.filter(F.col('WORKFLOW_RUN_ID') == str(workflow_run_id))
-
 
     def _to_row(self, result: ReconResult) -> tuple:
         return (

@@ -5,14 +5,11 @@ from sqlalchemy import create_engine, text
 
 from core.db import PostgresConfig
 
-
 META_PATH = Path('data/atlas/meta.csv')
 DATA_PATH = Path('data/atlas/data.csv')
 
 IO_COLUMNS = [
-    f'{prefix}_COL{i}'
-    for prefix in ('INPUT', 'OUTPUT')
-    for i in range(1, 21)
+    f'{prefix}_COL{i}' for prefix in ('INPUT', 'OUTPUT') for i in range(1, 21)
 ]
 
 
@@ -28,12 +25,7 @@ def seed_table(
     df: pd.DataFrame,
     table_name: str,
 ) -> None:
-    connection.execute(
-        text(
-            f'TRUNCATE TABLE {table_name} '
-            f'RESTART IDENTITY'
-        )
-    )
+    connection.execute(text(f'TRUNCATE TABLE {table_name} RESTART IDENTITY'))
 
     schema, table = table_name.split('.', maxsplit=1)
 
@@ -62,15 +54,9 @@ def main() -> None:
 
     data_df = fill_blank_io_columns(data_df)
 
-    meta_df.columns = [
-        column.lower()
-        for column in meta_df.columns
-    ]
+    meta_df.columns = [column.lower() for column in meta_df.columns]
 
-    data_df.columns = [
-        column.lower()
-        for column in data_df.columns
-    ]
+    data_df.columns = [column.lower() for column in data_df.columns]
 
     with engine.begin() as connection:
         seed_table(
@@ -86,8 +72,7 @@ def main() -> None:
         )
 
     print(
-        f'Seeded {len(meta_df)} Atlas metadata rows and '
-        f'{len(data_df)} Atlas data rows.'
+        f'Seeded {len(meta_df)} Atlas metadata rows and {len(data_df)} Atlas data rows.'
     )
 
 

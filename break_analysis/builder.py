@@ -1,21 +1,19 @@
 import time
-from uuid import UUID, uuid4
-from dataclasses import dataclass
+from collections import Counter, defaultdict
 from collections.abc import Iterable
-from collections import defaultdict, Counter
+from dataclasses import dataclass
+from uuid import UUID, uuid4
 
-from core.logging import get_logger, short_id
-
-from gl.models import GLSegmentDefaults
-from registry.models import GLSegmentType
 from break_analysis.models import (
     BreakCase,
+    BreakCaseEvidence,
+    BreakPartitionKey,
     BreakRecord,
     BreakTopology,
-    BreakCaseEvidence,
-    BreakPartitionKey
 )
-
+from core.logging import get_logger, short_id
+from gl.models import GLSegmentDefaults
+from registry.models import GLSegmentType
 
 logger = get_logger(__name__)
 
@@ -27,7 +25,7 @@ _TRANSFORMABLE_SEGMENTS = (
     GLSegmentType.SUB_ACCOUNT,
     GLSegmentType.AFFILIATE,
     GLSegmentType.PRODUCT,
-    GLSegmentType.BOOK
+    GLSegmentType.BOOK,
 )
 
 
@@ -44,13 +42,9 @@ class _BreakCaseCandidate:
     investigation_records: tuple[BreakRecord, ...]
     relaxed_segments: tuple[GLSegmentType, ...]
 
-
     @property
     def all_records(self) -> tuple[BreakRecord, ...]:
-        return (
-            self.pivot,
-            *self.investigation_records
-        )
+        return (self.pivot, *self.investigation_records)
 
 
 @dataclass(frozen=True)
@@ -60,31 +54,19 @@ class _ResolvedCandidate:
     investigation_records: tuple[BreakRecord, ...]
     relaxed_segments: tuple[GLSegmentType, ...] | None
 
-
     @property
     def all_records(self) -> tuple[BreakRecord, ...]:
         if self.pivot is None:
             return self.investigation_records
 
-        return (
-            self.pivot,
-            *self.investigation_records
-        )
+        return (self.pivot, *self.investigation_records)
 
 
 class BreakCaseBuilder:
-
-    def __init__(
-        self,
-        segment_defaults: GLSegmentDefaults
-    ):
+    def __init__(self, segment_defaults: GLSegmentDefaults):
         self._segment_defaults = segment_defaults
 
-
-    def build(
-        self,
-        records: Iterable[BreakRecord]
-    ) -> tuple[BreakCase, ...]:
+    def build(self, records: Iterable[BreakRecord]) -> tuple[BreakCase, ...]:
         start = time.monotonic()
         records = tuple(records)
 
@@ -96,15 +78,14 @@ class BreakCaseBuilder:
             logger.debug(
                 'Partitioned records | as_of_date=%s | entity_cd=%s | '
                 'source_cd=%s | accounted_currency=%s | records=%s',
-                partition_key.as_of_date, partition_key.entity_cd,
-                partition_key.source_cd, partition_key.accounted_currency,
-                len(partition_records)
+                partition_key.as_of_date,
+                partition_key.entity_cd,
+                partition_key.source_cd,
+                partition_key.accounted_currency,
+                len(partition_records),
             )
 
-            candidates = self._find_candidates(
-                partition_key,
-                partition_records
-            )
+            candidates = self._find_candidates(partition_key, partition_records)
 
             candidates = self._deduplicate_candidates(candidates)
 
@@ -116,7 +97,8 @@ class BreakCaseBuilder:
                 if case.topology == BreakTopology.AMBIGUOUS:
                     logger.warning(
                         'Ambiguous break case | case_id=%s | records=%s',
-                        short_id(case.case_id), len(case.all_records)
+                        short_id(case.case_id),
+                        len(case.all_records),
                     )
 
             cases.extend(candidate_cases)
@@ -133,9 +115,7 @@ class BreakCaseBuilder:
                 if record.recon_result_id not in consumed_ids
             )
 
-            cases.extend(
-                self._classify_leftovers(leftovers)
-            )
+            cases.extend(self._classify_leftovers(leftovers))
 
         duration_ms = round((time.monotonic() - start) * 1000)
         topology_counts = Counter(case.topology for case in cases)
@@ -151,15 +131,13 @@ class BreakCaseBuilder:
             topology_counts[BreakTopology.INTERFACE_ONLY],
             topology_counts[BreakTopology.GL_ONLY],
             topology_counts[BreakTopology.UNMATCHED],
-            duration_ms
+            duration_ms,
         )
 
         return tuple(cases)
 
-
     def _partition(
-        self,
-        records: Iterable[BreakRecord]
+        self, records: Iterable[BreakRecord]
     ) -> dict[BreakPartitionKey, tuple[BreakRecord, ...]]:
         partitions: dict[BreakPartitionKey, list[BreakRecord]] = defaultdict(list)
 
@@ -168,26 +146,20 @@ class BreakCaseBuilder:
                 as_of_date=record.as_of_date,
                 entity_cd=record.segments.entity_cd,
                 source_cd=record.segments.source_cd,
-                accounted_currency=record.accounted_currency
+                accounted_currency=record.accounted_currency,
             )
             partitions[key].append(record)
 
-        return {
-            key: tuple(records)
-            for key, records in partitions.items()
-        }
-
+        return {key: tuple(records) for key, records in partitions.items()}
 
     def _resolve_applicable_defaults(
-        self,
-        partition_key: BreakPartitionKey
+        self, partition_key: BreakPartitionKey
     ) -> dict[GLSegmentType, str]:
         defaults: dict[GLSegmentType, str] = {}
 
         for segment_type in _TRANSFORMABLE_SEGMENTS:
             value = self._segment_defaults.resolve(
-                segment_type=segment_type,
-                entity_cd=partition_key.entity_cd
+                segment_type=segment_type, entity_cd=partition_key.entity_cd
             )
 
             if value is not None:
@@ -195,11 +167,8 @@ class BreakCaseBuilder:
 
         return defaults
 
-
     def _find_pivots(
-        self,
-        partition_key: BreakPartitionKey,
-        records: Iterable[BreakRecord]
+        self, partition_key: BreakPartitionKey, records: Iterable[BreakRecord]
     ) -> tuple[_PivotCandidate, ...]:
         applicable_defaults = self._resolve_applicable_defaults(
             partition_key=partition_key
@@ -211,28 +180,21 @@ class BreakCaseBuilder:
             relaxed_segments = tuple(
                 segment_type
                 for segment_type, default_value in applicable_defaults.items()
-                if getattr(
-                    record.segments,
-                    segment_type.field_name
-                ) == default_value
+                if getattr(record.segments, segment_type.field_name) == default_value
             )
 
             if relaxed_segments:
                 pivots.append(
-                    _PivotCandidate(
-                        record=record,
-                        relaxed_segments=relaxed_segments
-                    )
+                    _PivotCandidate(record=record, relaxed_segments=relaxed_segments)
                 )
 
         return tuple(pivots)
-
 
     def _find_neighborhood(
         self,
         pivot: _PivotCandidate,
         records: Iterable[BreakRecord],
-        pivot_ids: frozenset[UUID]
+        pivot_ids: frozenset[UUID],
     ) -> tuple[BreakRecord, ...]:
         effective_anchors = tuple(
             segment_type
@@ -241,10 +203,7 @@ class BreakCaseBuilder:
         )
 
         pivot_signature = tuple(
-            getattr(
-                pivot.record.segments,
-                segment_type.field_name
-            )
+            getattr(pivot.record.segments, segment_type.field_name)
             for segment_type in effective_anchors
         )
 
@@ -256,38 +215,24 @@ class BreakCaseBuilder:
                 or record.recon_result_id not in pivot_ids
             )
             and tuple(
-                getattr(
-                    record.segments,
-                    segment_type.field_name
-                )
+                getattr(record.segments, segment_type.field_name)
                 for segment_type in effective_anchors
-            ) == pivot_signature
+            )
+            == pivot_signature
         )
 
         return neighborhood
 
-
-    def _is_closed(
-        self,
-        records: Iterable[BreakRecord]
-    ) -> bool:
-        return sum(
-            record.difference_amount
-            for record in records
-        ) == 0
-
+    def _is_closed(self, records: Iterable[BreakRecord]) -> bool:
+        return sum(record.difference_amount for record in records) == 0
 
     def _build_candidate(
         self,
         pivot: _PivotCandidate,
         records: Iterable[BreakRecord],
-        pivot_ids: frozenset[UUID]
+        pivot_ids: frozenset[UUID],
     ) -> _BreakCaseCandidate | None:
-        neighborhood = self._find_neighborhood(
-            pivot,
-            records,
-            pivot_ids
-        )
+        neighborhood = self._find_neighborhood(pivot, records, pivot_ids)
 
         if len(neighborhood) < 2:
             return None
@@ -298,8 +243,7 @@ class BreakCaseBuilder:
         investigation_records = tuple(
             record
             for record in neighborhood
-            if record.recon_result_id
-            != pivot.record.recon_result_id
+            if record.recon_result_id != pivot.record.recon_result_id
         )
 
         topology = (
@@ -312,51 +256,31 @@ class BreakCaseBuilder:
             topology=topology,
             pivot=pivot.record,
             investigation_records=investigation_records,
-            relaxed_segments=pivot.relaxed_segments
+            relaxed_segments=pivot.relaxed_segments,
         )
-
 
     def _find_candidates(
-        self,
-        partition_key: BreakPartitionKey,
-        records: tuple[BreakRecord, ...]
+        self, partition_key: BreakPartitionKey, records: tuple[BreakRecord, ...]
     ) -> tuple[_BreakCaseCandidate, ...]:
-        pivots = self._find_pivots(
-            partition_key,
-            records
-        )
+        pivots = self._find_pivots(partition_key, records)
 
-        pivot_ids = frozenset(
-            pivot.record.recon_result_id
-            for pivot in pivots
-        )
+        pivot_ids = frozenset(pivot.record.recon_result_id for pivot in pivots)
 
         candidates: list[_BreakCaseCandidate] = []
 
         for pivot in pivots:
-            candidate = self._build_candidate(
-                pivot,
-                records,
-                pivot_ids
-            )
+            candidate = self._build_candidate(pivot, records, pivot_ids)
 
             if candidate is not None:
                 candidates.append(candidate)
 
         return tuple(candidates)
 
-
     def _deduplicate_candidates(
-        self,
-        candidates: Iterable[_BreakCaseCandidate]
+        self, candidates: Iterable[_BreakCaseCandidate]
     ) -> tuple[_BreakCaseCandidate, ...]:
         seen: set[
-            tuple[
-                UUID,
-                frozenset[UUID],
-                BreakTopology,
-                tuple[GLSegmentType, ...]
-            ]
+            tuple[UUID, frozenset[UUID], BreakTopology, tuple[GLSegmentType, ...]]
         ] = set()
 
         deduplicated: list[_BreakCaseCandidate] = []
@@ -366,10 +290,9 @@ class BreakCaseBuilder:
                 candidate.topology,
                 candidate.pivot.recon_result_id,
                 frozenset(
-                    record.recon_result_id
-                    for record in candidate.investigation_records
+                    record.recon_result_id for record in candidate.investigation_records
                 ),
-                candidate.relaxed_segments
+                candidate.relaxed_segments,
             )
 
             if key in seen:
@@ -380,10 +303,8 @@ class BreakCaseBuilder:
 
         return tuple(deduplicated)
 
-
     def _resolve_candidates(
-        self,
-        candidates: Iterable[_BreakCaseCandidate]
+        self, candidates: Iterable[_BreakCaseCandidate]
     ) -> tuple[_ResolvedCandidate, ...]:
         remaining = list(candidates)
         resolved: list[_ResolvedCandidate] = []
@@ -392,10 +313,7 @@ class BreakCaseBuilder:
             current = remaining.pop(0)
 
             component = [current]
-            component_ids = {
-                record.recon_result_id
-                for record in current.all_records
-            }
+            component_ids = {record.recon_result_id for record in current.all_records}
 
             changed = True
 
@@ -404,8 +322,7 @@ class BreakCaseBuilder:
 
                 for candidate in remaining[:]:
                     candidate_ids = {
-                        record.recon_result_id
-                        for record in candidate.all_records
+                        record.recon_result_id for record in candidate.all_records
                     }
 
                     if component_ids & candidate_ids:
@@ -419,10 +336,8 @@ class BreakCaseBuilder:
                     _ResolvedCandidate(
                         topology=current.topology,
                         pivot=current.pivot,
-                        investigation_records=(
-                            current.investigation_records
-                        ),
-                        relaxed_segments=current.relaxed_segments
+                        investigation_records=(current.investigation_records),
+                        relaxed_segments=current.relaxed_segments,
                     )
                 )
 
@@ -437,28 +352,22 @@ class BreakCaseBuilder:
             resolved.append(
                 _ResolvedCandidate(
                     pivot=None,
-                    investigation_records=tuple(
-                        records_by_id.values()
-                    ),
+                    investigation_records=tuple(records_by_id.values()),
                     topology=BreakTopology.AMBIGUOUS,
-                    relaxed_segments=None
+                    relaxed_segments=None,
                 )
             )
 
         return tuple(resolved)
 
-
     def _to_break_cases(
-        self,
-        candidates: Iterable[_ResolvedCandidate]
+        self, candidates: Iterable[_ResolvedCandidate]
     ) -> tuple[BreakCase, ...]:
         cases: list[BreakCase] = []
 
         for candidate in candidates:
             evidence = (
-                BreakCaseEvidence(
-                    relaxed_segments=candidate.relaxed_segments
-                )
+                BreakCaseEvidence(relaxed_segments=candidate.relaxed_segments)
                 if candidate.relaxed_segments is not None
                 else None
             )
@@ -468,19 +377,15 @@ class BreakCaseBuilder:
                     case_id=uuid4(),
                     topology=candidate.topology,
                     pivot=candidate.pivot,
-                    investigation_records=(
-                        candidate.investigation_records
-                    ),
-                    evidence=evidence
+                    investigation_records=(candidate.investigation_records),
+                    evidence=evidence,
                 )
             )
 
         return tuple(cases)
 
-
     def _classify_leftovers(
-        self,
-        records: Iterable[BreakRecord]
+        self, records: Iterable[BreakRecord]
     ) -> tuple[BreakCase, ...]:
         cases: list[BreakCase] = []
 
@@ -500,7 +405,7 @@ class BreakCaseBuilder:
                     topology=topology,
                     pivot=None,
                     investigation_records=(record,),
-                    evidence=None
+                    evidence=None,
                 )
             )
 

@@ -5,7 +5,6 @@ from sqlalchemy import create_engine, text
 
 from core.db import PostgresConfig
 
-
 COUNTERPARTY_PATH = Path('data/reference/counterparty.csv')
 FX_RATE_PATH = Path('data/reference/fx_rate.csv')
 
@@ -15,11 +14,7 @@ def seed_table(
     df: pd.DataFrame,
     table_name: str,
 ) -> None:
-    connection.execute(
-        text(
-            f'TRUNCATE TABLE {table_name}'
-        )
-    )
+    connection.execute(text(f'TRUNCATE TABLE {table_name}'))
 
     schema, table = table_name.split('.', maxsplit=1)
 
@@ -46,15 +41,9 @@ def main() -> None:
         parse_dates=['CONVERSION_DT'],
     )
 
-    counterparty_df.columns = [
-        column.lower()
-        for column in counterparty_df.columns
-    ]
+    counterparty_df.columns = [column.lower() for column in counterparty_df.columns]
 
-    fx_rate_df.columns = [
-        column.lower()
-        for column in fx_rate_df.columns
-    ]
+    fx_rate_df.columns = [column.lower() for column in fx_rate_df.columns]
 
     with engine.begin() as connection:
         seed_table(
@@ -70,8 +59,7 @@ def main() -> None:
         )
 
     print(
-        f'Seeded {len(counterparty_df)} counterparties and '
-        f'{len(fx_rate_df)} FX rates.'
+        f'Seeded {len(counterparty_df)} counterparties and {len(fx_rate_df)} FX rates.'
     )
 
 

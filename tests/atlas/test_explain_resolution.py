@@ -3,9 +3,7 @@ import pytest
 from atlas.manager import MappingManager
 from atlas.models import MappingCandidateType
 from atlas.repository import AtlasRepository
-
 from tests.support.fakes import FakeStore
-
 
 _MAPPING_NAME = 'TEST_MAPPING'
 
@@ -22,10 +20,50 @@ _META_COLUMNS = [
 ]
 
 _META_ROWS = [
-    (_MAPPING_NAME, 'TEST_DATA', 'INPUT_COL1', 'FIELD_A', 'INPUT', 'VALUE', 'FIELD_A', 'STRING', 1),
-    (_MAPPING_NAME, 'TEST_DATA', 'INPUT_COL2', 'FIELD_B', 'INPUT', 'VALUE', 'FIELD_B', 'STRING', 2),
-    (_MAPPING_NAME, 'TEST_DATA', 'OUTPUT_COL1', 'OUTPUT_VAL', 'OUTPUT', 'VALUE', None, 'STRING', 3),
-    (_MAPPING_NAME, 'TEST_DATA', 'WEIGHTAGE', 'WEIGHTAGE', 'LOGICAL', 'VALUE', None, 'STRING', 4),
+    (
+        _MAPPING_NAME,
+        'TEST_DATA',
+        'INPUT_COL1',
+        'FIELD_A',
+        'INPUT',
+        'VALUE',
+        'FIELD_A',
+        'STRING',
+        1,
+    ),
+    (
+        _MAPPING_NAME,
+        'TEST_DATA',
+        'INPUT_COL2',
+        'FIELD_B',
+        'INPUT',
+        'VALUE',
+        'FIELD_B',
+        'STRING',
+        2,
+    ),
+    (
+        _MAPPING_NAME,
+        'TEST_DATA',
+        'OUTPUT_COL1',
+        'OUTPUT_VAL',
+        'OUTPUT',
+        'VALUE',
+        None,
+        'STRING',
+        3,
+    ),
+    (
+        _MAPPING_NAME,
+        'TEST_DATA',
+        'WEIGHTAGE',
+        'WEIGHTAGE',
+        'LOGICAL',
+        'VALUE',
+        None,
+        'STRING',
+        4,
+    ),
 ]
 
 _DATA_COLUMNS = [
@@ -42,18 +80,23 @@ def _manager(spark, data_rows: list[tuple]) -> MappingManager:
     meta_df = spark.createDataFrame(_META_ROWS, schema=_META_COLUMNS)
     data_df = spark.createDataFrame(data_rows, schema=_DATA_COLUMNS)
 
-    store = FakeStore({
-        'MAPPING_META': meta_df,
-        'MAPPING_DATA': data_df,
-    })
+    store = FakeStore(
+        {
+            'MAPPING_META': meta_df,
+            'MAPPING_DATA': data_df,
+        }
+    )
 
     return MappingManager(AtlasRepository(store))
 
 
 def test_explain_resolution_specific_candidate_has_no_wildcard_fields(spark):
-    manager = _manager(spark, [
-        (_MAPPING_NAME, 'US', 'TRD', 'OUT1', '1', 'A'),
-    ])
+    manager = _manager(
+        spark,
+        [
+            (_MAPPING_NAME, 'US', 'TRD', 'OUT1', '1', 'A'),
+        ],
+    )
 
     evidence = manager.explain_resolution(
         _MAPPING_NAME,
@@ -69,9 +112,12 @@ def test_explain_resolution_specific_candidate_has_no_wildcard_fields(spark):
 
 
 def test_explain_resolution_reports_wildcarded_field(spark):
-    manager = _manager(spark, [
-        (_MAPPING_NAME, 'US', '*', 'OUT2', '1', 'A'),
-    ])
+    manager = _manager(
+        spark,
+        [
+            (_MAPPING_NAME, 'US', '*', 'OUT2', '1', 'A'),
+        ],
+    )
 
     evidence = manager.explain_resolution(
         _MAPPING_NAME,
@@ -85,9 +131,12 @@ def test_explain_resolution_reports_wildcarded_field(spark):
 
 
 def test_explain_resolution_reports_every_wildcard_field(spark):
-    manager = _manager(spark, [
-        (_MAPPING_NAME, '*', '*', 'OUT3', '1', 'A'),
-    ])
+    manager = _manager(
+        spark,
+        [
+            (_MAPPING_NAME, '*', '*', 'OUT3', '1', 'A'),
+        ],
+    )
 
     evidence = manager.explain_resolution(
         _MAPPING_NAME,
@@ -101,10 +150,13 @@ def test_explain_resolution_reports_every_wildcard_field(spark):
 
 
 def test_explain_resolution_ranks_active_candidates_by_weightage(spark):
-    manager = _manager(spark, [
-        (_MAPPING_NAME, 'US', 'TRD', 'SPECIFIC_OUT', '9', 'A'),
-        (_MAPPING_NAME, 'US', '*', 'WILDCARD_OUT', '1', 'A'),
-    ])
+    manager = _manager(
+        spark,
+        [
+            (_MAPPING_NAME, 'US', 'TRD', 'SPECIFIC_OUT', '9', 'A'),
+            (_MAPPING_NAME, 'US', '*', 'WILDCARD_OUT', '1', 'A'),
+        ],
+    )
 
     evidence = manager.explain_resolution(
         _MAPPING_NAME,
@@ -117,10 +169,13 @@ def test_explain_resolution_ranks_active_candidates_by_weightage(spark):
 
 
 def test_explain_resolution_resolves_through_wildcard_when_specific_inactive(spark):
-    manager = _manager(spark, [
-        (_MAPPING_NAME, 'US', 'TRD', 'SPECIFIC_OUT', '9', 'I'),
-        (_MAPPING_NAME, 'US', '*', 'WILDCARD_OUT', '1', 'A'),
-    ])
+    manager = _manager(
+        spark,
+        [
+            (_MAPPING_NAME, 'US', 'TRD', 'SPECIFIC_OUT', '9', 'I'),
+            (_MAPPING_NAME, 'US', '*', 'WILDCARD_OUT', '1', 'A'),
+        ],
+    )
 
     evidence = manager.explain_resolution(
         _MAPPING_NAME,
@@ -134,10 +189,13 @@ def test_explain_resolution_resolves_through_wildcard_when_specific_inactive(spa
 
 
 def test_explain_resolution_all_candidates_inactive_yields_no_active_candidate(spark):
-    manager = _manager(spark, [
-        (_MAPPING_NAME, 'US', 'TRD', 'OUT_A', '9', 'I'),
-        (_MAPPING_NAME, 'US', '*', 'OUT_B', '1', 'I'),
-    ])
+    manager = _manager(
+        spark,
+        [
+            (_MAPPING_NAME, 'US', 'TRD', 'OUT_A', '9', 'I'),
+            (_MAPPING_NAME, 'US', '*', 'OUT_B', '1', 'I'),
+        ],
+    )
 
     evidence = manager.explain_resolution(
         _MAPPING_NAME,
@@ -151,9 +209,12 @@ def test_explain_resolution_all_candidates_inactive_yields_no_active_candidate(s
 
 
 def test_explain_resolution_no_matching_candidates(spark):
-    manager = _manager(spark, [
-        (_MAPPING_NAME, 'GB', 'TRD', 'OUT', '1', 'A'),
-    ])
+    manager = _manager(
+        spark,
+        [
+            (_MAPPING_NAME, 'GB', 'TRD', 'OUT', '1', 'A'),
+        ],
+    )
 
     evidence = manager.explain_resolution(
         _MAPPING_NAME,
@@ -172,10 +233,13 @@ def test_explain_resolution_wildcard_can_outrank_specific_by_weightage(spark):
     # lexicographic WEIGHTAGE among active candidates) is authoritative,
     # so the wildcard must win even though the specific candidate is
     # "more specific".
-    manager = _manager(spark, [
-        (_MAPPING_NAME, 'US', 'TRD', 'SPECIFIC_OUT', '8', 'A'),
-        (_MAPPING_NAME, 'US', '*', 'WILDCARD_OUT', '9', 'A'),
-    ])
+    manager = _manager(
+        spark,
+        [
+            (_MAPPING_NAME, 'US', 'TRD', 'SPECIFIC_OUT', '8', 'A'),
+            (_MAPPING_NAME, 'US', '*', 'WILDCARD_OUT', '9', 'A'),
+        ],
+    )
 
     evidence = manager.explain_resolution(
         _MAPPING_NAME,
@@ -187,10 +251,13 @@ def test_explain_resolution_wildcard_can_outrank_specific_by_weightage(spark):
 
 
 def test_explain_resolution_highest_weightage_tie_raises(spark):
-    manager = _manager(spark, [
-        (_MAPPING_NAME, 'US', 'TRD', 'OUT_A', '9', 'A'),
-        (_MAPPING_NAME, 'US', '*', 'OUT_B', '9', 'A'),
-    ])
+    manager = _manager(
+        spark,
+        [
+            (_MAPPING_NAME, 'US', 'TRD', 'OUT_A', '9', 'A'),
+            (_MAPPING_NAME, 'US', '*', 'OUT_B', '9', 'A'),
+        ],
+    )
 
     with pytest.raises(ValueError, match='WEIGHTAGE'):
         manager.explain_resolution(
@@ -200,9 +267,12 @@ def test_explain_resolution_highest_weightage_tie_raises(spark):
 
 
 def test_explain_resolution_matches_case_insensitively(spark):
-    manager = _manager(spark, [
-        (_MAPPING_NAME, 'us', 'trd', 'OUT', '1', 'A'),
-    ])
+    manager = _manager(
+        spark,
+        [
+            (_MAPPING_NAME, 'us', 'trd', 'OUT', '1', 'A'),
+        ],
+    )
 
     evidence = manager.explain_resolution(
         _MAPPING_NAME,
@@ -215,9 +285,12 @@ def test_explain_resolution_matches_case_insensitively(spark):
 
 
 def test_explain_resolution_missing_required_input_raises(spark):
-    manager = _manager(spark, [
-        (_MAPPING_NAME, 'US', 'TRD', 'OUT', '1', 'A'),
-    ])
+    manager = _manager(
+        spark,
+        [
+            (_MAPPING_NAME, 'US', 'TRD', 'OUT', '1', 'A'),
+        ],
+    )
 
     with pytest.raises(ValueError, match='FIELD_B'):
         manager.explain_resolution(
@@ -227,9 +300,12 @@ def test_explain_resolution_missing_required_input_raises(spark):
 
 
 def test_explain_resolution_ignores_extra_input_values(spark):
-    manager = _manager(spark, [
-        (_MAPPING_NAME, 'US', 'TRD', 'OUT', '1', 'A'),
-    ])
+    manager = _manager(
+        spark,
+        [
+            (_MAPPING_NAME, 'US', 'TRD', 'OUT', '1', 'A'),
+        ],
+    )
 
     evidence = manager.explain_resolution(
         _MAPPING_NAME,
@@ -243,10 +319,13 @@ def test_apply_ignores_inactive_rows(spark):
     # Guards against the get_mapping()/get_mapping_details() refactor
     # (shared _read_mapping_data/_fillna_mapping_columns helpers)
     # accidentally letting inactive rows into production apply().
-    manager = _manager(spark, [
-        (_MAPPING_NAME, 'US', 'TRD', 'OUT_A', '9', 'I'),
-        (_MAPPING_NAME, 'US', '*', 'OUT_B', '1', 'I'),
-    ])
+    manager = _manager(
+        spark,
+        [
+            (_MAPPING_NAME, 'US', 'TRD', 'OUT_A', '9', 'I'),
+            (_MAPPING_NAME, 'US', '*', 'OUT_B', '1', 'I'),
+        ],
+    )
 
     df = spark.createDataFrame(
         [('US', 'TRD')],

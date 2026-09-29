@@ -1,15 +1,13 @@
-from uuid import UUID
 from datetime import date
-
-from registry.models import GLSegmentType
+from uuid import UUID
 
 from evals.fixtures import ToolFixtureStore
+from registry.models import GLSegmentType
 
 
 class FakeRegistryTools:
     def __init__(self, fixture_store: ToolFixtureStore):
         self._fixtures = fixture_store
-
 
     def validate_segment(
         self,
@@ -25,7 +23,6 @@ class FakeRegistryTools:
                 'business_dt': business_dt,
             },
         )
-
 
     def get_segment_details(
         self,
@@ -46,7 +43,6 @@ class FakeRegistryTools:
 class FakeAtlasTools:
     def __init__(self, fixture_store: ToolFixtureStore):
         self._fixtures = fixture_store
-
 
     def investigate_resolution(
         self,

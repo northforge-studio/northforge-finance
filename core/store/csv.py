@@ -4,7 +4,7 @@ from typing import Any
 
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
-from pyspark.sql.types import StructType, StringType
+from pyspark.sql.types import StringType, StructType
 
 from core.store.base import fill_null_strings
 
@@ -18,13 +18,11 @@ class CsvStore:
         self._spark = spark
         self._table_locations = table_locations
 
-
     def _resolve(self, table_name: str) -> Path:
         try:
             return self._table_locations[table_name]
         except KeyError:
             raise KeyError(f'Unknown table: {table_name!r}') from None
-
 
     def read(
         self,
@@ -37,8 +35,7 @@ class CsvStore:
             return self._spark.createDataFrame([], schema=schema)
 
         reader = (
-            self._spark.read
-            .option('header', True)
+            self._spark.read.option('header', True)
             .option('ignoreLeadingWhiteSpace', True)
             .option('ignoreTrailingWhiteSpace', True)
         )
@@ -64,7 +61,6 @@ class CsvStore:
 
         return df
 
-
     def write(
         self,
         df: DataFrame,
@@ -75,13 +71,7 @@ class CsvStore:
 
         df = fill_null_strings(df)
 
-        (
-            df.write
-            .mode(mode)
-            .option('header', True)
-            .csv(str(path))
-        )
-
+        (df.write.mode(mode).option('header', True).csv(str(path)))
 
     def delete(
         self,
@@ -109,12 +99,7 @@ class CsvStore:
         if tmp_path.exists():
             shutil.rmtree(tmp_path) if tmp_path.is_dir() else tmp_path.unlink()
 
-        (
-            remaining_df.write
-            .mode('overwrite')
-            .option('header', True)
-            .csv(str(tmp_path))
-        )
+        (remaining_df.write.mode('overwrite').option('header', True).csv(str(tmp_path)))
 
         shutil.rmtree(path) if path.is_dir() else path.unlink()
         tmp_path.rename(path)

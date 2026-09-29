@@ -5,9 +5,8 @@ import pytest
 from core.store import CsvStore
 from registry.models import GLSegmentType
 from registry.repository import RegistryRepository
-
 from tests.support.fakes import FakeStore
-from tests.support.paths import REGISTRY_ENTITY_PATH, REGISTRY_BRANCH_PATH
+from tests.support.paths import REGISTRY_BRANCH_PATH, REGISTRY_ENTITY_PATH
 
 
 @pytest.fixture(scope='module')

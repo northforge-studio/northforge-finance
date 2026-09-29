@@ -2,10 +2,9 @@ from pyspark.sql import DataFrame
 from pyspark.sql.types import StructType
 
 from core.store import Store
-
 from reference.contracts import (
-    FX_RATE_SCHEMA,
     COUNTERPARTY_SCHEMA,
+    FX_RATE_SCHEMA,
 )
 from reference.models import ReferenceData
 
@@ -13,7 +12,6 @@ from reference.models import ReferenceData
 class ReferenceRepository:
     def __init__(self, store: Store):
         self._store = store
-
 
     def get_reference_data(self, reference_data: ReferenceData) -> DataFrame:
         schema: StructType = None

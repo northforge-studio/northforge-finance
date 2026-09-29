@@ -1,12 +1,11 @@
 import logging
 import sys
 
-
 _FORMAT = '%(asctime)s | %(levelname)s | %(name)s | %(message)s'
 
 
 def configure_logging(root_level: str = 'WARNING') -> None:
-    '''Configure stdout logging for the application.'''
+    """Configure stdout logging for the application."""
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter(_FORMAT))
 
@@ -22,5 +21,5 @@ def get_logger(name: str, level: str = 'INFO') -> logging.Logger:
 
 
 def short_id(value) -> str:
-    '''Truncate a UUID (or any stringable id) to an 8-char display form, git-short-sha style.'''
+    """Truncate a UUID (or any stringable id) to an 8-char display form, git-short-sha style."""
     return str(value)[:8]

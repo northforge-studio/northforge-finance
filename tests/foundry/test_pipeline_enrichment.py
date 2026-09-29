@@ -1,27 +1,23 @@
 from uuid import uuid4
 
 from core.runs.models import RunIdentity, RunStatus, ZoneResult
-
 from tests.support.pipelines import NoOpPipeline, make_pipeline
 
 
 class _EnrichmentPipeline(NoOpPipeline):
-    '''A minimal BasePipeline subclass that only implements enrichment.'''
+    """A minimal BasePipeline subclass that only implements enrichment."""
 
     def __init__(self, enrichment_df, **kwargs):
         super().__init__(**kwargs)
         self._enrichment_df = enrichment_df
         self.post_enrichment_called_with = None
 
-
     def pre_enrichment(self, workflow_run_id):
         self.pre_enrichment_called_with = workflow_run_id
         return self._enrichment_df
 
-
     def main_enrichment(self, df):
         return df
-
 
     def post_enrichment(self, df):
         self.post_enrichment_called_with = df

@@ -1,27 +1,23 @@
 from uuid import uuid4
 
 from core.runs.models import RunIdentity, RunStatus, ZoneResult
-
 from tests.support.pipelines import NoOpPipeline, make_pipeline
 
 
 class _InterfacePipeline(NoOpPipeline):
-    '''A minimal BasePipeline subclass that only implements interface.'''
+    """A minimal BasePipeline subclass that only implements interface."""
 
     def __init__(self, interface_df, **kwargs):
         super().__init__(**kwargs)
         self._interface_df = interface_df
         self.post_interface_called_with = None
 
-
     def pre_interface(self, workflow_run_id):
         self.pre_interface_called_with = workflow_run_id
         return self._interface_df
 
-
     def main_interface(self, df):
         return df
-
 
     def post_interface(self, df):
         self.post_interface_called_with = df
