@@ -1,5 +1,6 @@
-from gl.client import GLClient
+from gl.client import GLClient, GLClientProtocol
 
 __all__ = [
     'GLClient',
+    'GLClientProtocol',
 ]

@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+from typing import Protocol
 from uuid import UUID
 
 from pyspark.sql import DataFrame, SparkSession
@@ -23,6 +24,55 @@ from gl.models import (
 from gl.repository import GLRepository, GLRepositoryProtocol
 from registry import RegistryClientProtocol
 from registry.models import GLSegmentType
+
+
+class GLClientProtocol(Protocol):
+    def get_segment_default(
+        self,
+        segment_type: GLSegmentType,
+        *,
+        entity_cd: str | None = None,
+    ) -> str | None: ...
+
+    def get_segment_defaults(self) -> GLSegmentDefaults: ...
+
+    def resolve_segment(
+        self,
+        segment_type: GLSegmentType,
+        segment_value: str | None,
+        *,
+        business_dt: date,
+        entity_cd: str | None = None,
+    ) -> GLSegmentResolution: ...
+
+    def resolve_segments(
+        self,
+        segments: GLSegments,
+        *,
+        business_dt: date,
+    ) -> GLSegmentResolutions: ...
+
+    def validate_instruction(
+        self,
+        instruction: GLInstruction,
+    ) -> GLInstructionValidation: ...
+
+    def process_instruction(
+        self,
+        instruction: GLInstruction,
+    ) -> GLInstructionResult: ...
+
+    def import_instructions(
+        self,
+        identity: RunIdentity,
+        source_producer_run_id: UUID,
+    ) -> GLImportResult: ...
+
+    def rollback_execution(self, identity: RunIdentity) -> None: ...
+
+    def get_postings(self, workflow_run_id: UUID) -> DataFrame: ...
+
+    def get_rejections(self, workflow_run_id: UUID) -> DataFrame: ...
 
 
 class GLClient:

@@ -63,7 +63,8 @@ class _FakePipeline:
 
 
 class _FakeGL:
-    """A GLClient stand-in that records imports and rollbacks, optionally failing."""
+    """Implements GLClientProtocol; records imports and rollbacks, optionally
+    failing. Every other method is unsupported."""
 
     def __init__(self, raise_error=False, rejected_count=0):
         self._raise_error = raise_error
@@ -90,6 +91,32 @@ class _FakeGL:
 
     def rollback_execution(self, identity):
         self.rollback_calls.append(identity)
+
+    def get_segment_default(self, segment_type, *, entity_cd=None):
+        raise NotImplementedError('_FakeGL.get_segment_default')
+
+    def get_segment_defaults(self):
+        raise NotImplementedError('_FakeGL.get_segment_defaults')
+
+    def resolve_segment(
+        self, segment_type, segment_value, *, business_dt, entity_cd=None
+    ):
+        raise NotImplementedError('_FakeGL.resolve_segment')
+
+    def resolve_segments(self, segments, *, business_dt):
+        raise NotImplementedError('_FakeGL.resolve_segments')
+
+    def validate_instruction(self, instruction):
+        raise NotImplementedError('_FakeGL.validate_instruction')
+
+    def process_instruction(self, instruction):
+        raise NotImplementedError('_FakeGL.process_instruction')
+
+    def get_postings(self, workflow_run_id):
+        raise NotImplementedError('_FakeGL.get_postings')
+
+    def get_rejections(self, workflow_run_id):
+        raise NotImplementedError('_FakeGL.get_rejections')
 
 
 # -- helpers ---------------------------------------------------------------

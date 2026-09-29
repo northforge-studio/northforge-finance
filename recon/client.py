@@ -8,7 +8,7 @@ from core.store import (
     CsvStore,
     PostgresStore,
 )
-from gl import GLClient
+from gl import GLClientProtocol
 from recon.manager import ReconManager
 from recon.models import ReconRunResult
 from recon.repository import ReconRepository
@@ -19,7 +19,7 @@ class ReconClient:
         self,
         repository: ReconRepository,
         run_tracker: RunTracker,
-        gl: GLClient,
+        gl: GLClientProtocol,
     ):
         self._repository = repository
         self._run_tracker = run_tracker
@@ -31,7 +31,7 @@ class ReconClient:
         cls,
         spark: SparkSession,
         run_tracker: RunTracker,
-        gl: GLClient,
+        gl: GLClientProtocol,
         result_path: str | Path | None = None,
         interface_trial_balance_path: str | Path | None = None,
     ) -> 'ReconClient':
@@ -55,7 +55,7 @@ class ReconClient:
         cls,
         spark: SparkSession,
         run_tracker: RunTracker,
-        gl: GLClient,
+        gl: GLClientProtocol,
         result_table: str = 'recon.result',
         interface_trial_balance_table: str = 'interface.trial_balance',
     ) -> 'ReconClient':

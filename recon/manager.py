@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 from pyspark.sql import DataFrame, Row
 
 from core.runs import RunTracker
-from gl import GLClient
+from gl import GLClientProtocol
 from recon.calculation import calculate_recon
 from recon.models import ReconResult, ReconRunResult
 from recon.repository import ReconRepository
@@ -20,7 +20,7 @@ class ReconManager:
         self,
         repository: ReconRepository,
         run_tracker: RunTracker,
-        gl: GLClient,
+        gl: GLClientProtocol,
     ):
         self._repository = repository
         self._run_tracker = run_tracker

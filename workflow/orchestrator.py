@@ -12,7 +12,7 @@ from core.runs.models import (
     ZoneResult,
 )
 from foundry.pipeline import BasePipeline
-from gl import GLClient
+from gl import GLClientProtocol
 from gl.models import GLImportResult
 from workflow.models import WorkflowResult
 
@@ -33,7 +33,7 @@ class WorkflowOrchestrator:
         self,
         run_tracker: RunTracker,
         foundry_pipeline: BasePipeline,
-        gl: GLClient,
+        gl: GLClientProtocol,
     ):
         self._run_tracker = run_tracker
         self._foundry_pipeline = foundry_pipeline
