@@ -10,3 +10,4 @@ sqlalchemy
 psycopg[binary]
 langchain-ollama
 pydantic
+langgraph

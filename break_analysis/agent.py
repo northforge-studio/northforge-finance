@@ -17,6 +17,9 @@ from break_analysis.models import (
     BreakAnalysisConclusion,
     BreakInvestigationContext
 )
+from break_analysis.graph import (
+    BreakAnalysisGraph
+)
 
 
 logger = get_logger(__name__)
@@ -76,9 +79,23 @@ class BreakAnalysisAgent:
             method='json_schema',
             include_raw=True
         )
+        
+        self._graph = BreakAnalysisGraph(self._run_v1_analysis)
 
 
     def analyze(
+        self,
+        break_case: BreakCase
+    ) -> BreakAnalysisResult:
+        state = self._graph.invoke({
+            'break_case': break_case,
+            'result': None
+        })
+
+        return state['result']
+
+
+    def _run_v1_analysis(
         self,
         break_case: BreakCase
     ) -> BreakAnalysisResult:
