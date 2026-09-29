@@ -72,7 +72,8 @@ class FakeStore:
 
 
 class FakeRegistryClient:
-    """Duck-types RegistryClient.validate_segment, and records each call."""
+    """Implements RegistryClientProtocol; validate_segment records each
+    call, get_segment_details is unsupported."""
 
     def __init__(self, valid_segments=()):
         self._valid_segments = valid_segments
@@ -81,3 +82,6 @@ class FakeRegistryClient:
     def validate_segment(self, segment, business_dt, segment_cd):
         self.calls.append((segment, business_dt, segment_cd))
         return (segment, business_dt, segment_cd) in self._valid_segments
+
+    def get_segment_details(self, segment, business_dt, segment_cd):
+        raise NotImplementedError('FakeRegistryClient.get_segment_details')

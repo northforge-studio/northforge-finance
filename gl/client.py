@@ -21,12 +21,12 @@ from gl.models import (
     GLSegments,
 )
 from gl.repository import GLRepository
-from registry import RegistryClient
+from registry import RegistryClientProtocol
 from registry.models import GLSegmentType
 
 
 class GLClient:
-    def __init__(self, repository: GLRepository, registry: RegistryClient):
+    def __init__(self, repository: GLRepository, registry: RegistryClientProtocol):
         self._repository = repository
         self._registry = registry
         self._manager = GLManager(repository, registry)
@@ -36,7 +36,7 @@ class GLClient:
         cls,
         spark: SparkSession,
         segment_default_path: str | Path,
-        registry: RegistryClient,
+        registry: RegistryClientProtocol,
         posting_path: str | Path | None = None,
         rejection_path: str | Path | None = None,
         interface_trial_balance_path: str | Path | None = None,
@@ -65,7 +65,7 @@ class GLClient:
         cls,
         spark: SparkSession,
         segment_default_table: str,
-        registry: RegistryClient,
+        registry: RegistryClientProtocol,
         posting_table: str = 'gl.posting',
         rejection_table: str = 'gl.rejection',
         interface_trial_balance_table: str = 'interface.trial_balance',

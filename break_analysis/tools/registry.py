@@ -3,7 +3,7 @@ from datetime import date
 
 from pydantic import BaseModel
 
-from registry import RegistryClient
+from registry import RegistryClientProtocol
 from registry.models import GLSegmentType
 
 
@@ -29,7 +29,7 @@ class SegmentDetailsResult:
 
 
 class RegistryTools:
-    def __init__(self, registry_client: RegistryClient):
+    def __init__(self, registry_client: RegistryClientProtocol):
         self._registry = registry_client
 
     def validate_segment(

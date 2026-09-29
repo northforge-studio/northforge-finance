@@ -1,5 +1,6 @@
-from registry.client import RegistryClient
+from registry.client import RegistryClient, RegistryClientProtocol
 
 __all__ = [
     'RegistryClient',
+    'RegistryClientProtocol',
 ]

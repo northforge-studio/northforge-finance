@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+from typing import Protocol
 
 from pyspark.sql import DataFrame, SparkSession
 
@@ -7,6 +8,22 @@ from core.store import CsvStore, PostgresStore
 from registry.manager import RegistryManager
 from registry.models import GLSegmentType
 from registry.repository import RegistryRepository
+
+
+class RegistryClientProtocol(Protocol):
+    def validate_segment(
+        self,
+        segment: GLSegmentType,
+        business_dt: date,
+        segment_cd: str,
+    ) -> bool: ...
+
+    def get_segment_details(
+        self,
+        segment: GLSegmentType,
+        business_dt: date,
+        segment_cd: str,
+    ) -> DataFrame: ...
 
 
 class RegistryClient:

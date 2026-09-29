@@ -17,7 +17,7 @@ from gl.models import (
     GLSegments,
 )
 from gl.repository import GLRepository
-from registry import RegistryClient
+from registry import RegistryClientProtocol
 from registry.models import GLSegmentType
 
 # Maps each GLSegments field to its segment_type. ENTITY is listed
@@ -65,7 +65,7 @@ _VALID_CR_DR_VALUES = frozenset({'DR', 'CR'})
 
 
 class GLManager:
-    def __init__(self, repository: GLRepository, registry: RegistryClient):
+    def __init__(self, repository: GLRepository, registry: RegistryClientProtocol):
         self._repository = repository
         self._registry = registry
 

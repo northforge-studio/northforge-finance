@@ -80,19 +80,23 @@ class _FakeLLM:
 
 
 class _FakeRegistryClient:
-    """Duck-types RegistryClient.validate_segment, optionally raising."""
+    """Implements RegistryClientProtocol; validate_segment optionally raises,
+    get_segment_details is unsupported."""
 
     def __init__(self, is_valid=True, raise_error=False):
         self._is_valid = is_valid
         self._raise_error = raise_error
         self.calls = []
 
-    def validate_segment(self, segment_type, business_dt, segment_value):
+    def validate_segment(self, segment, business_dt, segment_cd):
         if self._raise_error:
             raise RuntimeError('registry unavailable')
 
-        self.calls.append((segment_type, business_dt, segment_value))
+        self.calls.append((segment, business_dt, segment_cd))
         return self._is_valid
+
+    def get_segment_details(self, segment, business_dt, segment_cd):
+        raise NotImplementedError('_FakeRegistryClient.get_segment_details')
 
 
 class _FakeAtlasTools:
