@@ -1,3 +1,4 @@
+from typing import Protocol
 from uuid import UUID
 
 from pyspark.sql import DataFrame, SparkSession
@@ -12,6 +13,31 @@ from gl.contracts import (
 )
 from gl.models import GLInstruction, GLPosting, GLRejection, GLSegmentDefault
 from registry.models import GLSegmentType
+
+
+class GLRepositoryProtocol(Protocol):
+    def get_segment_default(
+        self,
+        segment_type: GLSegmentType,
+        context_type: str,
+        context_value: str,
+    ) -> GLSegmentDefault | None: ...
+
+    def get_segment_defaults(self) -> tuple[GLSegmentDefault, ...]: ...
+
+    def write_posting(self, posting: GLPosting) -> None: ...
+
+    def get_postings(self, workflow_run_id: UUID) -> DataFrame: ...
+
+    def write_rejection(self, rejection: GLRejection) -> None: ...
+
+    def get_rejections(self, workflow_run_id: UUID) -> DataFrame: ...
+
+    def get_instructions(self, workflow_run_id: UUID) -> tuple[GLInstruction, ...]: ...
+
+    def delete_postings(self, workflow_run_id: UUID) -> None: ...
+
+    def delete_rejections(self, workflow_run_id: UUID) -> None: ...
 
 
 class GLRepository:

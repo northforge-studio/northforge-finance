@@ -21,7 +21,8 @@ from tests.support.fakes import FakeRegistryClient
 
 
 class _FakeRepository:
-    """An in-memory GLRepository stand-in that records every read, write and delete."""
+    """An in-memory GLRepositoryProtocol that records every read, write and
+    delete; get_segment_defaults is unsupported."""
 
     def __init__(
         self,
@@ -46,6 +47,9 @@ class _FakeRepository:
     def get_segment_default(self, segment_type, context_type, context_value):
         self.calls.append((segment_type, context_type, context_value))
         return self._results.get((segment_type, context_type, context_value))
+
+    def get_segment_defaults(self):
+        raise NotImplementedError('_FakeRepository.get_segment_defaults')
 
     def write_posting(self, posting):
         self.postings.append(posting)

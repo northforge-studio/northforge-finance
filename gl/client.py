@@ -20,13 +20,15 @@ from gl.models import (
     GLSegmentResolutions,
     GLSegments,
 )
-from gl.repository import GLRepository
+from gl.repository import GLRepository, GLRepositoryProtocol
 from registry import RegistryClientProtocol
 from registry.models import GLSegmentType
 
 
 class GLClient:
-    def __init__(self, repository: GLRepository, registry: RegistryClientProtocol):
+    def __init__(
+        self, repository: GLRepositoryProtocol, registry: RegistryClientProtocol
+    ):
         self._repository = repository
         self._registry = registry
         self._manager = GLManager(repository, registry)
