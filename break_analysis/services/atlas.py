@@ -3,7 +3,7 @@ from functools import reduce
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from atlas import AtlasClient
+from atlas import AtlasClientProtocol
 from atlas.models import MappingDefinition
 from break_analysis.models import (
     AtlasInputResolution,
@@ -13,7 +13,7 @@ from break_analysis.models import (
 )
 from core.logging import get_logger, short_id
 from foundry.contracts import TRIAL_BALANCE_POSTING_SEGMENT_COLUMNS
-from foundry.repository import TrialBalanceRepository
+from foundry.repository import TrialBalanceRepositoryProtocol
 from registry.models import GLSegmentType
 
 logger = get_logger(__name__)
@@ -38,8 +38,8 @@ SEGMENT_MAPPING_NAMES = {
 class AtlasEvidenceService:
     def __init__(
         self,
-        atlas_client: AtlasClient,
-        foundry_repository: TrialBalanceRepository,
+        atlas_client: AtlasClientProtocol,
+        foundry_repository: TrialBalanceRepositoryProtocol,
     ):
         self._atlas = atlas_client
         self._foundry = foundry_repository

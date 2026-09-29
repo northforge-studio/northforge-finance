@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Protocol
 
 from pyspark.sql import DataFrame, SparkSession
 
@@ -11,6 +12,20 @@ from atlas.models import (
 )
 from atlas.repository import AtlasRepository
 from core.store import CsvStore, PostgresStore
+
+
+class AtlasClientProtocol(Protocol):
+    def apply(self, df: DataFrame, mapping_name: str) -> DataFrame: ...
+
+    def get_mapping(self, mapping_name: str) -> Mapping: ...
+
+    def get_definition(self, mapping_name: str) -> MappingDefinition: ...
+
+    def get_rule_config(self, dataclass: str) -> list[GatewayRule]: ...
+
+    def explain_resolution(
+        self, mapping_name: str, input_values: dict[str, str]
+    ) -> MappingResolutionEvidence: ...
 
 
 class AtlasClient:

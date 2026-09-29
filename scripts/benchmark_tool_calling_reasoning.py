@@ -29,7 +29,13 @@ from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolCall,
+    ToolMessage,
+)
 from langchain_core.tools import StructuredTool
 from langchain_ollama import ChatOllama
 
@@ -79,9 +85,6 @@ def _record(**overrides) -> BreakRecord:
     )
     defaults.update(overrides)
     return BreakRecord(**defaults)
-
-
-ToolCall = dict
 
 
 def normalize(tool_call: ToolCall) -> tuple:
@@ -313,7 +316,7 @@ class RunResult:
     input_tokens: int | None
     output_tokens: int | None
     tool_calls: list
-    content: str
+    content: str | list[str | dict]
     missing_required: list[str]
     forbidden_hit: list[str]
     extra_calls: list[tuple]
@@ -324,8 +327,18 @@ def ns_to_ms(value) -> int | None:
     return None if value is None else round(value / 1_000_000)
 
 
+class _SchemaOnlyRegistryClient:
+    """Tools here are bound for their schema only; never called."""
+
+    def validate_segment(self, segment, business_dt, segment_cd):
+        raise NotImplementedError('_SchemaOnlyRegistryClient.validate_segment')
+
+    def get_segment_details(self, segment, business_dt, segment_cd):
+        raise NotImplementedError('_SchemaOnlyRegistryClient.get_segment_details')
+
+
 def build_tools() -> list:
-    registry_tools = RegistryTools(registry_client=None)
+    registry_tools = RegistryTools(registry_client=_SchemaOnlyRegistryClient())
     return [
         StructuredTool.from_function(
             func=registry_tools.validate_segment,

@@ -20,7 +20,6 @@ class _StagingPipeline(NoOpPipeline):
 
     def post_staging(self, df):
         self.post_staging_called_with = df
-        return self._config.business_dt
 
 
 def test_staging_returns_zone_result_for_supplied_identity(spark):
@@ -57,6 +56,8 @@ def test_staging_stamps_supplied_workflow_and_producer_run_id(spark):
 
     pipeline.staging(identity)
 
+    assert pipeline.post_staging_called_with is not None
+
     row = pipeline.post_staging_called_with.collect()[0]
     assert row['WORKFLOW_RUN_ID'] == str(identity.workflow_run_id)
     assert row['PRODUCER_RUN_ID'] == str(identity.run_id)
@@ -79,6 +80,8 @@ def test_staging_overwrites_any_preexisting_run_identity_columns(spark):
     )
 
     pipeline.staging(identity)
+
+    assert pipeline.post_staging_called_with is not None
 
     row = pipeline.post_staging_called_with.collect()[0]
     assert row['WORKFLOW_RUN_ID'] == str(identity.workflow_run_id)

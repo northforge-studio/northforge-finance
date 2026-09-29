@@ -6,13 +6,13 @@ from pyspark.sql import functions as F
 from break_analysis.models import BreakRecord
 from core.logging import get_logger, short_id
 from gl.models import GLSegments
-from recon.client import ReconClient
+from recon.client import ReconClientProtocol
 
 logger = get_logger(__name__)
 
 
 class ReconBreakRecordResolver:
-    def __init__(self, recon_client: ReconClient):
+    def __init__(self, recon_client: ReconClientProtocol):
         self._recon = recon_client
 
     def get_break_record(

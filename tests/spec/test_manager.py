@@ -2,7 +2,8 @@ from spec.manager import SpecManager
 
 
 class _FakeRepository:
-    """Duck-types SpecRepository.get_transformations, and records each call."""
+    """Implements SpecRepositoryProtocol; get_transformations records each
+    call, get_file_layout_expressions is unsupported."""
 
     def __init__(self, transformations):
         self._transformations = transformations
@@ -11,6 +12,9 @@ class _FakeRepository:
     def get_transformations(self, dataclass, zone, stage, sub_stage=''):
         self.calls.append((dataclass, zone, stage, sub_stage))
         return self._transformations
+
+    def get_file_layout_expressions(self, dataclass):
+        raise NotImplementedError('_FakeRepository.get_file_layout_expressions')
 
 
 def test_apply_adds_configured_output_column(spark):

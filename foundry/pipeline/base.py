@@ -5,7 +5,7 @@ from pyspark.sql import Column, DataFrame
 from pyspark.sql import functions as F
 from pyspark.sql.types import StructType
 
-from atlas import AtlasClient
+from atlas import AtlasClientProtocol
 from atlas.models import GatewayRule
 from core.runs.models import RunIdentity, RunStatus, ZoneResult
 from foundry.models import PipelineConfig
@@ -22,7 +22,7 @@ class BasePipeline(ABC):
     def __init__(
         self,
         config: PipelineConfig,
-        atlas: AtlasClient,
+        atlas: AtlasClientProtocol,
         reference: ReferenceClient,
         spec: SpecClient,
     ):

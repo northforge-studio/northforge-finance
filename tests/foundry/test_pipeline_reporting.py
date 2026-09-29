@@ -21,7 +21,6 @@ class _ReportingPipeline(NoOpPipeline):
 
     def post_reporting(self, df):
         self.post_reporting_called_with = df
-        return self._config.business_dt
 
 
 def test_reporting_returns_zone_result_for_supplied_identity(spark):
@@ -72,6 +71,8 @@ def test_reporting_stamps_supplied_workflow_and_producer_run_id(spark):
     )
 
     pipeline.reporting(identity)
+
+    assert pipeline.post_reporting_called_with is not None
 
     row = pipeline.post_reporting_called_with.collect()[0]
     assert row['WORKFLOW_RUN_ID'] == str(identity.workflow_run_id)

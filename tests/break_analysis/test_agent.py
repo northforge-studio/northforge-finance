@@ -6,6 +6,7 @@ import pytest
 from break_analysis.agent import BreakAnalysisAgent
 from break_analysis.models import (
     BreakAnalysisConclusion,
+    BreakAnalysisStatus,
     BreakCase,
     BreakTopology,
 )
@@ -16,7 +17,7 @@ from tests.break_analysis.factories import make_break_record
 from tests.support.constants import AS_OF_DATE
 
 _CONCLUSION = BreakAnalysisConclusion(
-    status='EXPLAINED',
+    status=BreakAnalysisStatus.EXPLAINED,
     findings=(),
     explanation='Segment is valid; break explained by timing.',
 )
@@ -100,15 +101,10 @@ class _FakeRegistryClient:
 
 
 class _FakeAtlasTools:
-    """Duck-types AtlasTools.investigate_resolution, and records each call."""
-
-    def __init__(self, evidence=None):
-        self._evidence = evidence
-        self.calls = []
+    """Implements AtlasToolsProtocol; investigate_resolution is unsupported."""
 
     def investigate_resolution(self, workflow_run_id, recon_result_id, segment_type):
-        self.calls.append((workflow_run_id, recon_result_id, segment_type))
-        return self._evidence
+        raise NotImplementedError('_FakeAtlasTools.investigate_resolution')
 
 
 # -- helpers ---------------------------------------------------------------
@@ -139,7 +135,6 @@ def _make_tool_call(name='validate_segment', call_id='call_1', **arg_overrides) 
 def _make_agent(
     responses,
     registry_client=None,
-    atlas_tools=None,
     conclusion=None,
     parsing_error=None,
     conclusion_usage_metadata=None,
@@ -160,8 +155,8 @@ def _make_agent(
         conclusion_usage_metadata=conclusion_usage_metadata,
     )
     return BreakAnalysisAgent(
-        llm=llm,
-        atlas_tools=atlas_tools or _FakeAtlasTools(),
+        llm=llm,  # pyright: ignore[reportArgumentType]
+        atlas_tools=_FakeAtlasTools(),
         registry_tools=registry_tools,
         **kwargs,
     )

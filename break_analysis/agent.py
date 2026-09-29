@@ -19,8 +19,11 @@ from break_analysis.models import (
     BreakInvestigationContext,
 )
 from break_analysis.prompts import CONCLUSION_SYSTEM_PROMPT, EVIDENCE_SYSTEM_PROMPT
-from break_analysis.tools.atlas import AtlasTools, InvestigateAtlasResolutionInput
-from break_analysis.tools.registry import RegistryTools, ValidateSegmentInput
+from break_analysis.tools.atlas import (
+    AtlasToolsProtocol,
+    InvestigateAtlasResolutionInput,
+)
+from break_analysis.tools.registry import RegistryToolsProtocol, ValidateSegmentInput
 from core.logging import get_logger, short_id
 
 logger = get_logger(__name__)
@@ -30,8 +33,8 @@ class BreakAnalysisAgent:
     def __init__(
         self,
         llm: BaseChatModel,
-        atlas_tools: AtlasTools,
-        registry_tools: RegistryTools,
+        atlas_tools: AtlasToolsProtocol,
+        registry_tools: RegistryToolsProtocol,
         max_tool_rounds: int = 10,
     ):
         if max_tool_rounds < 1:

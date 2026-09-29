@@ -1,5 +1,6 @@
-from atlas.client import AtlasClient
+from atlas.client import AtlasClient, AtlasClientProtocol
 
 __all__ = [
     'AtlasClient',
+    'AtlasClientProtocol',
 ]

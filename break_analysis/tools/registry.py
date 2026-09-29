@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from datetime import date
+from typing import Protocol
 
 from pydantic import BaseModel
 
@@ -26,6 +27,16 @@ class SegmentDetailsResult:
     segment_value: str
     exists: bool
     status: str | None
+
+
+class RegistryToolsProtocol(Protocol):
+    def validate_segment(
+        self, segment_type: GLSegmentType, segment_value: str, business_dt: date
+    ) -> SegmentValidationResult: ...
+
+    def get_segment_details(
+        self, segment_type: GLSegmentType, segment_value: str, business_dt: date
+    ) -> SegmentDetailsResult: ...
 
 
 class RegistryTools:

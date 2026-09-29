@@ -54,7 +54,7 @@ def main() -> None:
             schema='foundry_source',
             if_exists='append',
             index=False,
-            dtype={
+            dtype={  # pyright: ignore[reportArgumentType]
                 'src_measure_trans_amt': Numeric(28, 12),
             },
         )

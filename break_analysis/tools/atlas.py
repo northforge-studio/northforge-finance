@@ -1,3 +1,4 @@
+from typing import Protocol
 from uuid import UUID
 
 from pydantic import BaseModel
@@ -11,6 +12,12 @@ class InvestigateAtlasResolutionInput(BaseModel):
     workflow_run_id: UUID
     recon_result_id: UUID
     segment_type: GLSegmentType
+
+
+class AtlasToolsProtocol(Protocol):
+    def investigate_resolution(
+        self, workflow_run_id: UUID, recon_result_id: UUID, segment_type: GLSegmentType
+    ) -> AtlasResolutionEvidence: ...
 
 
 class AtlasTools:

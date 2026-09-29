@@ -58,8 +58,8 @@ def make_run_tracker() -> RunTracker:
 
 
 class FakeStore:
-    """A minimal in-memory Store stand-in, to prove a repository is
-    backend-agnostic."""
+    """A minimal in-memory Store, to prove a repository is backend-agnostic;
+    delete is unsupported."""
 
     def __init__(self, tables):
         self._tables = tables
@@ -69,6 +69,9 @@ class FakeStore:
 
     def write(self, df, table_name, mode='append'):
         self._tables[table_name] = df
+
+    def delete(self, table_name, filters, schema=None):
+        raise NotImplementedError('FakeStore.delete')
 
 
 class FakeRegistryClient:

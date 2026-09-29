@@ -1,8 +1,22 @@
+from typing import Protocol
+
 from pyspark.sql import functions as F
 
 from core.store import Store
 from spec.contracts import FILE_LAYOUT_SCHEMA, TRANSFORMATION_SCHEMA
 from spec.models import SpecType
+
+
+class SpecRepositoryProtocol(Protocol):
+    def get_transformations(
+        self,
+        dataclass: str,
+        zone: str,
+        stage: str,
+        sub_stage: str = '',
+    ) -> list[dict]: ...
+
+    def get_file_layout_expressions(self, dataclass: str) -> list[str]: ...
 
 
 class SpecRepository:

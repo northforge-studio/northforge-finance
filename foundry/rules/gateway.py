@@ -3,7 +3,7 @@ from functools import reduce
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from atlas import AtlasClient
+from atlas import AtlasClientProtocol
 from atlas.models import GatewayRule
 from foundry.rules.posting import PostingRuleProcessor
 from spec import SpecClient
@@ -14,7 +14,7 @@ class GatewayRuleProcessor:
         self,
         posting_rule_processor: PostingRuleProcessor,
         spec: SpecClient,
-        atlas: AtlasClient,
+        atlas: AtlasClientProtocol,
     ):
         self._posting_rule_processor = posting_rule_processor
         self._spec = spec

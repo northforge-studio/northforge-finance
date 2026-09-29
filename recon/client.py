@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Protocol
 from uuid import UUID
 
 from pyspark.sql import DataFrame, SparkSession
@@ -11,13 +12,19 @@ from core.store import (
 from gl import GLClientProtocol
 from recon.manager import ReconManager
 from recon.models import ReconRunResult
-from recon.repository import ReconRepository
+from recon.repository import ReconRepository, ReconRepositoryProtocol
+
+
+class ReconClientProtocol(Protocol):
+    def reconcile(self, workflow_run_id: UUID) -> ReconRunResult: ...
+
+    def get_results(self, workflow_run_id: UUID) -> DataFrame: ...
 
 
 class ReconClient:
     def __init__(
         self,
-        repository: ReconRepository,
+        repository: ReconRepositoryProtocol,
         run_tracker: RunTracker,
         gl: GLClientProtocol,
     ):

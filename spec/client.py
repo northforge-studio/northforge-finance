@@ -5,11 +5,11 @@ from pyspark.sql import DataFrame, SparkSession
 from core.store import CsvStore, PostgresStore
 from spec.manager import SpecManager
 from spec.models import SpecType
-from spec.repository import SpecRepository
+from spec.repository import SpecRepository, SpecRepositoryProtocol
 
 
 class SpecClient:
-    def __init__(self, repository: SpecRepository):
+    def __init__(self, repository: SpecRepositoryProtocol):
         self._repository = repository
         self._manager = SpecManager(repository)
 

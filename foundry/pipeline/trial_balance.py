@@ -4,7 +4,7 @@ from uuid import UUID
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from atlas import AtlasClient
+from atlas import AtlasClientProtocol
 from core.runs.models import RunIdentity
 from foundry.contracts import (
     TRIAL_BALANCE_ENRICHMENT_SCHEMA,
@@ -15,7 +15,7 @@ from foundry.contracts import (
 )
 from foundry.models import PipelineConfig
 from foundry.pipeline.base import BasePipeline
-from foundry.repository import TrialBalanceRepository
+from foundry.repository import TrialBalanceRepositoryProtocol
 from reference import ReferenceClient
 from reference.models import ReferenceData
 from spec import SpecClient
@@ -27,8 +27,8 @@ class TrialBalancePipeline(BasePipeline):
     def __init__(
         self,
         business_dt: date,
-        atlas: AtlasClient,
-        repository: TrialBalanceRepository,
+        atlas: AtlasClientProtocol,
+        repository: TrialBalanceRepositoryProtocol,
         reference: ReferenceClient,
         spec: SpecClient,
     ):

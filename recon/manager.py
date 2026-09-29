@@ -7,7 +7,7 @@ from core.runs import RunTracker
 from gl import GLClientProtocol
 from recon.calculation import calculate_recon
 from recon.models import ReconResult, ReconRunResult
-from recon.repository import ReconRepository
+from recon.repository import ReconRepositoryProtocol
 
 # v1 supports only TRIAL_BALANCE. Recon may need to consume multiple
 # dataclasses/workflow_run_ids once more dataclasses exist; that is
@@ -18,7 +18,7 @@ _SUPPORTED_DATACLASSES = frozenset({'TRIAL_BALANCE'})
 class ReconManager:
     def __init__(
         self,
-        repository: ReconRepository,
+        repository: ReconRepositoryProtocol,
         run_tracker: RunTracker,
         gl: GLClientProtocol,
     ):

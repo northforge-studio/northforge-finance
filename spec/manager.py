@@ -1,11 +1,11 @@
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
-from spec.repository import SpecRepository
+from spec.repository import SpecRepositoryProtocol
 
 
 class SpecManager:
-    def __init__(self, repository: SpecRepository):
+    def __init__(self, repository: SpecRepositoryProtocol):
         self._repository = repository
 
     def apply_transformation(

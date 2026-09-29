@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from typing import Protocol
 from uuid import UUID
 
 from pyspark.sql import DataFrame, SparkSession
@@ -13,6 +14,14 @@ from core.store import Store
 from gl.contracts import INTERFACE_TRIAL_BALANCE_SCHEMA
 from recon.contracts import RESULT_SCHEMA
 from recon.models import ReconResult
+
+
+class ReconRepositoryProtocol(Protocol):
+    def get_interface_trial_balance(self, workflow_run_id: UUID) -> DataFrame: ...
+
+    def write_results(self, results: Sequence[ReconResult]) -> None: ...
+
+    def get_results(self, workflow_run_id: UUID) -> DataFrame: ...
 
 
 class ReconRepository:

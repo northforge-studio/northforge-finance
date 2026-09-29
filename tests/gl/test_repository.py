@@ -1,5 +1,6 @@
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -29,7 +30,7 @@ def repository(spark):
     store = CsvStore(
         spark=spark,
         table_locations={
-            'SEGMENT_DEFAULT': GL_SEGMENT_DEFAULT_PATH,
+            'SEGMENT_DEFAULT': Path(GL_SEGMENT_DEFAULT_PATH),
         },
     )
     return GLRepository(store, spark)

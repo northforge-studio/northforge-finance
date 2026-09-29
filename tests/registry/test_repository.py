@@ -1,4 +1,5 @@
 from datetime import date
+from pathlib import Path
 
 import pytest
 
@@ -14,8 +15,8 @@ def repository(spark):
     store = CsvStore(
         spark=spark,
         table_locations={
-            GLSegmentType.ENTITY: REGISTRY_ENTITY_PATH,
-            GLSegmentType.BRANCH: REGISTRY_BRANCH_PATH,
+            GLSegmentType.ENTITY: Path(REGISTRY_ENTITY_PATH),
+            GLSegmentType.BRANCH: Path(REGISTRY_BRANCH_PATH),
         },
     )
     return RegistryRepository(store)

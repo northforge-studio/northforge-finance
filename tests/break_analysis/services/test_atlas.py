@@ -50,7 +50,8 @@ _POSTING_SCHEMA = StructType(
 
 
 class _FakeAtlasClient:
-    """Duck-types AtlasClient, serving a canned definition and resolutions."""
+    """Implements AtlasClientProtocol, serving a canned definition and
+    resolutions; every other method is unsupported."""
 
     def __init__(
         self,
@@ -74,15 +75,70 @@ class _FakeAtlasClient:
         )
         return self._resolutions[tuple(sorted(input_values.items()))]
 
+    def apply(self, df, mapping_name):
+        raise NotImplementedError('_FakeAtlasClient.apply')
+
+    def get_mapping(self, mapping_name):
+        raise NotImplementedError('_FakeAtlasClient.get_mapping')
+
+    def get_rule_config(self, dataclass):
+        raise NotImplementedError('_FakeAtlasClient.get_rule_config')
+
 
 class _FakeFoundryRepository:
-    """Duck-types the Foundry repository read of the posting zone."""
+    """Implements TrialBalanceRepositoryProtocol; read_posting serves a canned
+    DataFrame, every other method is unsupported."""
 
     def __init__(self, df):
         self._df = df
 
     def read_posting(self, workflow_run_id):
         return self._df
+
+    def read_source(self, business_dt):
+        raise NotImplementedError('_FakeFoundryRepository.read_source')
+
+    def read_staging(self, workflow_run_id):
+        raise NotImplementedError('_FakeFoundryRepository.read_staging')
+
+    def read_enrichment(self, workflow_run_id):
+        raise NotImplementedError('_FakeFoundryRepository.read_enrichment')
+
+    def read_reporting(self, workflow_run_id):
+        raise NotImplementedError('_FakeFoundryRepository.read_reporting')
+
+    def read_interface(self, workflow_run_id):
+        raise NotImplementedError('_FakeFoundryRepository.read_interface')
+
+    def write_staging(self, df):
+        raise NotImplementedError('_FakeFoundryRepository.write_staging')
+
+    def write_enrichment(self, df):
+        raise NotImplementedError('_FakeFoundryRepository.write_enrichment')
+
+    def write_reporting(self, df):
+        raise NotImplementedError('_FakeFoundryRepository.write_reporting')
+
+    def write_posting(self, df):
+        raise NotImplementedError('_FakeFoundryRepository.write_posting')
+
+    def write_interface(self, df):
+        raise NotImplementedError('_FakeFoundryRepository.write_interface')
+
+    def delete_staging(self, workflow_run_id):
+        raise NotImplementedError('_FakeFoundryRepository.delete_staging')
+
+    def delete_enrichment(self, workflow_run_id):
+        raise NotImplementedError('_FakeFoundryRepository.delete_enrichment')
+
+    def delete_reporting(self, workflow_run_id):
+        raise NotImplementedError('_FakeFoundryRepository.delete_reporting')
+
+    def delete_posting(self, workflow_run_id):
+        raise NotImplementedError('_FakeFoundryRepository.delete_posting')
+
+    def delete_interface(self, workflow_run_id):
+        raise NotImplementedError('_FakeFoundryRepository.delete_interface')
 
 
 # -- helpers ---------------------------------------------------------------

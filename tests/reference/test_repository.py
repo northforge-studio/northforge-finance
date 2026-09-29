@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from core.store import CsvStore
@@ -12,8 +14,8 @@ def repository(spark):
     store = CsvStore(
         spark=spark,
         table_locations={
-            'REF_FX_RATE': REFERENCE_FX_RATE_PATH,
-            'REF_COUNTERPARTY': REFERENCE_COUNTERPARTY_PATH,
+            'REF_FX_RATE': Path(REFERENCE_FX_RATE_PATH),
+            'REF_COUNTERPARTY': Path(REFERENCE_COUNTERPARTY_PATH),
         },
     )
     return ReferenceRepository(store)

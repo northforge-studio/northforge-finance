@@ -21,7 +21,6 @@ class _EnrichmentPipeline(NoOpPipeline):
 
     def post_enrichment(self, df):
         self.post_enrichment_called_with = df
-        return self._config.business_dt
 
 
 def test_enrichment_returns_zone_result_for_supplied_identity(spark):
@@ -73,6 +72,8 @@ def test_enrichment_stamps_supplied_workflow_and_producer_run_id(spark):
 
     pipeline.enrichment(identity)
 
+    assert pipeline.post_enrichment_called_with is not None
+
     row = pipeline.post_enrichment_called_with.collect()[0]
     assert row['WORKFLOW_RUN_ID'] == str(identity.workflow_run_id)
     assert row['PRODUCER_RUN_ID'] == str(identity.run_id)
@@ -95,6 +96,8 @@ def test_enrichment_overwrites_upstream_producer_run_id(spark):
     )
 
     pipeline.enrichment(identity)
+
+    assert pipeline.post_enrichment_called_with is not None
 
     row = pipeline.post_enrichment_called_with.collect()[0]
     assert row['WORKFLOW_RUN_ID'] == str(identity.workflow_run_id)

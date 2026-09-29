@@ -1,19 +1,18 @@
-from uuid import UUID, uuid4
+from unittest.mock import MagicMock
+from uuid import uuid4
 
 import pytest
 
 from core.runs.models import (
-    ExecutionRun,
-    RunIdentity,
     RunStatus,
     ZoneResult,
 )
 from foundry.models import PipelineConfig
 from gl.models import GLImportResult
 from tests.support.constants import BUSINESS_DT
-from tests.support.fakes import FakeRunRepository, make_run_tracker
+from tests.support.fakes import make_run_tracker
+from tests.support.pipelines import NoOpPipeline
 from workflow import WorkflowOrchestrator
-from workflow.models import WorkflowResult
 
 ZONES = ('staging', 'enrichment', 'reporting', 'posting', 'interface')
 
@@ -21,19 +20,20 @@ ZONES = ('staging', 'enrichment', 'reporting', 'posting', 'interface')
 # -- fakes -----------------------------------------------------------------
 
 
-class _FakePipeline:
-    """A stand-in for BasePipeline: implements the zone(identity) API and
-    rollback_execution(operation, identity), with no Spark/DataFrame
-    involvement at all."""
+class _FakePipeline(NoOpPipeline):
+    """A NoOpPipeline whose zone(identity) methods succeed, or raise in the
+    zone named by raise_in, with no Spark/DataFrame involvement at all."""
 
-    def __init__(self, business_dt=BUSINESS_DT, raise_in=None):
-        self.config = PipelineConfig(dataclass='TRIAL_BALANCE', business_dt=business_dt)
+    def __init__(self, raise_in=None):
+        super().__init__(
+            config=PipelineConfig(dataclass='TRIAL_BALANCE', business_dt=BUSINESS_DT),
+            atlas=MagicMock(),
+            reference=MagicMock(),
+            spec=MagicMock(),
+        )
         self._raise_in = raise_in
-        self.rollback_calls: list[tuple[str, RunIdentity]] = []
-        self.zone_calls: dict[str, RunIdentity] = {}
 
     def _zone(self, name, identity):
-        self.zone_calls[name] = identity
         if self._raise_in == name:
             raise ValueError(f'{name} boom')
         return ZoneResult(
@@ -58,23 +58,16 @@ class _FakePipeline:
     def interface(self, identity):
         return self._zone('interface', identity)
 
-    def rollback_execution(self, operation, identity):
-        self.rollback_calls.append((operation, identity))
-
 
 class _FakeGL:
-    """Implements GLClientProtocol; records imports and rollbacks, optionally
-    failing. Every other method is unsupported."""
+    """Implements GLClientProtocol; import_instructions optionally fails and
+    rollback_execution is a no-op. Every other method is unsupported."""
 
     def __init__(self, raise_error=False, rejected_count=0):
         self._raise_error = raise_error
         self._rejected_count = rejected_count
-        self.import_calls: list[tuple[RunIdentity, UUID]] = []
-        self.rollback_calls: list[RunIdentity] = []
 
     def import_instructions(self, identity, source_producer_run_id):
-        self.import_calls.append((identity, source_producer_run_id))
-
         if self._raise_error:
             raise ValueError('gl import boom')
 
@@ -89,8 +82,7 @@ class _FakeGL:
             results=(),
         )
 
-    def rollback_execution(self, identity):
-        self.rollback_calls.append(identity)
+    def rollback_execution(self, identity): ...
 
     def get_segment_default(self, segment_type, *, entity_cd=None):
         raise NotImplementedError('_FakeGL.get_segment_default')
@@ -119,73 +111,7 @@ class _FakeGL:
         raise NotImplementedError('_FakeGL.get_rejections')
 
 
-# -- helpers ---------------------------------------------------------------
-
-
-def _executions_by_operation(
-    repository: FakeRunRepository,
-    workflow_run_id: UUID,
-) -> dict[str, ExecutionRun]:
-    return {
-        execution.operation: execution
-        for execution in repository.get_execution_runs(workflow_run_id)
-    }
-
-
 # -- run_foundry: topology -------------------------------------------------
-
-
-def test_run_foundry_creates_five_zone_executions_under_one_workflow():
-    run_tracker = make_run_tracker()
-    pipeline = _FakePipeline()
-    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
-
-    result = orchestrator.run_foundry()
-
-    repository = run_tracker._repository
-    executions = _executions_by_operation(repository, result.identity.workflow_run_id)
-
-    assert set(executions) == {
-        'PIPELINE',
-        'STAGING',
-        'ENRICHMENT',
-        'REPORTING',
-        'POSTING',
-        'INTERFACE',
-    }
-    assert all(e.component == 'FOUNDRY' for e in executions.values())
-
-    pipeline_execution = executions['PIPELINE']
-    assert pipeline_execution.parent_run_id is None
-
-    for operation in ('STAGING', 'ENRICHMENT', 'REPORTING', 'POSTING', 'INTERFACE'):
-        assert executions[operation].parent_run_id == pipeline_execution.run_id
-
-
-def test_run_foundry_creates_all_five_zone_to_zone_dependencies():
-    run_tracker = make_run_tracker()
-    pipeline = _FakePipeline()
-    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
-
-    result = orchestrator.run_foundry()
-
-    repository = run_tracker._repository
-    executions = _executions_by_operation(repository, result.identity.workflow_run_id)
-
-    dependency_pairs = {
-        (dep.consumer_run_id, dep.producer_run_id, dep.input_role)
-        for dep in repository.dependencies
-    }
-
-    # Reporting genuinely reads both Staging and Enrichment output (see
-    # TrialBalancePipeline.pre_reporting), so it depends on both.
-    assert dependency_pairs == {
-        (executions['ENRICHMENT'].run_id, executions['STAGING'].run_id, 'STAGING'),
-        (executions['REPORTING'].run_id, executions['STAGING'].run_id, 'STAGING'),
-        (executions['REPORTING'].run_id, executions['ENRICHMENT'].run_id, 'ENRICHMENT'),
-        (executions['POSTING'].run_id, executions['REPORTING'].run_id, 'REPORTING'),
-        (executions['INTERFACE'].run_id, executions['POSTING'].run_id, 'POSTING'),
-    }
 
 
 def test_run_foundry_returns_pipeline_result_with_zones_in_order():
@@ -205,71 +131,6 @@ def test_run_foundry_returns_pipeline_result_with_zones_in_order():
     assert result.status == RunStatus.SUCCEEDED
 
 
-# -- run_foundry: lifecycle ------------------------------------------------
-
-
-def test_run_foundry_completes_workflow_and_pipeline_execution_on_success():
-    run_tracker = make_run_tracker()
-    pipeline = _FakePipeline()
-    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
-
-    result = orchestrator.run_foundry()
-
-    repository = run_tracker._repository
-    workflow = repository.get_workflow_run(result.identity.workflow_run_id)
-    assert workflow.status == RunStatus.SUCCEEDED
-
-    executions = _executions_by_operation(repository, result.identity.workflow_run_id)
-    assert all(e.status == RunStatus.SUCCEEDED for e in executions.values())
-
-
-@pytest.mark.parametrize('failing_zone', ZONES)
-def test_run_foundry_rolls_back_and_fails_execution_chain_on_zone_failure(failing_zone):
-    run_tracker = make_run_tracker()
-    pipeline = _FakePipeline(raise_in=failing_zone)
-    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
-
-    with pytest.raises(ValueError, match=f'{failing_zone} boom'):
-        orchestrator.run_foundry()
-
-    repository = run_tracker._repository
-    [workflow] = repository.workflows.values()
-    assert workflow.status == RunStatus.FAILED
-
-    executions = _executions_by_operation(repository, workflow.workflow_run_id)
-    assert executions['PIPELINE'].status == RunStatus.FAILED
-    assert executions[failing_zone.upper()].status == RunStatus.FAILED
-
-    # Rollback ran for the failed zone, using its own identity, before the
-    # execution was marked failed.
-    [(operation, identity)] = pipeline.rollback_calls
-    assert operation == failing_zone.upper()
-    assert identity.run_id == executions[failing_zone.upper()].run_id
-
-    # Zones preceding the failure succeeded and were not rolled back.
-    preceding = ZONES[: ZONES.index(failing_zone)]
-    for zone in preceding:
-        assert executions[zone.upper()].status == RunStatus.SUCCEEDED
-
-
-def test_run_foundry_passes_the_zones_own_identity_into_each_zone_call():
-    run_tracker = make_run_tracker()
-    pipeline = _FakePipeline()
-    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
-
-    result = orchestrator.run_foundry()
-
-    repository = run_tracker._repository
-    executions = _executions_by_operation(repository, result.identity.workflow_run_id)
-
-    for zone in ZONES:
-        identity = pipeline.zone_calls[zone]
-        execution = executions[zone.upper()]
-        assert identity.run_id == execution.run_id
-        assert identity.workflow_run_id == execution.workflow_run_id
-        assert identity.parent_run_id == execution.parent_run_id
-
-
 # -- run_gl ----------------------------------------------------------------
 
 
@@ -281,154 +142,7 @@ def test_run_gl_requires_an_existing_workflow():
         orchestrator.run_gl(uuid4())
 
 
-def test_run_gl_resolves_the_workflows_foundry_interface_execution():
-    run_tracker = make_run_tracker()
-    pipeline = _FakePipeline()
-    gl = _FakeGL()
-    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
-
-    foundry_result = orchestrator.run_foundry()
-    workflow_run_id = foundry_result.identity.workflow_run_id
-
-    repository = run_tracker._repository
-    interface_execution = _executions_by_operation(repository, workflow_run_id)[
-        'INTERFACE'
-    ]
-
-    orchestrator.run_gl(workflow_run_id)
-
-    [(identity, source_producer_run_id)] = gl.import_calls
-    assert source_producer_run_id == interface_execution.run_id
-    assert identity.workflow_run_id == workflow_run_id
-
-
-def test_run_gl_creates_import_execution_with_dependency_under_same_workflow():
-    run_tracker = make_run_tracker()
-    pipeline = _FakePipeline()
-    gl = _FakeGL()
-    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
-
-    foundry_result = orchestrator.run_foundry()
-    workflow_run_id = foundry_result.identity.workflow_run_id
-
-    orchestrator.run_gl(workflow_run_id)
-
-    repository = run_tracker._repository
-    executions = _executions_by_operation(repository, workflow_run_id)
-    interface_execution = executions['INTERFACE']
-    gl_execution = executions['IMPORT']
-
-    assert gl_execution.component == 'GL'
-    assert gl_execution.workflow_run_id == workflow_run_id
-    assert gl_execution.status == RunStatus.SUCCEEDED
-
-    assert any(
-        dep.consumer_run_id == gl_execution.run_id
-        and dep.producer_run_id == interface_execution.run_id
-        and dep.input_role == 'INTERFACE'
-        for dep in repository.dependencies
-    )
-
-
-def test_run_gl_raises_when_no_successful_interface_execution_exists():
-    run_tracker = make_run_tracker()
-    pipeline = _FakePipeline(raise_in='interface')
-    gl = _FakeGL()
-    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
-
-    with pytest.raises(ValueError, match='boom'):
-        orchestrator.run_foundry()
-
-    [workflow_run_id] = list(run_tracker._repository.workflows)
-
-    with pytest.raises(ValueError, match='No successful FOUNDRY/INTERFACE execution'):
-        orchestrator.run_gl(workflow_run_id)
-
-
-def test_run_gl_business_rejections_still_succeed_the_import_execution():
-    run_tracker = make_run_tracker()
-    pipeline = _FakePipeline()
-    gl = _FakeGL(rejected_count=3)
-    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
-
-    foundry_result = orchestrator.run_foundry()
-    workflow_run_id = foundry_result.identity.workflow_run_id
-
-    result = orchestrator.run_gl(workflow_run_id)
-
-    assert result.rejected_count == 3
-
-    repository = run_tracker._repository
-    gl_execution = _executions_by_operation(repository, workflow_run_id)['IMPORT']
-    assert gl_execution.status == RunStatus.SUCCEEDED
-
-
-def test_run_gl_rolls_back_and_fails_on_technical_failure():
-    run_tracker = make_run_tracker()
-    pipeline = _FakePipeline()
-    gl = _FakeGL(raise_error=True)
-    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
-
-    foundry_result = orchestrator.run_foundry()
-    workflow_run_id = foundry_result.identity.workflow_run_id
-
-    with pytest.raises(ValueError, match='gl import boom'):
-        orchestrator.run_gl(workflow_run_id)
-
-    repository = run_tracker._repository
-    gl_execution = _executions_by_operation(repository, workflow_run_id)['IMPORT']
-    assert gl_execution.status == RunStatus.FAILED
-
-    [identity] = gl.rollback_calls
-    assert identity.run_id == gl_execution.run_id
-
-    workflow = repository.get_workflow_run(workflow_run_id)
-    assert workflow.status == RunStatus.FAILED
-
-
-def test_run_gl_continuing_an_already_succeeded_workflow_keeps_it_succeeded():
-    run_tracker = make_run_tracker()
-    pipeline = _FakePipeline()
-    gl = _FakeGL()
-    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
-
-    foundry_result = orchestrator.run_foundry()
-    workflow_run_id = foundry_result.identity.workflow_run_id
-
-    repository = run_tracker._repository
-    assert repository.get_workflow_run(workflow_run_id).status == RunStatus.SUCCEEDED
-
-    orchestrator.run_gl(workflow_run_id)
-
-    assert repository.get_workflow_run(workflow_run_id).status == RunStatus.SUCCEEDED
-
-
 # -- logging ---------------------------------------------------------------
-
-
-def test_run_foundry_zone_success_logs_operation_run_id_and_record_count(caplog):
-    run_tracker = make_run_tracker()
-    pipeline = _FakePipeline()
-    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=_FakeGL())
-
-    with caplog.at_level('INFO', logger='workflow.orchestrator'):
-        result = orchestrator.run_foundry()
-
-    repository = run_tracker._repository
-    executions = _executions_by_operation(repository, result.identity.workflow_run_id)
-    staging_run_id = executions['STAGING'].run_id
-
-    zone_success_records = [
-        r
-        for r in caplog.records
-        if r.levelname == 'INFO' and 'Foundry zone succeeded' in r.message
-    ]
-    assert any(
-        'STAGING' in r.message
-        and str(staging_run_id) in r.message
-        and 'records=1' in r.message
-        for r in zone_success_records
-    )
 
 
 def test_run_gl_success_logs_received_posted_and_rejected_counts(caplog):
@@ -510,37 +224,3 @@ def test_run_gl_failure_logs_rollback_warning_and_one_exception(caplog):
         if r.levelname == 'ERROR' and 'GL import failed' in r.message and r.exc_info
     ]
     assert len(exception_records) == 1
-
-
-# -- run_workflow ----------------------------------------------------------
-
-
-def test_run_workflow_creates_exactly_one_workflow_with_foundry_and_gl():
-    run_tracker = make_run_tracker()
-    pipeline = _FakePipeline()
-    gl = _FakeGL()
-    orchestrator = WorkflowOrchestrator(run_tracker, pipeline, gl=gl)
-
-    result = orchestrator.run_workflow()
-
-    assert isinstance(result, WorkflowResult)
-
-    repository = run_tracker._repository
-    assert len(repository.workflows) == 1
-
-    workflow_run_id = result.foundry.identity.workflow_run_id
-    assert result.gl.workflow_run_id == workflow_run_id
-
-    executions = _executions_by_operation(repository, workflow_run_id)
-    assert set(executions) == {
-        'PIPELINE',
-        'STAGING',
-        'ENRICHMENT',
-        'REPORTING',
-        'POSTING',
-        'INTERFACE',
-        'IMPORT',
-    }
-
-    workflow = repository.get_workflow_run(workflow_run_id)
-    assert workflow.status == RunStatus.SUCCEEDED

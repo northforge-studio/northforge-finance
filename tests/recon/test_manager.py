@@ -16,7 +16,7 @@ from tests.support.constants import BUSINESS_DT
 
 
 class _FakeReconRepository:
-    """An in-memory ReconRepository stand-in, optionally failing on write."""
+    """An in-memory ReconRepositoryProtocol, optionally failing on write."""
 
     def __init__(
         self, interface_by_workflow=None, raise_on_write=False, results_by_workflow=None
