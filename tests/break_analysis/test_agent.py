@@ -5,6 +5,8 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
 from break_analysis.agent import BreakAnalysisAgent
+from break_analysis.exceptions import ToolTransientError
+from break_analysis.graph import BreakAnalysisGraph
 from break_analysis.models import (
     BreakAnalysisConclusion,
     BreakAnalysisStatus,
@@ -77,15 +79,24 @@ class _FakeLLM:
 
 
 class _FakeRegistryClient:
-    """Implements RegistryClientProtocol; validate_segment optionally raises,
-    get_segment_details is unsupported."""
+    """Implements RegistryClientProtocol; validate_segment optionally raises
+    ToolTransientError for its first transient_failures attempts, or always
+    raises RuntimeError, and counts every attempt; get_segment_details is
+    unsupported."""
 
-    def __init__(self, is_valid=True, raise_error=False):
+    def __init__(self, is_valid=True, raise_error=False, transient_failures=0):
         self._is_valid = is_valid
         self._raise_error = raise_error
+        self._transient_failures = transient_failures
         self.calls = []
+        self.attempts = 0
 
     def validate_segment(self, segment, business_dt, segment_cd):
+        self.attempts += 1
+
+        if self.attempts <= self._transient_failures:
+            raise ToolTransientError('registry timed out')
+
         if self._raise_error:
             raise RuntimeError('registry unavailable')
 
@@ -101,6 +112,17 @@ class _FakeAtlasTools:
 
     def investigate_resolution(self, workflow_run_id, recon_result_id, segment_type):
         raise NotImplementedError('_FakeAtlasTools.investigate_resolution')
+
+
+# -- fixtures --------------------------------------------------------------
+
+
+@pytest.fixture
+def sleeps(monkeypatch) -> list[float]:
+    """Records retry backoff delays instead of sleeping."""
+    recorded: list[float] = []
+    monkeypatch.setattr('break_analysis.graph.time.sleep', recorded.append)
+    return recorded
 
 
 # -- helpers ---------------------------------------------------------------
@@ -162,6 +184,18 @@ def _make_agent(llm, registry_client=None, **kwargs) -> BreakAnalysisAgent:
         atlas_tools=_FakeAtlasTools(),
         registry_tools=registry_tools,
         **kwargs,
+    )
+
+
+def _make_retry_agent(registry_client) -> BreakAnalysisAgent:
+    return _make_agent(
+        _make_llm(
+            responses=[
+                _make_ai_message(tool_calls=[_make_tool_call()]),
+                _make_ai_message(),
+            ]
+        ),
+        registry_client=registry_client,
     )
 
 
@@ -294,6 +328,59 @@ def test_analyze_raises_on_structured_output_parsing_error():
         agent.analyze(_make_break_case())
 
     assert exc_info.value.__cause__ is original_error
+
+
+# -- analyze: tool retry ---------------------------------------------------
+
+
+def test_analyze_retries_tool_after_transient_failure(sleeps):
+    registry_client = _FakeRegistryClient(transient_failures=2)
+    agent = _make_retry_agent(registry_client)
+
+    result = agent.analyze(_make_break_case())
+
+    assert result.status == _CONCLUSION.status
+    assert registry_client.attempts == 3
+    assert registry_client.calls == [(GLSegmentType.ACCOUNT, AS_OF_DATE, '123456')]
+    assert sleeps == [1, 2]
+
+
+def test_analyze_raises_when_tool_attempts_exhausted(sleeps):
+    registry_client = _FakeRegistryClient(transient_failures=3)
+    agent = _make_retry_agent(registry_client)
+
+    with pytest.raises(RuntimeError, match='validate_segment.*failed') as exc_info:
+        agent.analyze(_make_break_case())
+
+    assert isinstance(exc_info.value.__cause__, ToolTransientError)
+    assert registry_client.attempts == 3
+    assert registry_client.calls == []
+    assert sleeps == [1, 2]
+
+
+def test_analyze_does_not_retry_non_transient_tool_failure(sleeps):
+    registry_client = _FakeRegistryClient(raise_error=True)
+    agent = _make_retry_agent(registry_client)
+
+    with pytest.raises(RuntimeError, match='validate_segment.*failed'):
+        agent.analyze(_make_break_case())
+
+    assert registry_client.attempts == 1
+    assert sleeps == []
+
+
+def test_invoke_tool_with_retry_rejects_non_positive_max_attempts():
+    graph = BreakAnalysisGraph(
+        llm=_make_llm(responses=[]),  # pyright: ignore[reportArgumentType]
+        atlas_tools=_FakeAtlasTools(),
+        registry_tools=RegistryTools(registry_client=_FakeRegistryClient()),
+    )
+    tool = graph._tool_registry['validate_segment']
+
+    with pytest.raises(ValueError, match='max_attempts must be at least 1'):
+        graph._invoke_tool_with_retry(
+            tool, _make_tool_call()['args'], case_id='case', max_attempts=0
+        )
 
 
 # -- analyze: logging ------------------------------------------------------
@@ -556,6 +643,29 @@ def test_analyze_logs_cache_hit_at_debug_level_for_repeated_tool_call(caplog):
     ]
     assert len(invoked_records) == 1
     assert len(cache_hit_records) == 1
+
+
+def test_analyze_logs_warning_for_each_tool_retry(caplog, sleeps):
+    break_case = _make_break_case()
+    agent = _make_retry_agent(_FakeRegistryClient(transient_failures=2))
+
+    with caplog.at_level('INFO', logger='break_analysis.graph'):
+        agent.analyze(break_case)
+
+    retry_records = [
+        r
+        for r in caplog.records
+        if r.levelname == 'WARNING' and 'Tool transient failure' in r.message
+    ]
+    assert len(retry_records) == 2
+    first_message = retry_records[0].message
+    assert f'case_id={short_id(break_case.case_id)}' in first_message
+    assert 'tool=validate_segment' in first_message
+    assert 'attempt=1/3' in first_message
+    assert 'delay_s=1' in first_message
+    assert 'attempt=2/3' in retry_records[1].message
+    assert 'delay_s=2' in retry_records[1].message
+    assert all(r.exc_info for r in retry_records)
 
 
 def test_analyze_logs_error_on_unknown_tool(caplog):

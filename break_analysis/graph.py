@@ -16,6 +16,7 @@ from langchain_core.tools import StructuredTool
 from langgraph.graph import END, START, StateGraph
 from pydantic import BaseModel
 
+from break_analysis.exceptions import ToolTransientError
 from break_analysis.models import (
     BreakAnalysisConclusion,
     BreakAnalysisResult,
@@ -290,7 +291,9 @@ class BreakAnalysisGraph:
                     )
                 else:
                     tool_start = time.monotonic()
-                    result = tool.invoke(tool_call['args'])
+                    result = self._invoke_tool_with_retry(
+                        tool, tool_call['args'], case_id
+                    )
                     logger.info(
                         'Tool invoked | case_id=%s | tool=%s | args=%s | '
                         'duration_ms=%s',
@@ -437,6 +440,37 @@ class BreakAnalysisGraph:
             raise
 
         return response, round((time.monotonic() - start) * 1000)
+
+    # Helper
+    def _invoke_tool_with_retry(
+        self,
+        tool: StructuredTool,
+        tool_args: dict,
+        case_id: str,
+        max_attempts: int = 3,
+    ) -> Any:
+        if max_attempts < 1:
+            raise ValueError('max_attempts must be at least 1.')
+
+        for attempt in range(1, max_attempts + 1):
+            try:
+                return tool.invoke(tool_args)
+            except ToolTransientError:
+                if attempt == max_attempts:
+                    raise
+
+                delay_seconds = 2 ** (attempt - 1)
+                logger.warning(
+                    'Tool transient failure, retrying | case_id=%s | tool=%s | '
+                    'attempt=%s/%s | delay_s=%s',
+                    case_id,
+                    tool.name,
+                    attempt,
+                    max_attempts,
+                    delay_seconds,
+                    exc_info=True,
+                )
+                time.sleep(delay_seconds)
 
     # Helper
     def _log_llm_invocation(
