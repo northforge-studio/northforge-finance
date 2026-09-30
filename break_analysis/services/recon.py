@@ -4,11 +4,8 @@ from pyspark.sql import Row
 from pyspark.sql import functions as F
 
 from break_analysis.models import BreakRecord
-from core.logging import get_logger, short_id
 from gl.models import GLSegments
 from recon.client import ReconClientProtocol
-
-logger = get_logger(__name__)
 
 
 class ReconBreakRecordResolver:
@@ -38,13 +35,6 @@ class ReconBreakRecordResolver:
                 f'{recon_result_id} in workflow_run_id={workflow_run_id}; '
                 f'expected exactly one.'
             )
-
-        logger.info(
-            'Break record resolved from recon.result | recon_result_id=%s | '
-            'workflow_run_id=%s',
-            short_id(recon_result_id),
-            short_id(workflow_run_id),
-        )
 
         return self._to_break_record(rows[0])
 

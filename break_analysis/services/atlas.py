@@ -11,13 +11,9 @@ from break_analysis.models import (
     BreakRecord,
     FoundryMappingInputValues,
 )
-from core.logging import get_logger, short_id
 from foundry.contracts import TRIAL_BALANCE_POSTING_SEGMENT_COLUMNS
 from foundry.repository import TrialBalanceRepositoryProtocol
 from registry.models import GLSegmentType
-
-logger = get_logger(__name__)
-
 
 _AS_OF_DATE_COLUMN = 'AS_OF_DT'
 _ACCOUNTED_CURRENCY_COLUMN = 'POSTING_MEASURE_FUNC_CCY_CD'
@@ -80,8 +76,6 @@ class AtlasEvidenceService:
         break_record: BreakRecord,
         mapping_name: str,
     ) -> tuple[FoundryMappingInputValues, ...]:
-        case_id = short_id(break_record.recon_result_id)
-
         definition = self._atlas.get_definition(mapping_name)
         input_columns = self._input_columns(definition)
 
@@ -106,15 +100,6 @@ class AtlasEvidenceService:
 
         grouped_rows = (
             matched_df.select(*input_columns).groupBy(*input_columns).count().collect()
-        )
-
-        logger.info(
-            'Atlas mapping input values retrieved | recon_result_id=%s | '
-            'mapping_name=%s | input_columns=%s | distinct_combinations=%s',
-            case_id,
-            mapping_name,
-            input_columns,
-            len(grouped_rows),
         )
 
         return tuple(

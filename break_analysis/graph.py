@@ -1,5 +1,7 @@
 import json
-from typing import TypedDict
+import time
+from collections import Counter
+from typing import Any, TypedDict
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import (
@@ -26,6 +28,9 @@ from break_analysis.tools.atlas import (
     InvestigateAtlasResolutionInput,
 )
 from break_analysis.tools.registry import RegistryToolsProtocol, ValidateSegmentInput
+from core.logging import get_logger, short_id
+
+logger = get_logger(__name__)
 
 
 class BreakAnalysisGraphInput(TypedDict):
@@ -51,9 +56,9 @@ class BreakAnalysisGraphState(TypedDict):
     evidence_trail: list[BaseMessage]
     gathered_evidence: list[GatheredEvidence]
 
-    # llm_round: int
-    # llm_input_tokens: int
-    # llm_output_tokens: int
+    llm_round: int
+    llm_input_tokens: int
+    llm_output_tokens: int
 
     tool_round: int
     tool_calls_total: int
@@ -115,7 +120,23 @@ class BreakAnalysisGraph:
         self._graph = self._build()
 
     def invoke(self, graph_input: BreakAnalysisGraphInput) -> BreakAnalysisGraphOutput:
+        break_case = graph_input['break_case']
+        start = time.monotonic()
+
+        logger.info(
+            'Analyzing break case | case_id=%s | workflow_run_id=%s | '
+            'topology=%s | records=%s',
+            short_id(break_case.case_id),
+            short_id(break_case.all_records[0].workflow_run_id),
+            break_case.topology,
+            len(break_case.all_records),
+        )
+
         final_state = self._graph.invoke(graph_input)
+
+        self._log_analysis_summary(
+            final_state, round((time.monotonic() - start) * 1000)
+        )
 
         return BreakAnalysisGraphOutput(result=final_state['result'])
 
@@ -161,6 +182,9 @@ class BreakAnalysisGraph:
             'break_context': break_context,
             'evidence_trail': [],
             'gathered_evidence': [],
+            'llm_round': 0,
+            'llm_input_tokens': 0,
+            'llm_output_tokens': 0,
             'tool_round': 0,
             'tool_calls_total': 0,
             'tool_cache': {},
@@ -168,27 +192,55 @@ class BreakAnalysisGraph:
 
     # Node
     def _gather_evidence(self, state: BreakAnalysisGraphState) -> dict:
+        case_id = short_id(state['break_case'].case_id)
         break_context = state['break_context']
         trail = state['evidence_trail']
+        llm_round = state['llm_round'] + 1
 
-        response = self._llm_with_tools.invoke(
+        response, duration_ms = self._invoke_llm(
+            self._llm_with_tools,
             [
                 SystemMessage(content=EVIDENCE_SYSTEM_PROMPT),
                 HumanMessage(content=str(break_context)),
                 *trail,
-            ]
+            ],
+            case_id,
+            llm_round,
+        )
+
+        if not isinstance(response, AIMessage):
+            raise RuntimeError(
+                f'Expected an AIMessage from the tool-bound LLM, '
+                f'got {type(response).__name__}.'
+            )
+
+        input_tokens, output_tokens = self._log_llm_invocation(
+            response,
+            case_id,
+            llm_round,
+            duration_ms,
+            tool_calls=len(response.tool_calls),
         )
 
         return {
             'evidence_trail': [*trail, response],
+            'llm_round': llm_round,
+            'llm_input_tokens': state['llm_input_tokens'] + (input_tokens or 0),
+            'llm_output_tokens': state['llm_output_tokens'] + (output_tokens or 0),
         }
 
     # Node
     def _execute_tool_calls(self, state: BreakAnalysisGraphState) -> dict:
         break_case = state['break_case']
+        case_id = short_id(break_case.case_id)
         response = state['evidence_trail'][-1]
 
         if state['tool_round'] >= self._max_tool_rounds:
+            logger.error(
+                'Max tool rounds exceeded | case_id=%s | max_rounds=%s',
+                case_id,
+                self._max_tool_rounds,
+            )
             raise RuntimeError(
                 f'Maximum tool rounds exceeded for case '
                 f'{break_case.case_id}: {self._max_tool_rounds}'
@@ -197,7 +249,16 @@ class BreakAnalysisGraph:
         if not isinstance(response, AIMessage):
             raise RuntimeError('The last message is not a valid AIMessage.')
 
+        tool_round = state['tool_round'] + 1
         tool_cache = dict(state['tool_cache'])
+
+        logger.info(
+            'Tool round | case_id=%s | round=%s | tool_calls=%s | tools=%s',
+            case_id,
+            tool_round,
+            len(response.tool_calls),
+            ','.join(tool_call['name'] for tool_call in response.tool_calls),
+        )
 
         tool_results = []
         evidences = []
@@ -206,15 +267,45 @@ class BreakAnalysisGraph:
             tool = self._tool_registry.get(tool_name)
 
             if tool is None:
+                logger.error(
+                    'Unknown tool requested | case_id=%s | tool=%s',
+                    case_id,
+                    tool_name,
+                )
                 raise RuntimeError(f'Unknown tool requested by agent: {tool_name}')
+
+            tool_args = json.dumps(tool_call['args'], default=str)
 
             try:
                 key = self._tool_call_key(tool, tool_call)
                 is_cached = key in tool_cache
-                result = (
-                    tool_cache[key] if is_cached else tool.invoke(tool_call['args'])
-                )
+
+                if is_cached:
+                    result = tool_cache[key]
+                    logger.debug(
+                        'Tool cache hit | case_id=%s | tool=%s | args=%s',
+                        case_id,
+                        tool_name,
+                        tool_args,
+                    )
+                else:
+                    tool_start = time.monotonic()
+                    result = tool.invoke(tool_call['args'])
+                    logger.info(
+                        'Tool invoked | case_id=%s | tool=%s | args=%s | '
+                        'duration_ms=%s',
+                        case_id,
+                        tool_name,
+                        tool_args,
+                        round((time.monotonic() - tool_start) * 1000),
+                    )
             except Exception as exc:
+                logger.exception(
+                    'Tool failed | case_id=%s | tool=%s | args=%s',
+                    case_id,
+                    tool_name,
+                    tool_args,
+                )
                 raise RuntimeError(
                     f"Tool '{tool_name}' failed for case {break_case.case_id}"
                 ) from exc
@@ -244,7 +335,7 @@ class BreakAnalysisGraph:
                 *state['gathered_evidence'],
                 *evidences,
             ],
-            'tool_round': state['tool_round'] + 1,
+            'tool_round': tool_round,
             'tool_calls_total': state['tool_calls_total'] + len(response.tool_calls),
             'tool_cache': tool_cache,
         }
@@ -252,9 +343,12 @@ class BreakAnalysisGraph:
     # Node
     def _conclude(self, state: BreakAnalysisGraphState) -> dict:
         break_case = state['break_case']
+        case_id = short_id(break_case.case_id)
         evidence = state['gathered_evidence']
+        llm_round = state['llm_round'] + 1
 
-        response = self._llm_with_structure.invoke(
+        response, duration_ms = self._invoke_llm(
+            self._llm_with_structure,
             [
                 SystemMessage(content=CONCLUSION_SYSTEM_PROMPT),
                 HumanMessage(content=str(break_case)),
@@ -264,7 +358,9 @@ class BreakAnalysisGraph:
                         + json.dumps(evidence, default=str, indent=2)
                     )
                 ),
-            ]
+            ],
+            case_id,
+            llm_round,
         )
 
         if not isinstance(response, dict):
@@ -273,7 +369,12 @@ class BreakAnalysisGraph:
                 f'got {type(response).__name__}.'
             )
 
+        input_tokens, output_tokens = self._log_llm_invocation(
+            response['raw'], case_id, llm_round, duration_ms
+        )
+
         if response['parsing_error'] is not None:
+            logger.error('Structured output parsing failed | case_id=%s', case_id)
             raise RuntimeError(
                 f'Failed to parse structured output for case {break_case.case_id}'
             ) from response['parsing_error']
@@ -292,6 +393,9 @@ class BreakAnalysisGraph:
 
         return {
             'result': result,
+            'llm_round': llm_round,
+            'llm_input_tokens': state['llm_input_tokens'] + (input_tokens or 0),
+            'llm_output_tokens': state['llm_output_tokens'] + (output_tokens or 0),
         }
 
     # Route
@@ -316,3 +420,88 @@ class BreakAnalysisGraph:
 
         args = schema.model_validate(tool_call['args'])
         return json.dumps([tool.name, args.model_dump(mode='json')], sort_keys=True)
+
+    # Helper
+    def _invoke_llm(
+        self, llm: Any, messages: list[BaseMessage], case_id: str, llm_round: int
+    ) -> tuple[Any, int]:
+        logger.info('Invoking LLM | case_id=%s | round=%s', case_id, llm_round)
+
+        start = time.monotonic()
+        try:
+            response = llm.invoke(messages)
+        except Exception:
+            logger.exception(
+                'LLM invocation failed | case_id=%s | round=%s', case_id, llm_round
+            )
+            raise
+
+        return response, round((time.monotonic() - start) * 1000)
+
+    # Helper
+    def _log_llm_invocation(
+        self,
+        message: BaseMessage,
+        case_id: str,
+        llm_round: int,
+        duration_ms: int,
+        tool_calls: int | None = None,
+    ) -> tuple[int | None, int | None]:
+        usage = getattr(message, 'usage_metadata', None) or {}
+        input_tokens = usage.get('input_tokens')
+        output_tokens = usage.get('output_tokens')
+
+        # Ollama-specific timings, reported in nanoseconds.
+        metadata = message.response_metadata or {}
+
+        def ms(field: str) -> int:
+            return round(metadata.get(field, 0) / 1_000_000)
+
+        # Only tool-bound rounds carry a tool_calls field.
+        tool_calls_field = '' if tool_calls is None else f' | tool_calls={tool_calls}'
+
+        logger.info(
+            'LLM invoked | case_id=%s | round=%s%s | input_tokens=%s | '
+            'output_tokens=%s | total_tokens=%s | prompt_eval_count=%s | '
+            'eval_count=%s | load_ms=%s | prompt_eval_ms=%s | eval_ms=%s | '
+            'total_ms=%s | duration_ms=%s',
+            case_id,
+            llm_round,
+            tool_calls_field,
+            input_tokens,
+            output_tokens,
+            usage.get('total_tokens'),
+            metadata.get('prompt_eval_count'),
+            metadata.get('eval_count'),
+            ms('load_duration'),
+            ms('prompt_eval_duration'),
+            ms('eval_duration'),
+            ms('total_duration'),
+            duration_ms,
+        )
+
+        return input_tokens, output_tokens
+
+    # Helper
+    def _log_analysis_summary(self, state: dict, duration_ms: int) -> None:
+        result = state['result']
+        findings = result.findings if result else ()
+        findings_by_cause = Counter(finding.root_cause for finding in findings)
+
+        logger.info(
+            'Break case analyzed | case_id=%s | status=%s | findings=%s | '
+            'findings_by_cause=%s | tool_rounds=%s | tool_calls=%s | '
+            'unique_tool_calls=%s | llm_calls=%s | llm_input_tokens=%s | '
+            'llm_output_tokens=%s | duration_ms=%s',
+            short_id(state['break_case'].case_id),
+            result.status if result else None,
+            len(findings),
+            ', '.join(f'{cause}:{count}' for cause, count in findings_by_cause.items()),
+            state['tool_round'],
+            state['tool_calls_total'],
+            len(state['tool_cache']),
+            state['llm_round'],
+            state['llm_input_tokens'],
+            state['llm_output_tokens'],
+            duration_ms,
+        )
