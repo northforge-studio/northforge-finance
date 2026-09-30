@@ -210,12 +210,10 @@ class BreakAnalysisGraph:
 
             try:
                 key = self._tool_call_key(tool, tool_call)
-
-                if key in tool_cache:
-                    result = tool_cache[key]
-                else:
-                    result = tool.invoke(tool_call['args'])
-                    tool_cache[key] = result
+                is_cached = key in tool_cache
+                result = (
+                    tool_cache[key] if is_cached else tool.invoke(tool_call['args'])
+                )
             except Exception as exc:
                 raise RuntimeError(
                     f"Tool '{tool_name}' failed for case {break_case.case_id}"
@@ -224,6 +222,11 @@ class BreakAnalysisGraph:
             tool_results.append(
                 ToolMessage(content=str(result), tool_call_id=tool_call['id'])
             )
+
+            if is_cached:
+                continue
+
+            tool_cache[key] = result
             evidences.append(
                 {
                     'tool_name': tool_name,
