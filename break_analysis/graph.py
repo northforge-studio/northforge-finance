@@ -14,9 +14,10 @@ from langchain_core.messages import (
 )
 from langchain_core.tools import StructuredTool
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import RetryPolicy
 from pydantic import BaseModel
 
-from break_analysis.exceptions import ToolTransientError
+from break_analysis.exceptions import ModelTransientError, ToolTransientError
 from break_analysis.models import (
     BreakAnalysisConclusion,
     BreakAnalysisResult,
@@ -147,9 +148,19 @@ class BreakAnalysisGraph:
         )
 
         graph.add_node('initialize_analysis', self._initialize_analysis)
-        graph.add_node('gather_evidence', self._gather_evidence)
+        model_retry_policy = RetryPolicy(
+            initial_interval=1.0,
+            backoff_factor=2.0,
+            max_attempts=3,
+            jitter=True,
+            retry_on=ModelTransientError,
+        )
+
+        graph.add_node(
+            'gather_evidence', self._gather_evidence, retry_policy=model_retry_policy
+        )
         graph.add_node('execute_tool_calls', self._execute_tool_calls)
-        graph.add_node('conclude', self._conclude)
+        graph.add_node('conclude', self._conclude, retry_policy=model_retry_policy)
 
         graph.add_edge(START, 'initialize_analysis')
         graph.add_edge('initialize_analysis', 'gather_evidence')
