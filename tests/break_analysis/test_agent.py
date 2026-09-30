@@ -4,9 +4,18 @@ from uuid import uuid4
 
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage
+from pydantic import ValidationError
 
 from break_analysis.agent import BreakAnalysisAgent
-from break_analysis.exceptions import ModelTransientError, ToolTransientError
+from break_analysis.exceptions import (
+    InvalidToolArgumentsError,
+    MaxToolRoundsError,
+    ModelTransientError,
+    StructuredOutputError,
+    ToolExecutionError,
+    ToolTransientError,
+    UnknownToolError,
+)
 from break_analysis.graph import BreakAnalysisGraph
 from break_analysis.models import (
     BreakAnalysisConclusion,
@@ -344,8 +353,30 @@ def test_analyze_raises_on_unknown_tool():
         )
     )
 
-    with pytest.raises(RuntimeError, match='Unknown tool requested by agent'):
+    with pytest.raises(UnknownToolError, match='Unknown tool requested by agent'):
         agent.analyze(_make_break_case())
+
+
+def test_analyze_raises_on_invalid_tool_arguments():
+    registry_client = _FakeRegistryClient()
+    agent = _make_agent(
+        _make_llm(
+            responses=[
+                _make_ai_message(
+                    tool_calls=[_make_tool_call(segment_type='NOT_A_SEGMENT')]
+                )
+            ]
+        ),
+        registry_client=registry_client,
+    )
+
+    with pytest.raises(
+        InvalidToolArgumentsError, match="Invalid arguments for tool 'validate_segment'"
+    ) as exc_info:
+        agent.analyze(_make_break_case())
+
+    assert isinstance(exc_info.value.__cause__, ValidationError)
+    assert registry_client.attempts == 0
 
 
 def test_analyze_raises_on_tool_failure():
@@ -354,9 +385,12 @@ def test_analyze_raises_on_tool_failure():
         registry_client=_FakeRegistryClient(raise_error=True),
     )
 
-    with pytest.raises(RuntimeError, match='validate_segment.*failed') as exc_info:
+    with pytest.raises(
+        ToolExecutionError, match='validate_segment.*failed'
+    ) as exc_info:
         agent.analyze(_make_break_case())
 
+    assert not isinstance(exc_info.value, ToolTransientError)
     assert isinstance(exc_info.value.__cause__, RuntimeError)
     assert str(exc_info.value.__cause__) == 'registry unavailable'
 
@@ -373,7 +407,7 @@ def test_analyze_raises_on_max_tool_rounds_exceeded():
         max_tool_rounds=1,
     )
 
-    with pytest.raises(RuntimeError, match='Maximum tool rounds exceeded'):
+    with pytest.raises(MaxToolRoundsError, match='Maximum tool rounds exceeded'):
         agent.analyze(_make_break_case())
 
 
@@ -384,7 +418,7 @@ def test_analyze_raises_on_structured_output_parsing_error():
     )
 
     with pytest.raises(
-        RuntimeError, match='Failed to parse structured output'
+        StructuredOutputError, match='Failed to parse structured output'
     ) as exc_info:
         agent.analyze(_make_break_case())
 
@@ -406,14 +440,15 @@ def test_analyze_retries_tool_after_transient_failure(sleeps):
     assert sleeps == [1, 2]
 
 
-def test_analyze_raises_when_tool_attempts_exhausted(sleeps):
+def test_analyze_raises_unwrapped_transient_error_when_tool_attempts_exhausted(
+    sleeps,
+):
     registry_client = _FakeRegistryClient(transient_failures=3)
     agent = _make_retry_agent(registry_client)
 
-    with pytest.raises(RuntimeError, match='validate_segment.*failed') as exc_info:
+    with pytest.raises(ToolTransientError, match='registry timed out'):
         agent.analyze(_make_break_case())
 
-    assert isinstance(exc_info.value.__cause__, ToolTransientError)
     assert registry_client.attempts == 3
     assert registry_client.calls == []
     assert sleeps == [1, 2]
@@ -423,7 +458,7 @@ def test_analyze_does_not_retry_non_transient_tool_failure(sleeps):
     registry_client = _FakeRegistryClient(raise_error=True)
     agent = _make_retry_agent(registry_client)
 
-    with pytest.raises(RuntimeError, match='validate_segment.*failed'):
+    with pytest.raises(ToolExecutionError, match='validate_segment.*failed'):
         agent.analyze(_make_break_case())
 
     assert registry_client.attempts == 1
@@ -573,7 +608,7 @@ def test_analyze_logs_node_failed_error_without_traceback(caplog):
     assert failed_records[0].levelname == 'ERROR'
     assert 'node=execute_tool_calls' in failed_records[0].message
     assert 'duration_ms=' in failed_records[0].message
-    assert 'error=RuntimeError' in failed_records[0].message
+    assert 'error=UnknownToolError' in failed_records[0].message
     assert not failed_records[0].exc_info
 
 

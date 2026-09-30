@@ -18,9 +18,18 @@ from langchain_core.messages import (
 from langchain_core.tools import StructuredTool
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import RetryPolicy
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
-from break_analysis.exceptions import ModelTransientError, ToolTransientError
+from break_analysis.exceptions import (
+    BreakAnalysisError,
+    InvalidToolArgumentsError,
+    MaxToolRoundsError,
+    ModelTransientError,
+    StructuredOutputError,
+    ToolExecutionError,
+    ToolTransientError,
+    UnknownToolError,
+)
 from break_analysis.model_provider import ChatModelProvider
 from break_analysis.models import (
     BreakAnalysisConclusion,
@@ -282,7 +291,7 @@ class BreakAnalysisGraph:
                     case_id,
                     self._max_tool_rounds,
                 )
-                raise RuntimeError(
+                raise MaxToolRoundsError(
                     f'Maximum tool rounds exceeded for case '
                     f'{break_case.case_id}: {self._max_tool_rounds}'
                 )
@@ -317,50 +326,70 @@ class BreakAnalysisGraph:
                         case_id,
                         tool_name,
                     )
-                    raise RuntimeError(f'Unknown tool requested by agent: {tool_name}')
+                    raise UnknownToolError(
+                        f'Unknown tool requested by agent: {tool_name}'
+                    )
 
                 tool_args = json.dumps(tool_call['args'], default=str)
 
                 try:
                     key = self._tool_call_key(tool, tool_call)
-                    is_cached = key in tool_cache
+                except ValidationError as exc:
+                    logger.exception(
+                        'Invalid tool arguments | analysis_run_id=%s | case_id=%s | '
+                        'tool=%s | args=%s',
+                        analysis_run_id,
+                        case_id,
+                        tool_name,
+                        tool_args,
+                    )
+                    raise InvalidToolArgumentsError(
+                        f"Invalid arguments for tool '{tool_name}' for case "
+                        f'{break_case.case_id}'
+                    ) from exc
 
-                    if is_cached:
-                        result = tool_cache[key]
-                        logger.debug(
-                            'Tool cache hit | analysis_run_id=%s | case_id=%s | '
+                is_cached = key in tool_cache
+
+                if is_cached:
+                    result = tool_cache[key]
+                    logger.debug(
+                        'Tool cache hit | analysis_run_id=%s | case_id=%s | '
+                        'tool=%s | args=%s',
+                        analysis_run_id,
+                        case_id,
+                        tool_name,
+                        tool_args,
+                    )
+                else:
+                    tool_start = time.monotonic()
+                    try:
+                        result = self._invoke_tool_with_retry(
+                            tool, tool_call['args'], analysis_run_id, case_id
+                        )
+                    except Exception as exc:
+                        logger.exception(
+                            'Tool failed | analysis_run_id=%s | case_id=%s | '
                             'tool=%s | args=%s',
                             analysis_run_id,
                             case_id,
                             tool_name,
                             tool_args,
                         )
-                    else:
-                        tool_start = time.monotonic()
-                        result = self._invoke_tool_with_retry(
-                            tool, tool_call['args'], analysis_run_id, case_id
-                        )
-                        logger.info(
-                            'Tool invoked | analysis_run_id=%s | case_id=%s | '
-                            'tool=%s | args=%s | duration_ms=%s',
-                            analysis_run_id,
-                            case_id,
-                            tool_name,
-                            tool_args,
-                            round((time.monotonic() - tool_start) * 1000),
-                        )
-                except Exception as exc:
-                    logger.exception(
-                        'Tool failed | analysis_run_id=%s | case_id=%s | tool=%s | '
-                        'args=%s',
+                        if isinstance(exc, BreakAnalysisError):
+                            raise
+                        raise ToolExecutionError(
+                            f"Tool '{tool_name}' failed for case {break_case.case_id}"
+                        ) from exc
+
+                    logger.info(
+                        'Tool invoked | analysis_run_id=%s | case_id=%s | '
+                        'tool=%s | args=%s | duration_ms=%s',
                         analysis_run_id,
                         case_id,
                         tool_name,
                         tool_args,
+                        round((time.monotonic() - tool_start) * 1000),
                     )
-                    raise RuntimeError(
-                        f"Tool '{tool_name}' failed for case {break_case.case_id}"
-                    ) from exc
 
                 tool_results.append(
                     ToolMessage(content=str(result), tool_call_id=tool_call['id'])
@@ -435,7 +464,7 @@ class BreakAnalysisGraph:
                     analysis_run_id,
                     case_id,
                 )
-                raise RuntimeError(
+                raise StructuredOutputError(
                     f'Failed to parse structured output for case {break_case.case_id}'
                 ) from response['parsing_error']
 
