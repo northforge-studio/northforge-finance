@@ -1,5 +1,4 @@
-from langchain_ollama import ChatOllama
-
+from break_analysis.model_provider import OllamaChatModelProvider
 from evals.runner import EvalRunner
 from evals.scenarios.atlas import atlas_unresolved_account
 from evals.scenarios.many_to_one import many_to_one_mixed_findings
@@ -11,71 +10,71 @@ from evals.scenarios.registry import (
 from evals.scenarios.unexplained import interface_only_no_supported_cause
 
 
-def test_registry_inactive_account(llm):
+def test_registry_inactive_account(model_provider):
     scenario = registry_inactive_account()
 
-    runner = EvalRunner(llm)
+    runner = EvalRunner(model_provider)
     result = runner.run(scenario)
 
     print(result)
 
 
-def test_registry_missing_account(llm):
+def test_registry_missing_account(model_provider):
     scenario = registry_missing_account()
 
-    runner = EvalRunner(llm)
+    runner = EvalRunner(model_provider)
     result = runner.run(scenario)
 
     print(result)
 
 
-def test_atlas_unresolved_account(llm):
+def test_atlas_unresolved_account(model_provider):
     scenario = atlas_unresolved_account()
 
-    runner = EvalRunner(llm)
+    runner = EvalRunner(model_provider)
     result = runner.run(scenario)
 
     print(result)
 
 
-def test_mixed_registry_and_atlas(llm):
+def test_mixed_registry_and_atlas(model_provider):
     scenario = mixed_registry_and_atlas()
 
-    runner = EvalRunner(llm)
+    runner = EvalRunner(model_provider)
     result = runner.run(scenario)
 
     print(result)
 
 
-def test_interface_only_no_supported_cause(llm):
+def test_interface_only_no_supported_cause(model_provider):
     scenario = interface_only_no_supported_cause()
 
-    runner = EvalRunner(llm)
+    runner = EvalRunner(model_provider)
     result = runner.run(scenario)
 
     print(result)
 
 
-def test_many_to_one_mixed_findings(llm):
+def test_many_to_one_mixed_findings(model_provider):
     scenario = many_to_one_mixed_findings()
 
-    runner = EvalRunner(llm)
+    runner = EvalRunner(model_provider)
     result = runner.run(scenario)
 
     print(result)
 
 
 if __name__ == '__main__':
-    # llm = ChatOllama(
+    # model_provider = OllamaChatModelProvider(
     #     model='qwen3:8b',
     #     temperature=0
     # )
 
-    llm = ChatOllama(model='qwen3:14b-q4_K_M', temperature=0)
+    model_provider = OllamaChatModelProvider(model='qwen3:14b-q4_K_M', temperature=0)
 
-    # test_registry_inactive_account(llm)
-    # test_registry_missing_account(llm)
-    # test_atlas_unresolved_account(llm)
-    # test_mixed_registry_and_atlas(llm)
-    # test_interface_only_no_supported_cause(llm)
-    test_many_to_one_mixed_findings(llm)
+    # test_registry_inactive_account(model_provider)
+    # test_registry_missing_account(model_provider)
+    # test_atlas_unresolved_account(model_provider)
+    # test_mixed_registry_and_atlas(model_provider)
+    # test_interface_only_no_supported_cause(model_provider)
+    test_many_to_one_mixed_findings(model_provider)

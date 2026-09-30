@@ -1,8 +1,7 @@
 import argparse
 import time
 
-from langchain_ollama import ChatOllama
-
+from break_analysis.model_provider import OllamaChatModelProvider
 from evals.models import ScenarioSummary
 from evals.runner import EvalRunner
 from evals.scenarios import v1_scenarios
@@ -35,12 +34,12 @@ def main():
     args = _parse_args()
     repetitions = args.repetitions
 
-    llm = ChatOllama(
+    model_provider = OllamaChatModelProvider(
         model='qwen3:14b-q4_K_M',
         temperature=0,
     )
 
-    runner = EvalRunner(llm)
+    runner = EvalRunner(model_provider)
     scenarios = v1_scenarios()
     total = len(scenarios)
 

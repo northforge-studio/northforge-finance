@@ -1,4 +1,5 @@
 from break_analysis import BreakAnalysisAgent
+from break_analysis.model_provider import ChatModelProvider
 from evals.fake_tools import FakeAtlasTools, FakeRegistryTools
 from evals.fixtures import ToolFixtureStore
 from evals.graders import grade_scenario
@@ -10,8 +11,8 @@ from evals.models import (
 
 
 class EvalRunner:
-    def __init__(self, llm):
-        self._llm = llm
+    def __init__(self, model_provider: ChatModelProvider):
+        self._model_provider = model_provider
 
     def run(
         self,
@@ -20,7 +21,7 @@ class EvalRunner:
         store = ToolFixtureStore(scenario.tool_fixtures)
 
         agent = BreakAnalysisAgent(
-            llm=self._llm,
+            model_provider=self._model_provider,
             registry_tools=FakeRegistryTools(store),
             atlas_tools=FakeAtlasTools(store),
         )

@@ -1,6 +1,5 @@
-from langchain_core.language_models import BaseChatModel
-
 from break_analysis.graph import BreakAnalysisGraph
+from break_analysis.model_provider import ChatModelProvider
 from break_analysis.models import BreakAnalysisResult, BreakCase
 from break_analysis.tools.atlas import AtlasToolsProtocol
 from break_analysis.tools.registry import RegistryToolsProtocol
@@ -9,13 +8,13 @@ from break_analysis.tools.registry import RegistryToolsProtocol
 class BreakAnalysisAgent:
     def __init__(
         self,
-        llm: BaseChatModel,
+        model_provider: ChatModelProvider,
         atlas_tools: AtlasToolsProtocol,
         registry_tools: RegistryToolsProtocol,
         max_tool_rounds: int = 10,
     ):
         self._graph = BreakAnalysisGraph(
-            llm=llm,
+            model_provider=model_provider,
             atlas_tools=atlas_tools,
             registry_tools=registry_tools,
             max_tool_rounds=max_tool_rounds,

@@ -5,7 +5,7 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage
 
 from break_analysis.agent import BreakAnalysisAgent
-from break_analysis.exceptions import ToolTransientError
+from break_analysis.exceptions import ModelTransientError, ToolTransientError
 from break_analysis.graph import BreakAnalysisGraph
 from break_analysis.models import (
     BreakAnalysisConclusion,
@@ -29,27 +29,42 @@ _CONCLUSION = BreakAnalysisConclusion(
 # -- fakes -----------------------------------------------------------------
 
 
+class _FakeTransientModelError(Exception):
+    """A provider error that _FakeModelProvider classifies as transient."""
+
+
 class _FakeBoundLLM:
-    """The tool-bound LLM, replaying the scripted responses in order."""
+    """The tool-bound LLM, replaying the scripted responses in order and
+    raising any scripted exception instead of returning it."""
 
     def __init__(self, responses):
         self._responses = list(responses)
 
     def invoke(self, messages):
-        return self._responses.pop(0)
+        response = self._responses.pop(0)
+
+        if isinstance(response, Exception):
+            raise response
+
+        return response
 
 
 class _FakeStructuredLLM:
     """The structured-output LLM, returning a fixed parsed conclusion and
-    recording the messages it was invoked with."""
+    recording the messages it was invoked with; scripted errors are raised,
+    one per invocation, before the conclusion is returned."""
 
-    def __init__(self, parsed=None, parsing_error=None, usage_metadata=None):
+    def __init__(self, parsed=None, parsing_error=None, usage_metadata=None, errors=()):
         self._parsed = parsed
         self._parsing_error = parsing_error
         self._usage_metadata = usage_metadata
+        self._errors = list(errors)
         self.messages = None
 
     def invoke(self, messages):
+        if self._errors:
+            raise self._errors.pop(0)
+
         self.messages = messages
         return {
             'raw': AIMessage(content='', usage_metadata=self._usage_metadata),
@@ -62,13 +77,19 @@ class _FakeLLM:
     """A chat model stub exposing bind_tools and with_structured_output."""
 
     def __init__(
-        self, responses, parsed=None, parsing_error=None, conclusion_usage_metadata=None
+        self,
+        responses,
+        parsed=None,
+        parsing_error=None,
+        conclusion_usage_metadata=None,
+        conclusion_errors=(),
     ):
         self.bound = _FakeBoundLLM(responses)
         self.structured = _FakeStructuredLLM(
             parsed=parsed,
             parsing_error=parsing_error,
             usage_metadata=conclusion_usage_metadata,
+            errors=conclusion_errors,
         )
 
     def bind_tools(self, tools, reasoning=None):
@@ -76,6 +97,20 @@ class _FakeLLM:
 
     def with_structured_output(self, schema, method=None, include_raw=False):
         return self.structured
+
+
+class _FakeModelProvider:
+    """Implements ChatModelProvider over a _FakeLLM; only
+    _FakeTransientModelError is classified as transient."""
+
+    def __init__(self, llm):
+        self._llm = llm
+
+    def chat_model(self) -> Any:
+        return self._llm
+
+    def is_transient_error(self, exc):
+        return isinstance(exc, _FakeTransientModelError)
 
 
 class _FakeRegistryClient:
@@ -161,6 +196,7 @@ def _make_llm(
     conclusion=None,
     parsing_error=None,
     conclusion_usage_metadata=None,
+    conclusion_errors=(),
 ) -> _FakeLLM:
     parsed = (
         None
@@ -172,6 +208,7 @@ def _make_llm(
         parsed=parsed,
         parsing_error=parsing_error,
         conclusion_usage_metadata=conclusion_usage_metadata,
+        conclusion_errors=conclusion_errors,
     )
 
 
@@ -180,7 +217,7 @@ def _make_agent(llm, registry_client=None, **kwargs) -> BreakAnalysisAgent:
         registry_client=registry_client or _FakeRegistryClient()
     )
     return BreakAnalysisAgent(
-        llm=llm,  # pyright: ignore[reportArgumentType]
+        model_provider=_FakeModelProvider(llm),
         atlas_tools=_FakeAtlasTools(),
         registry_tools=registry_tools,
         **kwargs,
@@ -371,7 +408,7 @@ def test_analyze_does_not_retry_non_transient_tool_failure(sleeps):
 
 def test_invoke_tool_with_retry_rejects_non_positive_max_attempts():
     graph = BreakAnalysisGraph(
-        llm=_make_llm(responses=[]),  # pyright: ignore[reportArgumentType]
+        model_provider=_FakeModelProvider(_make_llm(responses=[])),
         atlas_tools=_FakeAtlasTools(),
         registry_tools=RegistryTools(registry_client=_FakeRegistryClient()),
     )
@@ -381,6 +418,63 @@ def test_invoke_tool_with_retry_rejects_non_positive_max_attempts():
         graph._invoke_tool_with_retry(
             tool, _make_tool_call()['args'], case_id='case', max_attempts=0
         )
+
+
+# -- analyze: model retry --------------------------------------------------
+
+
+def test_analyze_retries_evidence_llm_after_transient_failure(sleeps):
+    agent = _make_agent(
+        _make_llm(
+            responses=[
+                _FakeTransientModelError('model busy'),
+                _FakeTransientModelError('model busy'),
+                _make_ai_message(),
+            ]
+        )
+    )
+
+    result = agent.analyze(_make_break_case())
+
+    assert result.status == _CONCLUSION.status
+    assert len(sleeps) == 2
+
+
+def test_analyze_retries_conclusion_llm_after_transient_failure(sleeps):
+    llm = _make_llm(
+        responses=[_make_ai_message()],
+        conclusion_errors=[_FakeTransientModelError('model busy')],
+    )
+    agent = _make_agent(llm)
+
+    result = agent.analyze(_make_break_case())
+
+    assert result.status == _CONCLUSION.status
+    assert llm.structured.messages is not None
+    assert len(sleeps) == 1
+
+
+def test_analyze_raises_model_transient_error_when_llm_attempts_exhausted(sleeps):
+    agent = _make_agent(
+        _make_llm(responses=[_FakeTransientModelError('model busy')] * 3)
+    )
+
+    with pytest.raises(ModelTransientError, match='Transient LLM failure') as exc_info:
+        agent.analyze(_make_break_case())
+
+    assert isinstance(exc_info.value.__cause__, _FakeTransientModelError)
+    assert len(sleeps) == 2
+
+
+def test_analyze_does_not_retry_non_transient_llm_failure(sleeps):
+    agent = _make_agent(
+        _make_llm(responses=[RuntimeError('model misconfigured'), _make_ai_message()])
+    )
+
+    with pytest.raises(RuntimeError, match='model misconfigured'):
+        agent.analyze(_make_break_case())
+
+    assert sleeps == []
 
 
 # -- analyze: logging ------------------------------------------------------
@@ -666,6 +760,66 @@ def test_analyze_logs_warning_for_each_tool_retry(caplog, sleeps):
     assert 'attempt=2/3' in retry_records[1].message
     assert 'delay_s=2' in retry_records[1].message
     assert all(r.exc_info for r in retry_records)
+
+
+def test_analyze_logs_warning_without_error_for_recovered_llm_failure(caplog, sleeps):
+    break_case = _make_break_case()
+    agent = _make_agent(
+        _make_llm(
+            responses=[_FakeTransientModelError('model busy'), _make_ai_message()]
+        )
+    )
+
+    with caplog.at_level('INFO', logger='break_analysis.graph'):
+        agent.analyze(break_case)
+
+    warning_records = [
+        r
+        for r in caplog.records
+        if r.levelname == 'WARNING' and 'LLM transient failure' in r.message
+    ]
+    assert len(warning_records) == 1
+    assert f'case_id={short_id(break_case.case_id)}' in warning_records[0].message
+    assert 'round=1' in warning_records[0].message
+    assert warning_records[0].exc_info
+    assert not [r for r in caplog.records if r.levelname == 'ERROR']
+
+
+def test_analyze_logs_exception_when_llm_retries_exhausted(caplog, sleeps):
+    break_case = _make_break_case()
+    agent = _make_agent(
+        _make_llm(responses=[_FakeTransientModelError('model busy')] * 3)
+    )
+
+    with caplog.at_level('INFO', logger='break_analysis.graph'):
+        with pytest.raises(ModelTransientError, match='Transient LLM failure'):
+            agent.analyze(break_case)
+
+    warning_records = [
+        r
+        for r in caplog.records
+        if r.levelname == 'WARNING' and 'LLM transient failure' in r.message
+    ]
+    error_records = [r for r in caplog.records if r.levelname == 'ERROR']
+    assert len(warning_records) == 3
+    assert len(error_records) == 1
+    assert 'LLM retries exhausted' in error_records[0].message
+    assert f'case_id={short_id(break_case.case_id)}' in error_records[0].message
+    assert error_records[0].exc_info
+
+
+def test_analyze_logs_exception_on_non_transient_llm_failure(caplog):
+    agent = _make_agent(_make_llm(responses=[RuntimeError('model misconfigured')]))
+
+    with caplog.at_level('INFO', logger='break_analysis.graph'):
+        with pytest.raises(RuntimeError, match='model misconfigured'):
+            agent.analyze(_make_break_case())
+
+    error_records = [r for r in caplog.records if r.levelname == 'ERROR']
+    assert len(error_records) == 1
+    assert 'LLM invocation failed' in error_records[0].message
+    assert error_records[0].exc_info
+    assert not [r for r in caplog.records if r.levelname == 'WARNING']
 
 
 def test_analyze_logs_error_on_unknown_tool(caplog):

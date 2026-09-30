@@ -3,7 +3,6 @@ import time
 from collections import Counter
 from typing import Any, TypedDict
 
-from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import (
     AIMessage,
     BaseMessage,
@@ -18,6 +17,7 @@ from langgraph.types import RetryPolicy
 from pydantic import BaseModel
 
 from break_analysis.exceptions import ModelTransientError, ToolTransientError
+from break_analysis.model_provider import ChatModelProvider
 from break_analysis.models import (
     BreakAnalysisConclusion,
     BreakAnalysisResult,
@@ -70,7 +70,7 @@ class BreakAnalysisGraphState(TypedDict):
 class BreakAnalysisGraph:
     def __init__(
         self,
-        llm: BaseChatModel,
+        model_provider: ChatModelProvider,
         atlas_tools: AtlasToolsProtocol,
         registry_tools: RegistryToolsProtocol,
         max_tool_rounds: int = 10,
@@ -78,7 +78,8 @@ class BreakAnalysisGraph:
         if max_tool_rounds < 1:
             raise ValueError('max_tool_rounds must be at least 1.')
 
-        self._llm = llm
+        self._model_provider = model_provider
+        llm = model_provider.chat_model()
         self._atlas_tools = atlas_tools
         self._registry_tools = registry_tools
         self._max_tool_rounds = max_tool_rounds
@@ -134,7 +135,13 @@ class BreakAnalysisGraph:
             len(break_case.all_records),
         )
 
-        final_state = self._graph.invoke(graph_input)
+        try:
+            final_state = self._graph.invoke(graph_input)
+        except ModelTransientError:
+            logger.exception(
+                'LLM retries exhausted | case_id=%s', short_id(break_case.case_id)
+            )
+            raise
 
         self._log_analysis_summary(
             final_state, round((time.monotonic() - start) * 1000)
@@ -444,11 +451,22 @@ class BreakAnalysisGraph:
         start = time.monotonic()
         try:
             response = llm.invoke(messages)
-        except Exception:
-            logger.exception(
-                'LLM invocation failed | case_id=%s | round=%s', case_id, llm_round
+        except Exception as exc:
+            if not self._model_provider.is_transient_error(exc):
+                logger.exception(
+                    'LLM invocation failed | case_id=%s | round=%s', case_id, llm_round
+                )
+                raise
+
+            logger.warning(
+                'LLM transient failure | case_id=%s | round=%s',
+                case_id,
+                llm_round,
+                exc_info=True,
             )
-            raise
+            raise ModelTransientError(
+                f'Transient LLM failure for case {case_id}: {exc}'
+            ) from exc
 
         return response, round((time.monotonic() - start) * 1000)
 
