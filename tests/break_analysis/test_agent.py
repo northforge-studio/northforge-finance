@@ -267,10 +267,6 @@ def test_analyze_raises_on_tool_failure():
     assert str(exc_info.value.__cause__) == 'registry unavailable'
 
 
-@pytest.mark.xfail(
-    reason='max_tool_rounds is not yet enforced by BreakAnalysisGraph',
-    strict=True,
-)
 def test_analyze_raises_on_max_tool_rounds_exceeded():
     agent = _make_agent(
         _make_llm(

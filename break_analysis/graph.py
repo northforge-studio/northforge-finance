@@ -7,10 +7,12 @@ from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
     SystemMessage,
+    ToolCall,
     ToolMessage,
 )
 from langchain_core.tools import StructuredTool
 from langgraph.graph import END, START, StateGraph
+from pydantic import BaseModel
 
 from break_analysis.models import (
     BreakAnalysisConclusion,
@@ -53,9 +55,9 @@ class BreakAnalysisGraphState(TypedDict):
     # llm_input_tokens: int
     # llm_output_tokens: int
 
-    # tool_round: int
-    # tool_calls_total: int
-    # tool_cache: dict[tuple, object]
+    tool_round: int
+    tool_calls_total: int
+    tool_cache: dict[str, object]
 
 
 class BreakAnalysisGraph:
@@ -66,6 +68,9 @@ class BreakAnalysisGraph:
         registry_tools: RegistryToolsProtocol,
         max_tool_rounds: int = 10,
     ):
+        if max_tool_rounds < 1:
+            raise ValueError('max_tool_rounds must be at least 1.')
+
         self._llm = llm
         self._atlas_tools = atlas_tools
         self._registry_tools = registry_tools
@@ -156,6 +161,9 @@ class BreakAnalysisGraph:
             'break_context': break_context,
             'evidence_trail': [],
             'gathered_evidence': [],
+            'tool_round': 0,
+            'tool_calls_total': 0,
+            'tool_cache': {},
         }
 
     # Node
@@ -180,8 +188,16 @@ class BreakAnalysisGraph:
         break_case = state['break_case']
         response = state['evidence_trail'][-1]
 
+        if state['tool_round'] >= self._max_tool_rounds:
+            raise RuntimeError(
+                f'Maximum tool rounds exceeded for case '
+                f'{break_case.case_id}: {self._max_tool_rounds}'
+            )
+
         if not isinstance(response, AIMessage):
             raise RuntimeError('The last message is not a valid AIMessage.')
+
+        tool_cache = dict(state['tool_cache'])
 
         tool_results = []
         evidences = []
@@ -193,7 +209,13 @@ class BreakAnalysisGraph:
                 raise RuntimeError(f'Unknown tool requested by agent: {tool_name}')
 
             try:
-                result = tool.invoke(tool_call['args'])
+                key = self._tool_call_key(tool, tool_call)
+
+                if key in tool_cache:
+                    result = tool_cache[key]
+                else:
+                    result = tool.invoke(tool_call['args'])
+                    tool_cache[key] = result
             except Exception as exc:
                 raise RuntimeError(
                     f"Tool '{tool_name}' failed for case {break_case.case_id}"
@@ -219,6 +241,9 @@ class BreakAnalysisGraph:
                 *state['gathered_evidence'],
                 *evidences,
             ],
+            'tool_round': state['tool_round'] + 1,
+            'tool_calls_total': state['tool_calls_total'] + len(response.tool_calls),
+            'tool_cache': tool_cache,
         }
 
     # Node
@@ -279,3 +304,12 @@ class BreakAnalysisGraph:
             return 'execute_tool_calls'
 
         return 'conclude'
+
+    # Helper
+    def _tool_call_key(self, tool: StructuredTool, tool_call: ToolCall) -> str:
+        schema = tool.args_schema
+        if not (isinstance(schema, type) and issubclass(schema, BaseModel)):
+            raise TypeError(f"Tool '{tool.name}' has no pydantic args_schema.")
+
+        args = schema.model_validate(tool_call['args'])
+        return json.dumps([tool.name, args.model_dump(mode='json')], sort_keys=True)
