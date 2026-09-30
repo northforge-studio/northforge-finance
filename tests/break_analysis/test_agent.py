@@ -1,3 +1,4 @@
+import re
 from typing import Any
 from uuid import uuid4
 
@@ -224,6 +225,29 @@ def _make_agent(llm, registry_client=None, **kwargs) -> BreakAnalysisAgent:
     )
 
 
+def _lifecycle_events(records) -> list[tuple[str, str, str]]:
+    """(event, node, levelname) for each Graph node lifecycle record."""
+    events = []
+
+    for record in records:
+        match = re.search(r'Graph node (\w+) \|.* node=(\w+)', record.message)
+
+        if match:
+            events.append((match.group(1), match.group(2), record.levelname))
+
+    return events
+
+
+def _analysis_run_ids(records) -> list[str | None]:
+    return [
+        match.group(1) if match else None
+        for match in (
+            re.search(r'analysis_run_id=([0-9a-f-]+)', record.message)
+            for record in records
+        )
+    ]
+
+
 def _make_retry_agent(registry_client) -> BreakAnalysisAgent:
     return _make_agent(
         _make_llm(
@@ -416,7 +440,11 @@ def test_invoke_tool_with_retry_rejects_non_positive_max_attempts():
 
     with pytest.raises(ValueError, match='max_attempts must be at least 1'):
         graph._invoke_tool_with_retry(
-            tool, _make_tool_call()['args'], case_id='case', max_attempts=0
+            tool,
+            _make_tool_call()['args'],
+            analysis_run_id='run',
+            case_id='case',
+            max_attempts=0,
         )
 
 
@@ -475,6 +503,101 @@ def test_analyze_does_not_retry_non_transient_llm_failure(sleeps):
         agent.analyze(_make_break_case())
 
     assert sleeps == []
+
+
+# -- analyze: node lifecycle -----------------------------------------------
+
+
+def test_analyze_logs_node_lifecycle_in_execution_order(caplog):
+    agent = _make_agent(
+        _make_llm(
+            responses=[
+                _make_ai_message(tool_calls=[_make_tool_call()]),
+                _make_ai_message(),
+            ]
+        )
+    )
+
+    with caplog.at_level('INFO', logger='break_analysis.graph'):
+        agent.analyze(_make_break_case())
+
+    nodes = [
+        'initialize_analysis',
+        'gather_evidence',
+        'execute_tool_calls',
+        'gather_evidence',
+        'conclude',
+    ]
+    events = _lifecycle_events(caplog.records)
+    assert [node for event, node, _ in events if event == 'started'] == nodes
+    assert [node for event, node, _ in events if event == 'completed'] == nodes
+    completed_records = [
+        r for r in caplog.records if 'Graph node completed' in r.message
+    ]
+    assert all('duration_ms=' in r.message for r in completed_records)
+
+
+def test_analyze_tags_all_logs_with_one_analysis_run_id_per_invocation(caplog):
+    agent = _make_agent(_make_llm(responses=[_make_ai_message(), _make_ai_message()]))
+    break_case = _make_break_case()
+
+    with caplog.at_level('INFO', logger='break_analysis.graph'):
+        agent.analyze(break_case)
+        first_run_ids = _analysis_run_ids(caplog.records)
+        caplog.clear()
+        agent.analyze(break_case)
+        second_run_ids = _analysis_run_ids(caplog.records)
+
+    assert None not in first_run_ids
+    assert None not in second_run_ids
+    assert len(set(first_run_ids)) == 1
+    assert len(set(second_run_ids)) == 1
+    assert first_run_ids[0] != second_run_ids[0]
+
+
+def test_analyze_logs_node_failed_error_without_traceback(caplog):
+    agent = _make_agent(
+        _make_llm(
+            responses=[
+                _make_ai_message(tool_calls=[_make_tool_call(name='not_a_real_tool')]),
+            ]
+        )
+    )
+
+    with caplog.at_level('INFO', logger='break_analysis.graph'):
+        with pytest.raises(RuntimeError, match='Unknown tool requested by agent'):
+            agent.analyze(_make_break_case())
+
+    failed_records = [r for r in caplog.records if 'Graph node failed' in r.message]
+    assert len(failed_records) == 1
+    assert failed_records[0].levelname == 'ERROR'
+    assert 'node=execute_tool_calls' in failed_records[0].message
+    assert 'duration_ms=' in failed_records[0].message
+    assert 'error=RuntimeError' in failed_records[0].message
+    assert not failed_records[0].exc_info
+
+
+def test_analyze_logs_node_failed_warning_then_restart_on_llm_retry(caplog, sleeps):
+    agent = _make_agent(
+        _make_llm(
+            responses=[_FakeTransientModelError('model busy'), _make_ai_message()]
+        )
+    )
+
+    with caplog.at_level('INFO', logger='break_analysis.graph'):
+        agent.analyze(_make_break_case())
+
+    gather_events = [
+        (event, levelname)
+        for event, node, levelname in _lifecycle_events(caplog.records)
+        if node == 'gather_evidence'
+    ]
+    assert gather_events == [
+        ('started', 'INFO'),
+        ('failed', 'WARNING'),
+        ('started', 'INFO'),
+        ('completed', 'INFO'),
+    ]
 
 
 # -- analyze: logging ------------------------------------------------------
@@ -815,9 +938,12 @@ def test_analyze_logs_exception_on_non_transient_llm_failure(caplog):
         with pytest.raises(RuntimeError, match='model misconfigured'):
             agent.analyze(_make_break_case())
 
-    error_records = [r for r in caplog.records if r.levelname == 'ERROR']
+    error_records = [
+        r
+        for r in caplog.records
+        if r.levelname == 'ERROR' and 'LLM invocation failed' in r.message
+    ]
     assert len(error_records) == 1
-    assert 'LLM invocation failed' in error_records[0].message
     assert error_records[0].exc_info
     assert not [r for r in caplog.records if r.levelname == 'WARNING']
 
