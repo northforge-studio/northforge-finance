@@ -82,10 +82,15 @@ class BreakAnalysisAgent:
             BreakAnalysisConclusion, method='json_schema', include_raw=True
         )
 
-        self._graph = BreakAnalysisGraph(self._run_v1_analysis)
+        self._graph = BreakAnalysisGraph(
+            llm=llm,
+            atlas_tools=self._atlas_tools,
+            registry_tools=self._registry_tools,
+            max_tool_rounds=self._max_tool_rounds,
+        )
 
     def analyze(self, break_case: BreakCase) -> BreakAnalysisResult:
-        state = self._graph.invoke({'break_case': break_case, 'result': None})
+        state = self._graph.invoke({'break_case': break_case})
 
         if state['result'] is None:
             raise RuntimeError('Break analysis graph completed without a result.')
